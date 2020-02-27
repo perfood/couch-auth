@@ -160,8 +160,8 @@ describe('DBAuth', function() {
         // console.log('DB created, retrieving security doc.');
         return newDB.get('_security');
       }).then(function(secDoc) {
-        expect(secDoc.admins.roles[0]).to.equal('admin_role');
-        expect(secDoc.members.roles[0]).to.equal('member_role');
+        expect(secDoc.admins.roles[secDoc.admins.roles.length - 1]).to.equal('admin_role');
+        expect(secDoc.members.roles[secDoc.admins.roles.length - 1]).to.equal('member_role');
         expect(secDoc.members.names[1]).to.equal('key2');
         return newDB.get('_design/test');
       })
