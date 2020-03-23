@@ -44,15 +44,15 @@ module.exports = {
     // Also return the username and UUID when creating a session
     sendNameAndUUID: false,
     // If a number is set here, the token for password reset will be shortened to that length (e.g. 8)
-    tokenLengthOnReset: false
+    tokenLengthOnReset: false,
     // Custom names for the username and password fields in your sign-in form
     usernameField: 'user',
     passwordField: 'pass',
     // Override default constraints
-    passwordConstraints = {
+    passwordConstraints: {
       length: {
         minimum: 6,
-        message: "must be at least 6 characters"
+        message: 'must be at least 6 characters'
       },
       matches: 'confirmPassword'
     }
@@ -77,6 +77,8 @@ module.exports = {
   session: {
     // 'redis' or 'memory'
     adapter: 'redis',
+    // check CouchDB if a session is not present in the adapter
+    dbFallback: false,
     redis: {
       // If url is supplied, port and host will be ignored
       url: 'redis://user:pass@host:port',
@@ -134,12 +136,12 @@ module.exports = {
     },
     // These are settings for each personal database
     model: {
-     // If your database is not listed below, these default settings will be applied
+      // If your database is not listed below, these default settings will be applied
       _default: {
         // Array containing name of the design doc files (omitting .js extension), in the directory configured below
         designDocs: ['mydesign'],
         // these permissions only work with the Cloudant API
-        permissions: ['_reader', '_replicator'],
+        permissions: ['_reader', '_replicator']
       },
       test: {
         designDocs: ['test'],

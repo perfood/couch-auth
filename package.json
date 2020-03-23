@@ -54,18 +54,32 @@
     "uuid": "^7.0.1"
   },
   "devDependencies": {
+    "@babel/core": "^7.9.0",
+    "@babel/plugin-proposal-class-properties": "^7.8.3",
     "body-parser": "^1.19.0",
     "chai": "^4.2.0",
     "eslint": "^6.8.0",
     "gulp": "^4.0.2",
-    "gulp-jshint": "^2.0.0",
+    "gulp-babel": "^8.0.0",
+    "gulp-eslint": "^6.0.0",
     "gulp-mocha": "^7.0.2",
-    "jshint": "^2.11.0",
-    "jshint-stylish": "^2.1.0",
+    "husky": "^4.2.3",
     "mocha": "^7.1.0",
     "morgan": "^1.9.1",
+    "prettier": "^2.0.1",
+    "pretty-quick": "^2.0.1",
     "rimraf": "^3.0.2",
     "sinon": "^9.0.0",
     "sinon-chai": "^3.5.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "pretty-quick --staged"
+    }
+  },
+  "eslintConfig": {
+    "parserOptions": {
+      "ecmaVersion": 2020
+    }
   }
 }

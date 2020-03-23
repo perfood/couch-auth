@@ -3,7 +3,7 @@
 var request = require('superagent');
 var chai = require('chai');
 var sinon = require('sinon');
-var expect= chai.expect;
+var expect = chai.expect;
 chai.use(require('sinon-chai'));
 
 var Promise = require('bluebird');
@@ -12,8 +12,7 @@ var PouchDB = require('pouchdb');
 var seed = require('pouchdb-seed-design');
 var util = require('../lib/util.js');
 
-describe('SuperLogin', function() {
-
+describe('SuperLogin', function () {
   var app;
   var superlogin;
   var userDB, keysDB;
@@ -43,12 +42,12 @@ describe('SuperLogin', function() {
     confirmPassword: '1s3cret'
   };
 
-  before(function() {
-    userDB = new PouchDB(dbUrl + "/sl_test-users");
-    keysDB = new PouchDB(dbUrl + "/sl_test-keys");
+  before(function () {
+    userDB = new PouchDB(dbUrl + '/sl_test-users');
+    keysDB = new PouchDB(dbUrl + '/sl_test-keys');
     app = require('./test-server')(config);
-    app.superlogin.onCreate(function(userDoc, provider) {
-      userDoc.profile = {name: userDoc.name};
+    app.superlogin.onCreate((userDoc, provider) => {
+      userDoc.profile = { name: userDoc.name };
       return Promise.resolve(userDoc);
     });
 
@@ -56,57 +55,58 @@ describe('SuperLogin', function() {
     return previous;
   });
 
-  after(function() {
+  after(function () {
     return previous
-      .then(function() {
+      .then(function () {
         return Promise.all([userDB.destroy(), keysDB.destroy()]);
       })
-      .then(function() {
+      .then(function () {
         console.log('DBs Destroyed');
         app.shutdown();
       });
   });
 
-  it('should create a new user', function() {
+  it('should create a new user', function () {
     return previous.then(() => {
       return request
-          .post(server + '/auth/register')
-          .send(newUser)
-          .then(res => {
-            expect(res.status).to.equal(201);
-            expect(res.body.success).to.equal('User created.');
-            console.log('User created');
-            return Promise.resolve();
+        .post(server + '/auth/register')
+        .send(newUser)
+        .then(res => {
+          expect(res.status).to.equal(201);
+          expect(res.body.success).to.equal('User created.');
+          console.log('User created');
+          return Promise.resolve();
         });
     });
   });
 
-  it('should verify the email', function() {
+  it('should verify the email', function () {
     var emailToken;
-    return previous.then(function() {
-      return userDB.get('kewluzer')
-        .then(function(record) {
+    return previous.then(function () {
+      return userDB
+        .get('kewluzer')
+        .then(function (record) {
           emailToken = record.unverifiedEmail.token;
           return 1;
         })
-        .then(function() {
+        .then(function () {
           return request
-              .get(server + '/auth/confirm-email/' + emailToken)
-              .then( res => {
-                expect(res.status).to.equal(200);
-                console.log('Email successfully verified.');
-                return Promise.resolve();
-              });
-          });
+            .get(server + '/auth/confirm-email/' + emailToken)
+            .then(res => {
+              expect(res.status).to.equal(200);
+              console.log('Email successfully verified.');
+              return Promise.resolve();
+            });
         });
+    });
   });
 
-  it('should login the user', function() {
-    return previous.then(function() {
+  it('should login the user', function () {
+    return previous.then(function () {
       return request
         .post(server + '/auth/login')
         .send({ username: newUser.username, password: newUser.password })
-        .then( res => {
+        .then(res => {
           accessToken = res.body.token;
           accessPass = res.body.password;
           expect(res.status).to.equal(200);
@@ -119,13 +119,13 @@ describe('SuperLogin', function() {
     });
   });
 
-  it('should access a protected endpoint', function() {
-    return previous.then(function() {
-      return new Promise(function(resolve, reject) {
+  it('should access a protected endpoint', function () {
+    return previous.then(function () {
+      return new Promise(function (resolve, reject) {
         request
           .get(server + '/auth/session')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
-          .then( res => {
+          .then(res => {
             expect(res.status).to.equal(200);
             console.log('Secure endpoint successfully accessed.');
             resolve();
@@ -134,13 +134,13 @@ describe('SuperLogin', function() {
     });
   });
 
-  it('should require a role', function() {
-    return previous.then(function() {
-      return new Promise(function(resolve, reject) {
+  it('should require a role', function () {
+    return previous.then(function () {
+      return new Promise(function (resolve, reject) {
         request
           .get(server + '/user')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
-          .then( res => {
+          .then(res => {
             expect(res.status).to.equal(200);
             console.log('Role successfully required.');
             resolve();
@@ -149,15 +149,16 @@ describe('SuperLogin', function() {
     });
   });
 
-  it('should deny access when a required role is not present', function() {
-    return previous.then(function() {
-      return new Promise(function(resolve, reject) {
+  it('should deny access when a required role is not present', function () {
+    return previous.then(function () {
+      return new Promise(function (resolve, reject) {
         request
           .get(server + '/admin')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
           .then(() => {
             reject('Admin access should have been rejected!');
-          }).catch( err => {
+          })
+          .catch(err => {
             expect(err.status).to.equal(403);
             console.log('Admin access successfully denied.');
             resolve();
@@ -166,14 +167,14 @@ describe('SuperLogin', function() {
     });
   });
 
-  it('should generate a forgot password token', function() {
-    var spySendMail = sinon.spy(app.superlogin.mailer, "sendEmail");
+  it('should generate a forgot password token', function () {
+    var spySendMail = sinon.spy(app.superlogin.mailer, 'sendEmail');
 
-    return previous.then(function() {
-      return new Promise(function(resolve, reject) {
+    return previous.then(function () {
+      return new Promise(function (resolve, reject) {
         request
           .post(server + '/auth/forgot-password')
-          .send({email: newUser.email})
+          .send({ email: newUser.email })
           .then(res => {
             expect(res.status).to.equal(200);
             // keep unhashed token emailed to user.
@@ -186,27 +187,30 @@ describe('SuperLogin', function() {
     });
   });
 
-  it('should reset the password', function() {
-    return previous.then(function() {
-      return userDB.get(newUser.username)
-        .then(() => {
-          return new Promise(function(resolve, reject) {
-            request
-              .post(server + '/auth/password-reset')
-              .send({token: resetToken, password: 'newpass', confirmPassword: 'newpass'})
-              .then(res => {
-                expect(res.status).to.equal(200);
-                console.log('Password successfully reset.');
-                resolve();
-              });
-          });
+  it('should reset the password', function () {
+    return previous.then(function () {
+      return userDB.get(newUser.username).then(() => {
+        return new Promise(function (resolve, reject) {
+          request
+            .post(server + '/auth/password-reset')
+            .send({
+              token: resetToken,
+              password: 'newpass',
+              confirmPassword: 'newpass'
+            })
+            .then(res => {
+              expect(res.status).to.equal(200);
+              console.log('Password successfully reset.');
+              resolve();
+            });
         });
+      });
     });
   });
 
-  it('should logout the user upon password reset', function() {
-    return previous.then(function() {
-      return new Promise(function(resolve, reject) {
+  it('should logout the user upon password reset', function () {
+    return previous.then(function () {
+      return new Promise(function (resolve, reject) {
         request
           .get(server + '/auth/session')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -215,16 +219,18 @@ describe('SuperLogin', function() {
           })
           .catch(err => {
             expect(err.status).to.equal(401);
-            console.log('User has been successfully logged out on password reset.');
+            console.log(
+              'User has been successfully logged out on password reset.'
+            );
             resolve();
           });
       });
     });
   });
 
-  it('should login with the new password', function() {
-    return previous.then(function() {
-      return new Promise(function(resolve, reject) {
+  it('should login with the new password', function () {
+    return previous.then(function () {
+      return new Promise(function (resolve, reject) {
         request
           .post(server + '/auth/login')
           .send({ username: newUser.username, password: 'newpass' })
@@ -245,9 +251,9 @@ describe('SuperLogin', function() {
     });
   });
 
-  it('should refresh the session', function() {
-    return previous.then(function() {
-      return new Promise(function(resolve, reject) {
+  it('should refresh the session', function () {
+    return previous.then(function () {
+      return new Promise(function (resolve, reject) {
         request
           .post(server + '/auth/refresh')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -261,67 +267,66 @@ describe('SuperLogin', function() {
     });
   });
 
-  it('should change the password', function() {
-    return previous.then(function() {
-      return userDB.get(newUser.username)
-        .then(function(resetUser) {
-          return new Promise(function(resolve, reject) {
-            request
-              .post(server + '/auth/password-change')
-              .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
-              .send({currentPassword: 'newpass', newPassword: 'newpass2', confirmPassword: 'newpass2'})
-              .then(res => {
-                expect(res.status).to.equal(200);
-                console.log('Password successfully changed.');
-                resolve();
-              });
-          });
-        });
-    });
-  });
-
-  it('should logout the user', function() {
-    return previous
-      .then(function() {
-        return new Promise(function(resolve, reject) {
+  it('should change the password', function () {
+    return previous.then(function () {
+      return userDB.get(newUser.username).then(function (resetUser) {
+        return new Promise(function (resolve, reject) {
           request
-            .post(server + '/auth/logout')
+            .post(server + '/auth/password-change')
             .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
-            .end(function(error, res) {
-              if(error || res.status !== 200) {
-                throw new Error('Failed to logout the user.');
-              }
+            .send({
+              currentPassword: 'newpass',
+              newPassword: 'newpass2',
+              confirmPassword: 'newpass2'
+            })
+            .then(res => {
               expect(res.status).to.equal(200);
+              console.log('Password successfully changed.');
               resolve();
             });
-      })
-        .then(function() {
-          return new Promise(function(resolve, reject) {
-            request
-              .get(server + '/auth/session')
-              .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
-              .end(function(error, res) {
-                expect(res.status).to.equal(401);
-                console.log('User has been successfully logged out.');
-                resolve();
-              });
-          });
         });
+      });
     });
   });
 
-  it('should login after creating a new user', function() {
-    return previous.then(function() {
+  it('should logout the user', function () {
+    return previous.then(function () {
+      return new Promise(function (resolve, reject) {
+        request
+          .post(server + '/auth/logout')
+          .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
+          .end(function (error, res) {
+            if (error || res.status !== 200) {
+              throw new Error('Failed to logout the user.');
+            }
+            expect(res.status).to.equal(200);
+            resolve();
+          });
+      }).then(function () {
+        return new Promise(function (resolve, reject) {
+          request
+            .get(server + '/auth/session')
+            .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
+            .end(function (error, res) {
+              expect(res.status).to.equal(401);
+              console.log('User has been successfully logged out.');
+              resolve();
+            });
+        });
+      });
+    });
+  });
+
+  it('should login after creating a new user', function () {
+    return previous.then(function () {
       app.config.setItem('security.loginOnRegistration', true);
-      return new Promise(function(resolve, reject) {
+      return new Promise(function (resolve, reject) {
         request
           .post(server + '/auth/register')
           .send(newUser2)
-          .end(function(error, res) {
+          .end(function (error, res) {
             expect(res.status).to.equal(200);
-            /* jshint -W030 */
             expect(res.body.token).to.be.a.string;
-            /* jshint +W030 */
             console.log('User created and logged in');
             resolve();
           });
@@ -329,24 +334,24 @@ describe('SuperLogin', function() {
     });
   });
 
-  it('should validate a username', function() {
+  it('should validate a username', function () {
     return previous
-      .then(function() {
-        return new Promise(function(resolve, reject) {
+      .then(function () {
+        return new Promise(function (resolve, reject) {
           request
             .get(server + '/auth/validate-username/idontexist')
-            .end(function(error, res) {
+            .end(function (error, res) {
               expect(res.status).to.equal(200);
               expect(res.body.ok).to.equal(true);
               resolve();
             });
         });
       })
-      .then(function() {
-        return new Promise(function(resolve, reject) {
+      .then(function () {
+        return new Promise(function (resolve, reject) {
           request
             .get(server + '/auth/validate-username/kewluzer')
-            .end(function(error, res) {
+            .end(function (error, res) {
               expect(res.status).to.equal(409);
               console.log('Validate Username is working');
               resolve();
@@ -355,24 +360,24 @@ describe('SuperLogin', function() {
       });
   });
 
-  it('should validate an email', function() {
+  it('should validate an email', function () {
     return previous
-      .then(function() {
-        return new Promise(function(resolve, reject) {
+      .then(function () {
+        return new Promise(function (resolve, reject) {
           request
             .get(server + '/auth/validate-email/nobody@example.com')
-            .end(function(error, res) {
+            .end(function (error, res) {
               expect(res.status).to.equal(200);
               expect(res.body.ok).to.equal(true);
               resolve();
             });
         });
       })
-      .then(function() {
-        return new Promise(function(resolve, reject) {
+      .then(function () {
+        return new Promise(function (resolve, reject) {
           request
             .get(server + '/auth/validate-username/kewluzer@example.com')
-            .end(function(error, res) {
+            .end(function (error, res) {
               expect(res.status).to.equal(409);
               console.log('Validate Email is working');
               resolve();
@@ -382,58 +387,59 @@ describe('SuperLogin', function() {
   });
 
   function attemptLogin(username, password) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       request
         .post(server + '/auth/login')
         .send({ username: username, password: password })
-        .end(function(error, res) {
-          resolve({status: res.status, message: res.body.message});
+        .end(function (error, res) {
+          resolve({ status: res.status, message: res.body.message });
         });
     });
   }
 
-  it('should respond unauthorized if a user logs in and no password is set', function() {
+  it('should respond unauthorized if a user logs in and no password is set', function () {
     return previous
-      .then(function() {
+      .then(function () {
         return userDB.put({
           _id: 'nopassword',
           email: 'nopassword@example.com'
         });
       })
-      .then(function() {
+      .then(function () {
         return attemptLogin('nopassword', 'wrongpassword');
       })
-      .then(function(result) {
+      .then(function (result) {
         expect(result.status).to.equal(401);
         expect(result.message).to.equal('Invalid username or password');
       });
   });
 
-  it('should block a user after failed logins', function() {
+  it('should block a user after failed logins', function () {
     return previous
-      .then(function() {
+      .then(function () {
         return attemptLogin('kewluzer', 'wrong');
       })
-      .then(function(result) {
+      .then(function (result) {
         expect(result.status).to.equal(401);
         expect(result.message).to.equal('Invalid username or password');
         return attemptLogin('kewluzer', 'wrong');
       })
-      .then(function(result) {
+      .then(function (result) {
         expect(result.status).to.equal(401);
         expect(result.message).to.equal('Invalid username or password');
         return attemptLogin('kewluzer', 'wrong');
       })
-      .then(function(result) {
+      .then(function (result) {
         expect(result.status).to.equal(401);
         expect(result.message.search('Maximum failed login')).to.equal(0);
         return attemptLogin('kewluzer', 'newpass');
       })
-      .then(function(result) {
+      .then(function (result) {
         expect(result.status).to.equal(401);
-        expect(result.message.search('Your account is currently locked')).to.equal(0);
+        expect(
+          result.message.search('Your account is currently locked')
+        ).to.equal(0);
         return Promise.resolve();
       });
   });
-
 });
