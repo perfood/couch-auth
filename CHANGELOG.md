@@ -1,5 +1,15 @@
 ## Change Log
 
+#### Refactoring, notify on password change, CouchDB as Fallback
+
+- babel + eslint instead of jshint; prettier hook for code formatting
+- refactored Mailer and User into classes, SL extends user, some vars private
+- provider is now also stored in the doc in CouchDB's `_user` - DB
+- new config options:
+  - `local.sendPasswordChangedEmail`: if true, send a notification email when password is changed
+  - `session.dbFallback`: if true, CouchDB will be checked as a fallback if the adapter does not have that session stored
+- Travis CI to Node 12, Node 10 no longer supported
+
 #### Updates and Adjustments: SuperloginX (0.7.1)
 
 - Removal of Bluebird in favour of native Promises

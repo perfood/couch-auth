@@ -77,7 +77,8 @@ describe('DBAuth', function () {
           'testkey',
           'testpass',
           Date.now() + 60000,
-          testUser.roles
+          testUser.roles,
+          'local'
         );
       })
       .then(function (newKey) {
@@ -242,7 +243,8 @@ describe('DBAuth', function () {
             'testuser1',
             'oldkey1',
             'password',
-            user1.session.oldkey1.expires
+            user1.session.oldkey1.expires,
+            'local'
           )
         );
         promises.push(
@@ -250,7 +252,8 @@ describe('DBAuth', function () {
             'testuser1',
             'goodkey1',
             'password',
-            user1.session.goodkey1.expires
+            user1.session.goodkey1.expires,
+            'local'
           )
         );
         promises.push(
@@ -258,7 +261,8 @@ describe('DBAuth', function () {
             'testuser2',
             'oldkey2',
             'password',
-            user2.session.oldkey2.expires
+            user2.session.oldkey2.expires,
+            'local'
           )
         );
         promises.push(
@@ -266,7 +270,8 @@ describe('DBAuth', function () {
             'testuser2',
             'goodkey2',
             'password',
-            user2.session.goodkey2.expires
+            user2.session.goodkey2.expires,
+            'local'
           )
         );
         return Promise.all(promises);

@@ -91,7 +91,8 @@ var userConfig = new Configure({
     publicURL: 'https://mydb.example.com'
   },
   session: {
-    adapter: 'memory'
+    adapter: 'memory',
+    dbFallback: true
   },
   userDBs: {
     defaultSecurityRoles: {
@@ -332,11 +333,33 @@ describe('User Model', function () {
     return previous
       .then(function () {
         console.log('Refreshing session');
-        return user.refreshSession(sessionKey, sessionPass);
+        return user.refreshSession(sessionKey);
       })
       .then(function (result) {
         expect(result.expires).to.be.above(firstExpires);
         return emitterPromise;
+      });
+  });
+
+  it('should restore a valid session', function (done) {
+    previous
+      .then(() => {
+        return user.removeFromSessionCache(sessionKey);
+      })
+      .then(() => {
+        return user.confirmSession(sessionKey, sessionPass);
+      })
+      .then(token => {
+        expect(token.key).to.equal(sessionKey);
+        expect(token.provider).to.equal('local');
+        expect(token.roles).to.include('user');
+        expect(token.roles).to.include('user:superuser');
+        expect(token._id).to.equal('superuser');
+        for (let k of ['password', 'salt', 'iterations', 'password_scheme']) {
+          expect(token[k]).to.equal(undefined);
+        }
+        console.log('confirmed with db fallback');
+        done();
       });
   });
 

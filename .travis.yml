@@ -2,7 +2,7 @@ language: node_js
 cache:
   - npm
 node_js:
-  - '10'
+  - '12'
 services:
   - couchdb
   - redis-server

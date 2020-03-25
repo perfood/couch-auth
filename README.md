@@ -564,7 +564,7 @@ Deletes a user, deauthorizes all the sessions, and optionally destroys all priva
 
 ##### `superlogin.confirmSession(token, password)`
 
-Logs out all of a user's sessions, except for the one specified.
+Verifies a user's session.
 
 ##### `superlogin.removeExpiredKeys()`
 
