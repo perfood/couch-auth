@@ -37,6 +37,8 @@ module.exports = {
     sendConfirmEmail: true,
     // Require the email be confirmed before the user can login
     requireEmailConfirm: false,
+    // send a confirmation E-Mail to the user after the password has successfully been changed or resetted
+    sendPasswordChangedEmail: true,
     // If this is set, the user will be redirected to this location after confirming email instead of JSON response
     confirmEmailRedirectURL: '/',
     // Set this to true to disable usernames and use emails instead
@@ -116,6 +118,11 @@ module.exports = {
     forgotPassword: {
       subject: 'Your password reset link',
       template: path.join(__dirname, './templates/email/forgot-password.ejs'),
+      format: 'text'
+    },
+    modifiedPassword: {
+      subject: 'Your password has been modified',
+      template: path.join(__dirname, './templates/email/modified-password.ejs'),
       format: 'text'
     }
   },

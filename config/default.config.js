@@ -39,6 +39,14 @@ module.exports = {
       subject: 'Your password reset link',
       template: path.join(__dirname, '../templates/email/forgot-password.ejs'),
       format: 'text'
+    },
+    modifiedPassword: {
+      subject: 'Your password has been modified',
+      template: path.join(
+        __dirname,
+        '../templates/email/modified-password.ejs'
+      ),
+      format: 'text'
     }
   }
 };

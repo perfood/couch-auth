@@ -51,6 +51,7 @@ var userConfig = new Configure({
   local: {
     sendConfirmEmail: true,
     requireEmailConfirm: false,
+    sendPasswordChangedEmail: true,
     passwordConstraints: {
       length: {
         minimum: 8,
@@ -70,7 +71,15 @@ var userConfig = new Configure({
     },
     forgotPassword: {
       subject: 'Your password reset link',
-      template: 'templates/email/forgot-password.ejs',
+      template: path.join(__dirname, '../templates/email/forgot-password.ejs'),
+      format: 'text'
+    },
+    modifiedPassword: {
+      subject: 'Your password has been modified',
+      template: path.join(
+        __dirname,
+        '../templates/email/modified-password.ejs'
+      ),
       format: 'text'
     }
   },
@@ -449,6 +458,7 @@ describe('User Model', function () {
 
   var resetToken;
   var resetTokenHashed;
+  var spySendMail;
 
   it('should generate a password reset token', function () {
     var emitterPromise = new Promise(function (resolve) {
@@ -458,7 +468,7 @@ describe('User Model', function () {
       });
     });
 
-    var spySendMail = sinon.spy(mailer, 'sendEmail');
+    spySendMail = sinon.spy(mailer, 'sendEmail');
 
     return previous
       .then(function () {
@@ -546,6 +556,13 @@ describe('User Model', function () {
         // It should delete the password reset token completely
         expect(userAfterReset.forgotPassword).to.be.an.undefined;
         expect(userAfterReset.activity[0].action).to.equal('reset password');
+
+        expect(spySendMail.callCount).to.equal(2);
+        var args = spySendMail.getCall(1).args;
+        expect(args[0]).to.equal('modifiedPassword');
+        expect(args[1]).to.equal(testUserForm.email);
+        expect(args[2].user._id).to.equal(testUserForm.username);
+
         return util.verifyPassword(userAfterReset.local, 'newSecret');
       })
       .then(function () {
@@ -576,6 +593,13 @@ describe('User Model', function () {
       })
       .then(function (userAfterChange) {
         expect(userAfterChange.activity[0].action).to.equal('changed password');
+
+        expect(spySendMail.callCount).to.equal(3);
+        var args = spySendMail.getCall(2).args;
+        expect(args[0]).to.equal('modifiedPassword');
+        expect(args[1]).to.equal(testUserForm.email);
+        expect(args[2].user._id).to.equal(testUserForm.username);
+
         return util.verifyPassword(userAfterChange.local, 'superpassword2');
       })
       .then(function () {
