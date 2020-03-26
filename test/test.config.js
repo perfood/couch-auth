@@ -2,6 +2,7 @@ module.exports = {
   port: 5000,
   testMode: {
     noEmail: true,
+    debugEmail: true,
     oauthDebug: true
   },
   dbServer: {

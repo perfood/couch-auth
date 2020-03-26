@@ -893,7 +893,7 @@ describe('User Model', function () {
       })
       .then(function (result) {
         expect(result).to.equal(true);
-        return user.remove('superuser', true);
+        return user.removeUser('superuser', true);
       })
       .then(function () {
         return userDB.get('superuser');
