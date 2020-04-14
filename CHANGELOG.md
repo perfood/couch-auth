@@ -1,5 +1,12 @@
 ## Change Log
 
+#### Adjusted Email handling (0.9.0)
+
+- If password is reset, email will be marked as confirmed
+- new config options:
+  - `local.requirePasswordOnEmailChange`: If true, the correct `password` is needed in the request body in order to change the email.
+  - `local.requireConfirmOnEmailChange`: If true, the new email must to be confirmed via `'/confirm-email/:token'`. Until that, the previous one remains the valid `email` and the new one is just an `unverifiedEmail`.
+
 #### Refactoring, notify on password change, CouchDB as Fallback
 
 - babel + eslint instead of jshint; prettier hook for code formatting
@@ -16,7 +23,7 @@
 - Adjustment of Travis CI for NodeJS 10 with ES6
 - Updating all packages to more secure versions
 - not allowing `_` as prefix for userDBs
-- Updated E-Mail Regex
+- Updated email regex
 - Added two custom options to config (shorter PW-reset token, sending UUID with session info)
 
 #### Misc. Bug Fixes (0.6.1) 2016-04-02

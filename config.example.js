@@ -37,6 +37,10 @@ module.exports = {
     sendConfirmEmail: true,
     // Require the email be confirmed before the user can login
     requireEmailConfirm: false,
+    // Requires the correct `password` to be sent in the body in order to change the email
+    requirePasswordOnEmailChange: false,
+    // Requires the changed email to be confirmed before it replaces the old email
+    requireConfirmOnEmailChange: false,
     // send a confirmation E-Mail to the user after the password has successfully been changed or resetted
     sendPasswordChangedEmail: true,
     // If this is set, the user will be redirected to this location after confirming email instead of JSON response
