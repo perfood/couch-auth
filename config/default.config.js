@@ -36,6 +36,11 @@ module.exports = {
       template: path.join(__dirname, '../templates/email/confirm-email.ejs'),
       format: 'text'
     },
+    confirmEmailChange: {
+      subject: 'Please confirm your new email',
+      template: path.join(__dirname, '../templates/email/email-change.ejs'),
+      format: 'text'
+    },
     forgotPassword: {
       subject: 'Your password reset link',
       template: path.join(__dirname, '../templates/email/forgot-password.ejs'),

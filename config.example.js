@@ -35,12 +35,10 @@ module.exports = {
   local: {
     // Send out a confirm email after each user signs up with local login
     sendConfirmEmail: true,
-    // Require the email be confirmed before the user can login
+    // Require the email be confirmed before the user can login or before his changed email is updated
     requireEmailConfirm: false,
     // Requires the correct `password` to be sent in the body in order to change the email
     requirePasswordOnEmailChange: false,
-    // Requires the changed email to be confirmed before it replaces the old email
-    requireConfirmOnEmailChange: false,
     // send a confirmation E-Mail to the user after the password has successfully been changed or resetted
     sendPasswordChangedEmail: true,
     // If this is set, the user will be redirected to this location after confirming email instead of JSON response
@@ -117,6 +115,11 @@ module.exports = {
       // Remember to use the correct path relative to where your custom config file is located
       template: path.join(__dirname, './templates/email/confirm-email.ejs'),
       // 'text' or 'html'
+      format: 'text'
+    },
+    confirmEmailChange: {
+      subject: 'Please confirm your new email',
+      template: path.join(__dirname, '../templates/email/email-change.ejs'),
       format: 'text'
     },
     forgotPassword: {

@@ -2,10 +2,11 @@
 
 #### Adjusted Email handling (0.9.0)
 
-- If password is reset, email will be marked as confirmed
+- If password is reset, email will be marked as confirmed and `"'verified via password reset'"` will be logged.
 - new config options:
   - `local.requirePasswordOnEmailChange`: If true, the correct `password` is needed in the request body in order to change the email.
-  - `local.requireConfirmOnEmailChange`: If true, the new email must to be confirmed via `'/confirm-email/:token'`. Until that, the previous one remains the valid `email` and the new one is just an `unverifiedEmail`.
+  - `email.confirmEmailChange`: If set, this template is used when requesting an email change and `local.confirmEmail` is active.
+  - `/change-email` now responds with `"email change requested"` if the email needs to be confirmed
 
 #### Refactoring, notify on password change, CouchDB as Fallback
 
