@@ -1,15 +1,15 @@
 // Contains middleware useful for securing your routes
 'use strict';
 
-class MiddleWare {
+export class Middleware {
   constructor(passport) {
-    var forbiddenError = {
+    const forbiddenError = {
       error: 'Forbidden',
       message: 'You do not have permission to access this resource.',
       status: 403
     };
 
-    var superloginError = {
+    const superloginError = {
       error: 'superlogin',
       message: 'requireAuth must be used before checking roles',
       status: 500
@@ -26,7 +26,7 @@ class MiddleWare {
         if (!req.user) {
           return next(superloginError);
         }
-        var roles = req.user.roles;
+        const roles = req.user.roles;
         if (!roles || !roles.length || roles.indexOf(requiredRole) === -1) {
           res.status(forbiddenError.status);
           res.json(forbiddenError);
@@ -42,10 +42,10 @@ class MiddleWare {
         if (!req.user) {
           return next(superloginError);
         }
-        var denied = true;
-        var roles = req.user.roles;
+        let denied = true;
+        const roles = req.user.roles;
         if (roles && roles.length) {
-          for (var i = 0; i < possibleRoles.length; i++) {
+          for (let i = 0; i < possibleRoles.length; i++) {
             if (roles.indexOf(possibleRoles[i]) !== -1) {
               denied = false;
             }
@@ -65,12 +65,12 @@ class MiddleWare {
         if (!req.user) {
           return next(superloginError);
         }
-        var denied = false;
-        var roles = req.user.roles;
+        let denied = false;
+        const roles = req.user.roles;
         if (!roles || !roles.length) {
           denied = true;
         } else {
-          for (var i = 0; i < requiredRoles.length; i++) {
+          for (let i = 0; i < requiredRoles.length; i++) {
             if (roles.indexOf(requiredRoles[i]) === -1) {
               denied = true;
             }
@@ -86,5 +86,3 @@ class MiddleWare {
     };
   }
 }
-
-module.exports = MiddleWare;

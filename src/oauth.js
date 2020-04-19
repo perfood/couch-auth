@@ -1,16 +1,16 @@
 'use strict';
-var fs = require('fs');
-var path = require('path');
-var ejs = require('ejs');
-var extend = require('util')._extend;
-var util = require('./util');
+const fs = require('fs');
+const path = require('path');
+const ejs = require('ejs');
+const extend = require('util')._extend;
+const util = require('./util');
 
-var stateRequired = ['google', 'linkedin'];
+const stateRequired = ['google', 'linkedin'];
 
 module.exports = function (router, passport, user, config) {
   // Function to initialize a session following authentication from a socialAuth provider
   function initSession(req, res, next) {
-    var provider = getProvider(req.path);
+    const provider = getProvider(req.path);
     return user
       .createSession(req.user._id, provider, req)
       .then(function (mySession) {
@@ -22,7 +22,7 @@ module.exports = function (router, passport, user, config) {
       })
       .then(
         function (results) {
-          var template;
+          let template;
           if (config.getItem('testMode.oauthTest')) {
             template = fs.readFileSync(
               path.join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
@@ -34,7 +34,7 @@ module.exports = function (router, passport, user, config) {
               'utf8'
             );
           }
-          var html = ejs.render(template, results);
+          const html = ejs.render(template, results);
           res.status(200).send(html);
         },
         function (err) {
@@ -45,7 +45,7 @@ module.exports = function (router, passport, user, config) {
 
   // Function to initialize a session following authentication from a socialAuth provider
   function initTokenSession(req, res, next) {
-    var provider = getProviderToken(req.path);
+    const provider = getProviderToken(req.path);
     return user
       .createSession(req.user._id, provider, req)
       .then(function (mySession) {
@@ -63,13 +63,13 @@ module.exports = function (router, passport, user, config) {
 
   // Called after an account has been succesfully linked
   function linkSuccess(req, res, next) {
-    var provider = getProvider(req.path);
-    var result = {
+    const provider = getProvider(req.path);
+    const result = {
       error: null,
       session: null,
       link: provider
     };
-    var template;
+    let template;
     if (config.getItem('testMode.oauthTest')) {
       template = fs.readFileSync(
         path.join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
@@ -81,13 +81,13 @@ module.exports = function (router, passport, user, config) {
         'utf8'
       );
     }
-    var html = ejs.render(template, result);
+    const html = ejs.render(template, result);
     res.status(200).send(html);
   }
 
   // Called after an account has been succesfully linked using access_token provider
   function linkTokenSuccess(req, res, next) {
-    var provider = getProviderToken(req.path);
+    const provider = getProviderToken(req.path);
     res.status(200).json({
       ok: true,
       success: util.capitalizeFirstLetter(provider) + ' successfully linked',
@@ -97,7 +97,7 @@ module.exports = function (router, passport, user, config) {
 
   // Handles errors if authentication fails
   function oauthErrorHandler(err, req, res, next) {
-    var template;
+    let template;
     if (config.getItem('testMode.oauthTest')) {
       template = fs.readFileSync(
         path.join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
@@ -109,7 +109,7 @@ module.exports = function (router, passport, user, config) {
         'utf8'
       );
     }
-    var html = ejs.render(template, {
+    const html = ejs.render(template, {
       error: err.message,
       session: null,
       link: null
@@ -123,7 +123,7 @@ module.exports = function (router, passport, user, config) {
 
   // Handles errors if authentication from access_token provider fails
   function tokenAuthErrorHandler(err, req, res, next) {
-    var status;
+    let status;
     if (req.user && req.user._id) {
       status = 403;
     } else {
@@ -140,11 +140,11 @@ module.exports = function (router, passport, user, config) {
   // Framework to register OAuth providers with passport
   function registerProvider(provider, configFunction) {
     provider = provider.toLowerCase();
-    var configRef = 'providers.' + provider;
+    const configRef = 'providers.' + provider;
     if (config.getItem(configRef + '.credentials')) {
-      var credentials = config.getItem(configRef + '.credentials');
+      const credentials = config.getItem(configRef + '.credentials');
       credentials.passReqToCallback = true;
-      var options = config.getItem(configRef + '.options') || {};
+      const options = config.getItem(configRef + '.options') || {};
       configFunction.call(null, credentials, passport, authHandler);
       router.get('/' + provider, passportCallback(provider, options, 'login'));
       router.get(
@@ -201,11 +201,11 @@ module.exports = function (router, passport, user, config) {
   // This is for supporting Cordova, native IOS and Android apps, as well as other devices
   function registerTokenProvider(providerName, Strategy) {
     providerName = providerName.toLowerCase();
-    var configRef = 'providers.' + providerName;
+    const configRef = 'providers.' + providerName;
     if (config.getItem(configRef + '.credentials')) {
-      var credentials = config.getItem(configRef + '.credentials');
+      const credentials = config.getItem(configRef + '.credentials');
       credentials.passReqToCallback = true;
-      var options = config.getItem(configRef + '.options') || {};
+      const options = config.getItem(configRef + '.options') || {};
       // Configure the Passport Strategy
       passport.use(
         providerName + '-token',
@@ -258,11 +258,11 @@ module.exports = function (router, passport, user, config) {
   // Operation is 'login' or 'link'
   function passportCallback(provider, options, operation) {
     return function (req, res, next) {
-      var theOptions = extend({}, options);
+      const theOptions = extend({}, options);
       if (provider === 'linkedin') {
         theOptions.state = true;
       }
-      var accessToken = req.query.bearer_token || req.query.state;
+      const accessToken = req.query.bearer_token || req.query.state;
       if (
         accessToken &&
         (stateRequired.indexOf(provider) > -1 ||
@@ -284,7 +284,7 @@ module.exports = function (router, passport, user, config) {
   // Configures the passport.authenticate for the given access_token provider, passing in options
   function passportTokenCallback(provider, options) {
     return function (req, res, next) {
-      var theOptions = extend({}, options);
+      const theOptions = extend({}, options);
       theOptions.session = false;
       passport.authenticate(provider + '-token', theOptions)(req, res, next);
     };
@@ -294,14 +294,14 @@ module.exports = function (router, passport, user, config) {
     if (accessToken) {
       accessToken = encodeURIComponent(accessToken);
     }
-    var protocol = (req.get('X-Forwarded-Proto') || req.protocol) + '://';
+    const protocol = (req.get('X-Forwarded-Proto') || req.protocol) + '://';
     if (operation === 'login') {
       return (
         protocol + req.get('host') + req.baseUrl + '/' + provider + '/callback'
       );
     }
     if (operation === 'link') {
-      var reqUrl;
+      let reqUrl;
       if (
         accessToken &&
         (stateRequired.indexOf(provider) > -1 ||
@@ -330,8 +330,8 @@ module.exports = function (router, passport, user, config) {
 
   // Gets the provider name from a callback path
   function getProvider(pathname) {
-    var items = pathname.split('/');
-    var index = items.indexOf('callback');
+    const items = pathname.split('/');
+    const index = items.indexOf('callback');
     if (index > 0) {
       return items[index - 1];
     }
@@ -339,8 +339,8 @@ module.exports = function (router, passport, user, config) {
 
   // Gets the provider name from a callback path for access_token strategy
   function getProviderToken(pathname) {
-    var items = pathname.split('/');
-    var index = items.indexOf('token');
+    const items = pathname.split('/');
+    const index = items.indexOf('token');
     if (index > 0) {
       return items[index - 1];
     }

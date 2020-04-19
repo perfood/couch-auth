@@ -1,35 +1,28 @@
 'use strict';
-var util = require('./util');
+const util = require('./util');
 
 module.exports = function (config, router, passport, user) {
-  var env = process.env.NODE_ENV || 'development';
-  const requirePass =
-    config.getItem('local.requirePasswordOnEmailChange') === true;
-  const requireConf = config.getItem('local.requireEmailConfirm') === true;
-
-  function loginLocal(req, res, next) {
-    passport.authenticate('local', function (err, user, info) {
-      if (err) {
-        return next(err);
-      }
-      if (!user) {
-        // Authentication failed
-        return res.status(401).json(info);
-      }
-      // Success
-      req.logIn(user, { session: false }, function (err) {
-        if (err) {
-          return next(err);
-        }
-      });
-      return next();
-    })(req, res, next);
-  }
+  const env = process.env.NODE_ENV || 'development';
 
   router.post(
     '/login',
     function (req, res, next) {
-      loginLocal(req, res, next);
+      passport.authenticate('local', function (err, user, info) {
+        if (err) {
+          return next(err);
+        }
+        if (!user) {
+          // Authentication failed
+          return res.status(401).json(info);
+        }
+        // Success
+        req.logIn(user, { session: false }, function (err) {
+          if (err) {
+            return next(err);
+          }
+        });
+        return next();
+      })(req, res, next);
     },
     function (req, res, next) {
       // Success handler
@@ -60,7 +53,7 @@ module.exports = function (config, router, passport, user) {
   );
 
   router.post('/logout', function (req, res, next) {
-    var sessionToken = util.getSessionToken(req);
+    const sessionToken = util.getSessionToken(req);
     if (!sessionToken) {
       return next({
         error: 'unauthorized',
@@ -95,7 +88,7 @@ module.exports = function (config, router, passport, user) {
   );
 
   router.post('/logout-all', function (req, res, next) {
-    var sessionToken = util.getSessionToken(req);
+    const sessionToken = util.getSessionToken(req);
     if (!sessionToken) {
       return next({
         error: 'unauthorized',
@@ -188,7 +181,7 @@ module.exports = function (config, router, passport, user) {
     '/unlink/:provider',
     passport.authenticate('bearer', { session: false }),
     function (req, res, next) {
-      var provider = req.params.provider;
+      const provider = req.params.provider;
       user.unlink(req.user._id, provider).then(
         function () {
           res.status(200).json({
@@ -203,9 +196,9 @@ module.exports = function (config, router, passport, user) {
   );
 
   router.get('/confirm-email/:token', function (req, res, next) {
-    var redirectURL = config.getItem('local.confirmEmailRedirectURL');
+    const redirectURL = config.getItem('local.confirmEmailRedirectURL');
     if (!req.params.token) {
-      var err = { error: 'Email verification token required' };
+      const err = { error: 'Email verification token required' };
       if (redirectURL) {
         return res
           .status(201)
@@ -222,7 +215,7 @@ module.exports = function (config, router, passport, user) {
       },
       function (err) {
         if (redirectURL) {
-          var query = '?error=' + encodeURIComponent(err.error);
+          let query = '?error=' + encodeURIComponent(err.error);
           if (err.message) {
             query += '&message=' + encodeURIComponent(err.message);
           }
@@ -252,7 +245,7 @@ module.exports = function (config, router, passport, user) {
   });
 
   router.get('/validate-email/:email', function (req, res, next) {
-    var promise;
+    let promise;
     if (!req.params.email) {
       return next({ error: 'Email required', status: 400 });
     }
@@ -279,17 +272,9 @@ module.exports = function (config, router, passport, user) {
     '/change-email',
     passport.authenticate('bearer', { session: false }),
     function (req, res, next) {
-      if (requirePass) {
-        loginLocal(req, res, next);
-      } else {
-        next();
-      }
-    },
-    function (req, res, next) {
       user.changeEmail(req.user._id, req.body.newEmail, req).then(
         function () {
-          const info = requireConf ? 'change requested' : 'changed';
-          res.status(200).json({ ok: true, success: `Email ${info}` });
+          res.status(200).json({ ok: true, success: 'Email changed' });
         },
         function (err) {
           return next(err);
@@ -303,7 +288,7 @@ module.exports = function (config, router, passport, user) {
     '/session',
     passport.authenticate('bearer', { session: false }),
     function (req, res) {
-      var user = req.user;
+      const user = req.user;
       user.user_id = user._id;
       delete user._id;
       // user.token = user.key;

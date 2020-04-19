@@ -1,6 +1,6 @@
 // This is a tour of all possible SuperLogin configuration options and what they do
 
-var path = require('path');
+const path = require('path');
 
 module.exports = {
   // Useful settings for testing and debugging your app
@@ -35,7 +35,7 @@ module.exports = {
   local: {
     // Send out a confirm email after each user signs up with local login
     sendConfirmEmail: true,
-    // Require the email be confirmed before the user can login or before his changed email is updated
+    // Require the email be confirmed before the user can login  or before his changed email is updated
     requireEmailConfirm: false,
     // Requires the correct `password` to be sent in the body in order to change the email
     requirePasswordOnEmailChange: false,
@@ -117,11 +117,6 @@ module.exports = {
       // 'text' or 'html'
       format: 'text'
     },
-    confirmEmailChange: {
-      subject: 'Please confirm your new email',
-      template: path.join(__dirname, '../templates/email/email-change.ejs'),
-      format: 'text'
-    },
     forgotPassword: {
       subject: 'Your password reset link',
       template: path.join(__dirname, './templates/email/forgot-password.ejs'),
@@ -130,6 +125,11 @@ module.exports = {
     modifiedPassword: {
       subject: 'Your password has been modified',
       template: path.join(__dirname, './templates/email/modified-password.ejs'),
+      format: 'text'
+    },
+    confirmEmailChange: {
+      subject: 'Please confirm your new email',
+      template: path.join(__dirname, './templates/email/email-change.ejs'),
       format: 'text'
     }
   },

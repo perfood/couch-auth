@@ -1,29 +1,29 @@
 'use strict';
-var events = require('events');
-var path = require('path');
-var PouchDB = require('pouchdb');
-var Configure = require('../lib/configure');
-var User = require('../lib/user');
-var Mailer = require('../lib/mailer');
-var util = require('../lib/util');
-var seed = require('pouchdb-seed-design');
-var request = require('superagent');
-var config = require('./test.config.js');
+const events = require('events');
+const path = require('path');
+const Configure = require('../lib/config/configure').ConfigHelper;
+const User = require('../lib/user').User;
+const Mailer = require('../lib/mailer').Mailer;
+const util = require('../lib/util');
+const seed = require('../lib/design/seed').default;
+const request = require('superagent');
+const config = require('./test.config.js');
+const nano = require('nano');
 
-var chai = require('chai');
-var sinon = require('sinon');
-var expect = chai.expect;
+const chai = require('chai');
+const sinon = require('sinon');
+const expect = chai.expect;
 chai.use(require('sinon-chai'));
 
-var dbUrl = util.getDBURL(config.dbServer);
+const dbUrl = util.getDBURL(config.dbServer);
+const couch = nano(dbUrl);
 
-var emitter = new events.EventEmitter();
+const emitter = new events.EventEmitter();
 
-PouchDB.setMaxListeners(20);
-var userDB = new PouchDB(dbUrl + '/superlogin_test_users');
-var keysDB = new PouchDB(dbUrl + '/superlogin_test_keys');
+const userDB = couch.db.use('superlogin_test_users');
+const keysDB = couch.db.use('superlogin_test_keys');
 
-var testUserForm = {
+const testUserForm = {
   name: 'Super',
   username: 'superuser',
   email: 'superuser@example.com',
@@ -33,14 +33,14 @@ var testUserForm = {
   zipcode: 'ABC123'
 };
 
-var emailUserForm = {
+const emailUserForm = {
   name: 'Awesome',
   email: 'awesome@example.com',
   password: 'supercool',
   confirmPassword: 'supercool'
 };
 
-var userConfig = new Configure({
+const userConfig = new Configure({
   testMode: {
     noEmail: true
   },
@@ -126,7 +126,7 @@ var userConfig = new Configure({
   }
 });
 
-var req = {
+const req = {
   headers: {
     host: 'example.com'
   },
@@ -134,16 +134,17 @@ var req = {
   ip: '1.1.1.1'
 };
 
-describe('User Model', function () {
-  var mailer = new Mailer(userConfig);
-  var user = new User(userConfig, userDB, keysDB, mailer, emitter);
-  var userTestDB;
-  var previous;
-  var verifyEmailToken;
+describe('User Model', async function () {
+  const mailer = new Mailer(userConfig);
+  let user = new User(userConfig, userDB, keysDB, mailer, emitter);
+  let userTestDB;
+  let previous;
+  let verifyEmailToken;
 
-  before(function () {
-    // 'should prepare the database'
-    var userDesign = require('../designDocs/user-design');
+  before(async function () {
+    await couch.db.create('superlogin_test_users');
+    await couch.db.create('superlogin_test_keys');
+    let userDesign = require('../lib/design/user-design');
     userDesign = util.addProvidersToDesignDoc(userConfig, userDesign);
     previous = Promise.resolve();
     return previous
@@ -151,31 +152,39 @@ describe('User Model', function () {
         return seed(userDB, userDesign);
       })
       .then(() => {
+        console.log('Database has been prepared.');
         return userDB.get('_design/auth');
       });
   });
 
   after(function () {
     // 'should destroy all the test databases'
-    return previous.finally(function () {
-      console.log('Destroying database');
-      var userTestDB1 = new PouchDB(dbUrl + '/test_usertest$superuser');
-      var userTestDB2 = new PouchDB(dbUrl + '/test_usertest$misterx');
-      var userTestDB3 = new PouchDB(dbUrl + '/test_usertest$misterx3');
-      var userTestDB4 = new PouchDB(dbUrl + '/test_superdb');
-      return Promise.all([
-        userDB.destroy(),
-        keysDB.destroy(),
-        userTestDB1.destroy(),
-        userTestDB2.destroy(),
-        userTestDB3.destroy(),
-        userTestDB4.destroy()
-      ]);
+    return previous.finally(async () => {
+      console.log('Destroying databases');
+      const testDbs = [
+        'superlogin_test_users',
+        'superlogin_test_keys',
+        'test_usertest$superuser',
+        'test_usertest$misterx',
+        'test_usertest$misterx3',
+        'test_superdb'
+      ];
+      for (const testDb of testDbs) {
+        try {
+          await couch.db.destroy(testDb);
+        } catch (err) {
+          if (!['test_superdb', 'test_usertest$superuser'].includes(testDb)) {
+            console.log('Expected but could not delete db: ', testDb);
+          }
+        }
+      }
+      return Promise.resolve();
+      //return Promise.(testDbs.map(db => couch.db.destroy(db)));
     });
   });
 
   it('should save a new user', function () {
-    var emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise(function (resolve) {
       emitter.once('signup', function (user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -217,7 +226,7 @@ describe('User Model', function () {
 
   it('should have created a user db with design doc and _security', function () {
     console.log('Checking user db and design doc');
-    userTestDB = new PouchDB(dbUrl + '/test_usertest$superuser');
+    userTestDB = couch.db.use('test_usertest$superuser');
     return previous
       .then(function () {
         return userTestDB.get('_design/test');
@@ -274,10 +283,10 @@ describe('User Model', function () {
       });
   });
 
-  var sessionKey, sessionPass, firstExpires;
+  let sessionKey, sessionPass, firstExpires;
 
   it('should generate a new session for the user', function () {
-    var emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise(function (resolve) {
       emitter.once('login', function (session) {
         expect(session.user_id).to.equal('superuser');
         resolve();
@@ -323,7 +332,7 @@ describe('User Model', function () {
   });
 
   it('should refresh a session', function () {
-    var emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise(function (resolve) {
       emitter.once('refresh', function (session) {
         expect(session.user_id).to.equal('superuser');
         resolve();
@@ -355,7 +364,7 @@ describe('User Model', function () {
         expect(token.roles).to.include('user');
         expect(token.roles).to.include('user:superuser');
         expect(token._id).to.equal('superuser');
-        for (let k of ['password', 'salt', 'iterations', 'password_scheme']) {
+        for (const k of ['password', 'salt', 'iterations', 'password_scheme']) {
           expect(token[k]).to.equal(undefined);
         }
         console.log('confirmed with db fallback');
@@ -364,7 +373,7 @@ describe('User Model', function () {
   });
 
   it('should log out of a session', function () {
-    var emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise(function (resolve) {
       emitter.once('logout', function (user_id) {
         expect(user_id).to.equal('superuser');
         resolve();
@@ -405,15 +414,15 @@ describe('User Model', function () {
   });
 
   it('should log the user out of all sessions', function () {
-    var emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise(function (resolve) {
       emitter.once('logout-all', function (user_id) {
         expect(user_id).to.equal('superuser');
         resolve();
       });
     });
 
-    var sessions = [];
-    var passes = [];
+    const sessions = [];
+    const passes = [];
 
     return previous
       .then(function () {
@@ -457,7 +466,7 @@ describe('User Model', function () {
   });
 
   it('should verify the email', function () {
-    var emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise(function (resolve) {
       emitter.once('email-verified', function (user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -479,12 +488,12 @@ describe('User Model', function () {
       });
   });
 
-  var resetToken;
-  var resetTokenHashed;
-  var spySendMail;
+  let resetToken;
+  let resetTokenHashed;
+  let spySendMail;
 
   it('should generate a password reset token', function () {
-    var emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise(function (resolve) {
       emitter.once('forgot-password', function (user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -510,7 +519,7 @@ describe('User Model', function () {
 
         expect(spySendMail.callCount).to.equal(1);
 
-        var args = spySendMail.getCall(0).args;
+        const args = spySendMail.getCall(0).args;
         expect(args[0]).to.equal('forgotPassword');
         expect(args[1]).to.equal(testUserForm.email);
         expect(args[2].user._id).to.equal(testUserForm.username);
@@ -523,7 +532,7 @@ describe('User Model', function () {
   });
 
   it('should not reset the password', function () {
-    var emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise(function (resolve) {
       emitter.once('email-changed', function (user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -533,7 +542,7 @@ describe('User Model', function () {
     return previous
       .then(function () {
         console.log('Resetting the password');
-        var form = {
+        const form = {
           token: resetToken,
           password: 'secret',
           confirmPassword: 'secret'
@@ -555,7 +564,7 @@ describe('User Model', function () {
   });
 
   it('should reset the password', function () {
-    var emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise(function (resolve) {
       emitter.once('password-reset', function (user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -565,7 +574,7 @@ describe('User Model', function () {
     return previous
       .then(function () {
         console.log('Resetting the password');
-        var form = {
+        const form = {
           token: resetToken,
           password: 'newSecret',
           confirmPassword: 'newSecret'
@@ -581,7 +590,7 @@ describe('User Model', function () {
         expect(userAfterReset.activity[0].action).to.equal('reset password');
 
         expect(spySendMail.callCount).to.equal(2);
-        var args = spySendMail.getCall(1).args;
+        const args = spySendMail.getCall(1).args;
         expect(args[0]).to.equal('modifiedPassword');
         expect(args[1]).to.equal(testUserForm.email);
         expect(args[2].user._id).to.equal(testUserForm.username);
@@ -594,7 +603,7 @@ describe('User Model', function () {
   });
 
   it('should change the password', function () {
-    var emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise(function (resolve) {
       emitter.once('password-change', function (user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -604,7 +613,7 @@ describe('User Model', function () {
     return previous
       .then(function () {
         console.log('Changing the password');
-        var form = {
+        const form = {
           currentPassword: 'newSecret',
           newPassword: 'superpassword2',
           confirmPassword: 'superpassword2'
@@ -618,7 +627,7 @@ describe('User Model', function () {
         expect(userAfterChange.activity[0].action).to.equal('changed password');
 
         expect(spySendMail.callCount).to.equal(3);
-        var args = spySendMail.getCall(2).args;
+        const args = spySendMail.getCall(2).args;
         expect(args[0]).to.equal('modifiedPassword');
         expect(args[1]).to.equal(testUserForm.email);
         expect(args[2].user._id).to.equal(testUserForm.username);
@@ -631,7 +640,7 @@ describe('User Model', function () {
   });
 
   it('should change the email', function () {
-    var emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise(function (resolve) {
       emitter.once('email-changed', function (user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -660,15 +669,15 @@ describe('User Model', function () {
   });
 
   it('should create a new account from facebook auth', function () {
-    var emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise(function (resolve) {
       emitter.once('signup', function (user) {
         expect(user._id).to.equal('misterx');
         resolve();
       });
     });
 
-    var auth = { token: 'x' };
-    var profile = {
+    const auth = { token: 'x' };
+    const profile = {
       id: 'abc123',
       username: 'misterx',
       emails: [{ value: 'misterx@example.com' }]
@@ -694,8 +703,8 @@ describe('User Model', function () {
   });
 
   it('should refresh an existing account from facebook auth', function () {
-    var auth = { token: 'y' };
-    var profile = {
+    const auth = { token: 'y' };
+    const profile = {
       id: 'abc123',
       username: 'misterx',
       emails: [{ value: 'misterx@example.com' }]
@@ -715,8 +724,8 @@ describe('User Model', function () {
   });
 
   it('should reject an email already in use', function () {
-    var auth = { token: 'y' };
-    var profile = {
+    const auth = { token: 'y' };
+    const profile = {
       id: 'cde456',
       username: 'misterx2',
       emails: [{ value: 'misterx@example.com' }]
@@ -738,17 +747,21 @@ describe('User Model', function () {
   });
 
   it('should generate a username in case of conflict', function () {
-    var auth = { token: 'y' };
-    var profile = {
+    const auth = { token: 'y' };
+    const profile = {
       id: 'cde456',
       username: 'misterx',
       emails: [{ value: 'misterx99@example.com' }]
     };
-    var docs = [{ _id: 'misterx1' }, { _id: 'misterx2' }, { _id: 'misterx4' }];
+    const docs = [
+      { _id: 'misterx1' },
+      { _id: 'misterx2' },
+      { _id: 'misterx4' }
+    ];
 
     return previous
       .then(function () {
-        return userDB.bulkDocs(docs);
+        return userDB.bulk({ docs: docs });
       })
       .then(function () {
         return user.socialAuth('facebook', auth, profile, req);
@@ -759,8 +772,8 @@ describe('User Model', function () {
   });
 
   it('should link a social profile to an existing user', function () {
-    var auth = { token: 'y' };
-    var profile = {
+    const auth = { token: 'y' };
+    const profile = {
       id: 'efg789',
       username: 'superuser',
       emails: [{ value: 'superuser@example.com' }]
@@ -794,8 +807,8 @@ describe('User Model', function () {
   });
 
   it('should clean all expired sessions', function () {
-    var now = Date.now();
-    var testUser = {
+    const now = Date.now();
+    const testUser = {
       _id: 'testuser',
       session: {
         good1: {
@@ -822,8 +835,7 @@ describe('User Model', function () {
   });
 
   it('should log out of all other sessions', function () {
-    var now = Date.now();
-    var testUser = {
+    const testUser = {
       _id: 'testuser',
       session: {
         this1: {},
@@ -835,7 +847,7 @@ describe('User Model', function () {
     return previous
       .then(function () {
         console.log('Logging out of other sessions');
-        return userDB.put(testUser);
+        return userDB.insert(testUser);
       })
       .then(function () {
         return user.logoutOthers('this1');
@@ -903,7 +915,7 @@ describe('User Model', function () {
           throw 'User should have been deleted!';
         },
         function (err) {
-          expect(err.name).to.equal('not_found');
+          expect(err.error).to.equal('not_found');
           return checkDBExists('test_usertest$superuser');
         }
       )
@@ -948,11 +960,11 @@ describe('User Model', function () {
   });
 
   function checkDBExists(dbname) {
-    var finalUrl = dbUrl + '/' + dbname;
+    const finalUrl = dbUrl + '/' + dbname;
     return request
       .get(finalUrl)
       .then(res => {
-        var result = JSON.parse(res.text);
+        const result = JSON.parse(res.text);
         if (result.db_name) {
           return Promise.resolve(true);
         }

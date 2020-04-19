@@ -1,4 +1,4 @@
-var path = require('path');
+const path = require('path');
 
 // These are the default settings that will be used if you don't override them in your config
 module.exports = {
@@ -33,24 +33,27 @@ module.exports = {
   emails: {
     confirmEmail: {
       subject: 'Please confirm your email',
-      template: path.join(__dirname, '../templates/email/confirm-email.ejs'),
+      template: path.join(__dirname, '../../templates/email/confirm-email.ejs'),
       format: 'text'
     },
     confirmEmailChange: {
       subject: 'Please confirm your new email',
-      template: path.join(__dirname, '../templates/email/email-change.ejs'),
+      template: path.join(__dirname, '../../templates/email/email-change.ejs'),
       format: 'text'
     },
     forgotPassword: {
       subject: 'Your password reset link',
-      template: path.join(__dirname, '../templates/email/forgot-password.ejs'),
+      template: path.join(
+        __dirname,
+        '../../templates/email/forgot-password.ejs'
+      ),
       format: 'text'
     },
     modifiedPassword: {
       subject: 'Your password has been modified',
       template: path.join(
         __dirname,
-        '../templates/email/modified-password.ejs'
+        '../../templates/email/modified-password.ejs'
       ),
       format: 'text'
     }

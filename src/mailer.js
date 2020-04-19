@@ -1,13 +1,13 @@
 'use strict';
-var fs = require('fs');
-var nodemailer = require('nodemailer');
-var ejs = require('ejs');
+const fs = require('fs');
+const nodemailer = require('nodemailer');
+const ejs = require('ejs');
 
-class Mailer {
+export class Mailer {
   constructor(config) {
     // Initialize the transport mechanism with nodermailer
     this.config = config;
-    var customTransport = config.getItem('mailer.transport');
+    const customTransport = config.getItem('mailer.transport');
     if (config.getItem('testMode.noEmail')) {
       this.transporter = nodemailer.createTransport(
         require('nodemailer-stub-transport')()
@@ -36,7 +36,7 @@ class Mailer {
       templateFiles = [templateFile];
     }
 
-    let readTemplates = templateFiles.map(t => fs.readFileSync(t, 'utf8'));
+    const readTemplates = templateFiles.map(t => fs.readFileSync(t, 'utf8'));
     for (let i = 0; i < templateFiles.length; i++) {
       if (!readTemplates[i]) {
         return Promise.reject(
@@ -44,7 +44,7 @@ class Mailer {
         );
       }
     }
-    let renderedTemplates = readTemplates.map(t => ejs.render(t, locals));
+    const renderedTemplates = readTemplates.map(t => ejs.render(t, locals));
 
     // form the email
     const subject = this.config.getItem('emails.' + templateName + '.subject');
@@ -62,7 +62,7 @@ class Mailer {
           templateName
       );
     }
-    var mailOptions = {
+    const mailOptions = {
       from: this.config.getItem('mailer.fromEmail'),
       to: email,
       subject: subject
@@ -78,4 +78,3 @@ class Mailer {
     return this.transporter.sendMail(mailOptions);
   }
 }
-module.exports = Mailer;

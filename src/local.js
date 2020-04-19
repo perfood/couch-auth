@@ -1,18 +1,18 @@
 'use strict';
-var util = require('./util');
-var LocalStrategy = require('passport-local');
-var BearerStrategy = require('passport-http-bearer-sl').Strategy;
+const util = require('./util');
+const LocalStrategy = require('passport-local');
+const BearerStrategy = require('passport-http-bearer-sl').Strategy;
 
 module.exports = function (config, passport, user) {
   // API token strategy
   passport.use(
     new BearerStrategy(function (tokenPass, done) {
-      var parse = tokenPass.split(':');
+      const parse = tokenPass.split(':');
       if (parse.length < 2) {
         done(null, false, { message: 'invalid token' });
       }
-      var token = parse[0];
-      var password = parse[1];
+      const token = parse[0];
+      const password = parse[1];
       user.confirmSession(token, password).then(
         function (theuser) {
           done(null, theuser);
@@ -102,7 +102,7 @@ module.exports = function (config, passport, user) {
   );
 
   function handleFailedLogin(userDoc, req, done) {
-    var invalid = {
+    const invalid = {
       error: 'Unauthorized',
       message: 'Invalid username or password'
     };

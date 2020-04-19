@@ -1,32 +1,29 @@
 'use strict';
-
-var request = require('superagent');
-var chai = require('chai');
-var sinon = require('sinon');
-var expect = chai.expect;
+const nano = require('nano');
+const request = require('superagent');
+const chai = require('chai');
+const sinon = require('sinon');
+const expect = chai.expect;
 chai.use(require('sinon-chai'));
 
-var Promise = require('bluebird');
-global.Promise = Promise;
-var PouchDB = require('pouchdb');
-var seed = require('pouchdb-seed-design');
-var util = require('../lib/util.js');
+const seed = require('../lib/design/seed').default;
+const util = require('../lib/util');
 
 describe('SuperLogin', function () {
-  var app;
-  var superlogin;
-  var userDB, keysDB;
-  var previous;
-  var accessToken;
-  var accessPass;
-  var expireCompare;
-  var resetToken = null;
+  let app;
+  /** @type {import('nano').DocumentScope} */
+  let userDB;
+  let previous;
+  let accessToken;
+  let accessPass;
+  let expireCompare;
+  let resetToken = null;
 
-  var config = require('./test.config');
-  var server = 'http://localhost:5000';
-  var dbUrl = util.getDBURL(config.dbServer);
-
-  var newUser = {
+  const config = require('./test.config');
+  const server = 'http://localhost:5000';
+  const dbUrl = util.getDBURL(config.dbServer);
+  const couch = nano(dbUrl);
+  const newUser = {
     name: 'Kewl Uzer',
     username: 'kewluzer',
     email: 'kewluzer@example.com',
@@ -34,7 +31,7 @@ describe('SuperLogin', function () {
     confirmPassword: '1s3cret'
   };
 
-  var newUser2 = {
+  const newUser2 = {
     name: 'Kewler Uzer',
     username: 'kewleruzer',
     email: 'kewleruzer@example.com',
@@ -42,28 +39,30 @@ describe('SuperLogin', function () {
     confirmPassword: '1s3cret'
   };
 
-  before(function () {
-    userDB = new PouchDB(dbUrl + '/sl_test-users');
-    keysDB = new PouchDB(dbUrl + '/sl_test-keys');
+  before(async function () {
+    await couch.db.create('sl_test-users');
+    await couch.db.create('sl_test-keys');
+    userDB = couch.use('sl_test-users');
     app = require('./test-server')(config);
     app.superlogin.onCreate((userDoc, provider) => {
       userDoc.profile = { name: userDoc.name };
       return Promise.resolve(userDoc);
     });
 
-    previous = seed(userDB, require('../designDocs/user-design'));
+    previous = seed(userDB, require('../lib/design/user-design'));
     return previous;
   });
 
-  after(function () {
-    return previous
-      .then(function () {
-        return Promise.all([userDB.destroy(), keysDB.destroy()]);
-      })
-      .then(function () {
-        console.log('DBs Destroyed');
-        app.shutdown();
-      });
+  after(async () => {
+    if (previous) {
+      await previous;
+    }
+    await Promise.all([
+      couch.db.destroy('sl_test-users'),
+      couch.db.destroy('sl_test-keys')
+    ]);
+    console.log('DBs Destroyed');
+    app.shutdown();
   });
 
   it('should create a new user', function () {
@@ -81,7 +80,7 @@ describe('SuperLogin', function () {
   });
 
   it('should verify the email', function () {
-    var emailToken;
+    let emailToken;
     return previous.then(function () {
       return userDB
         .get('kewluzer')
@@ -168,7 +167,7 @@ describe('SuperLogin', function () {
   });
 
   it('should generate a forgot password token', function () {
-    var spySendMail = sinon.spy(app.superlogin.mailer, 'sendEmail');
+    const spySendMail = sinon.spy(app.superlogin.mailer, 'sendEmail');
 
     return previous.then(function () {
       return new Promise(function (resolve, reject) {
@@ -178,7 +177,7 @@ describe('SuperLogin', function () {
           .then(res => {
             expect(res.status).to.equal(200);
             // keep unhashed token emailed to user.
-            var sendEmailArgs = spySendMail.getCall(0).args;
+            const sendEmailArgs = spySendMail.getCall(0).args;
             resetToken = sendEmailArgs[2].token;
             console.log('Password token successfully generated.');
             resolve();
@@ -400,7 +399,7 @@ describe('SuperLogin', function () {
   it('should respond unauthorized if a user logs in and no password is set', function () {
     return previous
       .then(function () {
-        return userDB.put({
+        return userDB.insert({
           _id: 'nopassword',
           email: 'nopassword@example.com'
         });

@@ -1,9 +1,11 @@
 'use strict';
-var PouchDB = require('pouchdb');
-var expect = require('chai').expect;
-var cloudant = require('../lib/dbauth/cloudant');
+const PouchDB = require('pouchdb');
+const expect = require('chai').expect;
+const CloudantAdapter = require('../src/dbauth/cloudant').CloudantAdapter;
+const cloudant = new CloudantAdapter();
+// todo: test with nano instead!
 
-var cloudantUrl =
+const cloudantUrl =
   'https://' +
   process.env.CLOUDANT_USER +
   ':' +
@@ -11,11 +13,11 @@ var cloudantUrl =
   '@' +
   process.env.CLOUDANT_USER +
   '.cloudant.com';
-var testDB;
-var previous;
+let testDB;
+let previous;
 
 describe('Cloudant', function () {
-  var apiKey;
+  let apiKey;
 
   previous = Promise.resolve();
 

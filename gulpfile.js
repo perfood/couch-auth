@@ -3,6 +3,8 @@ const { src, series } = require('gulp'),
   mocha = require('gulp-mocha'),
   babel = require('gulp-babel');
 
+console.log('running tests from working directory: ', __dirname);
+
 function lint() {
   return src(['./lib/**/*.js', './test/*.js'])
     .pipe(babel({ plugins: ['@babel/plugin-proposal-class-properties'] }))
@@ -52,6 +54,7 @@ exports.default = series(
   middleware_test,
   dbauth_test,
   session_test,
+  mailer_test,
   user_test,
   final_test
 );

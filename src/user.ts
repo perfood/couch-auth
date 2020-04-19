@@ -1,22 +1,54 @@
 'use strict';
 
-var url = require('url');
-var Model = require('sofa-model');
-var extend = require('extend');
-var Session = require('./session');
-var util = require('./util');
-var DBAuth = require('./dbauth');
+import { DBAuth } from './dbauth';
+import { DocumentScope } from 'nano';
+import { Config } from 'config';
+
+const url = require('url');
+import Model from 'sofa-model';
+import extend from 'extend';
+import Session from './session';
+import * as util from './util';
+import { SlSession } from './types/typings';
 
 // regexp from https://github.com/angular/angular.js/blob/master/src/ng/directive/input.js#L27
-var EMAIL_REGEXP = /^(?=.{1,254}$)(?=.{1,64}@)[-!#$%&'*+/0-9=?A-Z^_`a-z{|}~]+(\.[-!#$%&'*+/0-9=?A-Z^_`a-z{|}~]+)*@[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/;
-var USER_REGEXP = /^[a-z0-9_-]{3,16}$/;
+const EMAIL_REGEXP = /^(?=.{1,254}$)(?=.{1,64}@)[-!#$%&'*+/0-9=?A-Z^_`a-z{|}~]+(\.[-!#$%&'*+/0-9=?A-Z^_`a-z{|}~]+)*@[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/;
+const USER_REGEXP = /^[a-z0-9_-]{3,16}$/;
 
-class User {
-  #dbAuth;
+export class User {
+  #dbAuth: DBAuth;
   #session;
   #onCreateActions;
   #onLinkActions;
-  constructor(config, userDB, couchAuthDB, mailer, emitter) {
+  userDB: DocumentScope<any>;
+  config: Config;
+  mailer;
+  emitter;
+
+  // config flags
+  tokenLife: number;
+  sessionLife: number;
+  useDbFallback: boolean;
+  emailUsername: boolean;
+
+  passwordConstraints;
+  // validation funs. todo: implement via bind...
+  validateUsername: Function;
+  validateEmail: Function;
+  validateEmailUsername: Function;
+
+  // Models
+  userModel;
+  resetPasswordModel;
+  changePasswordModel;
+
+  constructor(
+    config: Config,
+    userDB: DocumentScope<any>,
+    couchAuthDB: DocumentScope<any>,
+    mailer,
+    emitter
+  ) {
     this.userDB = userDB;
     this.config = config;
     this.mailer = mailer;
@@ -55,62 +87,68 @@ class User {
     );
 
     // the validation functions are public
-    this.validateUsername = function (username) {
+    this.validateUsername = async function (username) {
       if (!username) {
-        return Promise.resolve();
+        return;
       }
       if (username.startsWith('_') || !username.match(USER_REGEXP)) {
-        return Promise.resolve('Invalid username');
+        return 'Invalid username';
       }
-      return userDB.query('auth/username', { key: username }).then(result => {
+      try {
+        const result = await userDB.view('auth', 'username', { key: username });
         if (result.rows.length === 0) {
           // Pass!
-          return Promise.resolve();
+          return;
         } else {
-          return Promise.resolve('already in use');
+          return 'already in use';
         }
-      });
+      } catch (err) {
+        throw new Error(err);
+      }
     };
 
-    this.validateEmail = function (email) {
+    this.validateEmail = async function (email) {
       if (!email) {
-        return Promise.resolve();
+        return;
       }
       if (!email.match(EMAIL_REGEXP)) {
-        return Promise.resolve('invalid email');
+        return 'invalid email';
       }
-      return userDB.query('auth/email', { key: email }).then(result => {
+      try {
+        const result = await userDB.view('auth', 'email', { key: email });
         if (result.rows.length === 0) {
           // Pass!
-          return Promise.resolve();
+          return;
         } else {
-          return Promise.resolve('already in use');
+          return 'already in use';
         }
-      });
+      } catch (err) {
+        throw new Error(err);
+      }
     };
 
-    this.validateEmailUsername = function (email) {
+    this.validateEmailUsername = async function (email) {
       if (!email) {
-        return Promise.resolve();
+        return;
       }
       if (!email.match(EMAIL_REGEXP)) {
-        return Promise.resolve('invalid email');
+        return 'invalid email';
       }
-      return userDB.query('auth/emailUsername', { key: email }).then(
-        result => {
-          if (result.rows.length === 0) {
-            return Promise.resolve();
-          } else {
-            return Promise.resolve('already in use');
-          }
-        },
-        err => {
-          throw new Error(err);
+      try {
+        const result = await userDB.view('auth', 'emailUsername', {
+          key: email
+        });
+        if (result.rows.length === 0) {
+          return;
+        } else {
+          return 'already in use';
         }
-      );
+      } catch (err) {
+        throw new Error(err);
+      }
     };
 
-    let userModel = {
+    const userModel = {
       async: true,
       whitelist: ['name', 'username', 'email', 'password', 'confirmPassword'],
       customValidators: {
@@ -127,7 +165,8 @@ class User {
       validate: {
         email: {
           presence: true,
-          validateEmail: true
+          validateEmail: true,
+          validateEmailUsername: true
         },
         username: {
           presence: true,
@@ -152,7 +191,8 @@ class User {
       delete userModel.validate.username;
       delete userModel.validate.email.validateEmail;
       delete userModel.rename.username;
-      userModel.validate.email.validateEmailUsername = true;
+    } else {
+      delete userModel.validate.email.validateEmailUsername;
     }
 
     this.userModel = userModel;
@@ -225,7 +265,7 @@ class User {
   }
 
   processTransformations(fnArray, userDoc, provider) {
-    var promise;
+    let promise;
     fnArray.forEach(fn => {
       if (!promise) {
         promise = fn.call(null, userDoc, provider);
@@ -245,14 +285,14 @@ class User {
   }
 
   getUser(login) {
-    var query;
+    let query;
     if (this.emailUsername) {
       query = 'emailUsername';
     } else {
       query = EMAIL_REGEXP.test(login) ? 'email' : 'username';
     }
     return this.userDB
-      .query('auth/' + query, { key: login, include_docs: true })
+      .view('auth', query, { key: login, include_docs: true })
       .then(results => {
         if (results.rows.length > 0) {
           return Promise.resolve(results.rows[0].doc);
@@ -264,10 +304,10 @@ class User {
 
   createUser(form, req) {
     req = req || {};
-    var finalUserModel = this.userModel;
-    var newUserModel = this.config.getItem('userModel');
+    let finalUserModel = this.userModel;
+    const newUserModel = this.config.getItem('userModel');
     if (typeof newUserModel === 'object') {
-      var whitelist;
+      let whitelist;
       if (newUserModel.whitelist) {
         whitelist = util.arrayUnion(
           this.userModel.whitelist,
@@ -282,9 +322,9 @@ class User {
       );
       finalUserModel.whitelist = whitelist || finalUserModel.whitelist;
     }
-    var UserModel = Model(finalUserModel);
-    var user = new UserModel(form);
-    var newUser;
+    const UserModel = Model(finalUserModel);
+    const user = new UserModel(form);
+    let newUser;
     return user
       .process()
       .then(result => {
@@ -334,7 +374,7 @@ class User {
         );
       })
       .then(finalNewUser => {
-        return this.userDB.put(finalNewUser);
+        return this.userDB.insert(finalNewUser);
       })
       .then(result => {
         newUser._rev = result.rev;
@@ -356,21 +396,21 @@ class User {
   /**
    * Creates a new user following authentication from an OAuth provider. If the user already exists it will update the profile.
    * @param {string} provider the name of the provider in lowercase, (e.g. 'facebook')
-   * @param {string} auth credentials supplied by the provider
+   * @param {any} auth credentials supplied by the provider
    * @param {any} profile the profile supplied by the provider
    * @param {any} req used just to log the user's ip if supplied
    */
   socialAuth(provider, auth, profile, req) {
-    var user;
-    var newAccount = false;
-    var action;
-    var baseUsername;
+    let user;
+    let newAccount = false;
+    let action;
+    let baseUsername;
     req = req || {};
-    var ip = req.ip;
+    const ip = req.ip;
     // It is important that we return a Bluebird promise so oauth.js can call .nodeify()
     return Promise.resolve()
       .then(() => {
-        return this.userDB.query('auth/' + provider, {
+        return this.userDB.view('auth', provider, {
           key: profile.id,
           include_docs: true
         });
@@ -394,7 +434,7 @@ class User {
           };
           user[provider] = {};
 
-          var emailFail = () => {
+          const emailFail = () => {
             return Promise.reject({
               error: 'Email already in use',
               message:
@@ -407,10 +447,7 @@ class User {
             if (!user.email) {
               return Promise.reject({
                 error: 'No email provided',
-                message:
-                  'An email is required for registration, but ' +
-                  provider +
-                  " didn't supply one.",
+                message: `An email is required for registration, but ${provider} didn't supply one.`,
                 status: 400
               });
             }
@@ -426,7 +463,7 @@ class User {
             } else {
               // If a username isn't specified we'll take it from the email
               if (user.email) {
-                var parseEmail = user.email.split('@');
+                const parseEmail = user.email.split('@');
                 baseUsername = parseEmail[0].toLowerCase();
               } else if (profile.displayName) {
                 baseUsername = profile.displayName
@@ -481,7 +518,7 @@ class User {
         }
       })
       .then(finalUser => {
-        return this.userDB.put(finalUser);
+        return this.userDB.insert(finalUser);
       })
       .then(() => {
         if (action === 'signup') {
@@ -493,11 +530,11 @@ class User {
 
   linkSocial(user_id, provider, auth, profile, req) {
     req = req || {};
-    var user;
+    let user;
     // Load user doc
     return Promise.resolve()
       .then(() => {
-        return this.userDB.query('auth/' + provider, { key: profile.id });
+        return this.userDB.view('auth', provider, { key: profile.id });
       })
       .then(results => {
         if (results.rows.length === 0) {
@@ -536,17 +573,17 @@ class User {
           return Promise.resolve({ rows: [] });
         }
         if (this.emailUsername) {
-          return this.userDB.query('auth/emailUsername', {
+          return this.userDB.view('auth', 'emailUsername', {
             key: profile.emails[0].value
           });
         } else {
-          return this.userDB.query('auth/email', {
+          return this.userDB.view('auth', 'email', {
             key: profile.emails[0].value
           });
         }
       })
       .then(results => {
-        var passed;
+        let passed;
         if (results.rows.length === 0) {
           passed = true;
         } else {
@@ -595,7 +632,7 @@ class User {
         );
       })
       .then(finalUser => {
-        return this.userDB.put(finalUser);
+        return this.userDB.insert(finalUser);
       })
       .then(() => {
         return Promise.resolve(user);
@@ -609,7 +646,7 @@ class User {
    * @param {string} provider
    */
   unlink(user_id, provider) {
-    var user;
+    let user;
     return this.userDB
       .get(user_id)
       .then(theUser => {
@@ -655,7 +692,7 @@ class User {
         delete user[provider];
         // Remove the unlinked provider from the list of providers
         user.providers.splice(user.providers.indexOf(provider), 1);
-        return this.userDB.put(user);
+        return this.userDB.insert(user);
       })
       .then(() => {
         return Promise.resolve(user);
@@ -665,129 +702,105 @@ class User {
   /**
    * Creates a new session for a user. provider is the name of the provider. (eg. 'local', 'facebook', twitter.)
    * req is used to log the IP if provided.
-   * @param {string} user_id
-   * @param {string} provider
-   * @param {any} req
-   *
-   * @returns {import('../types/user').SlSession} the newly created session
    */
-  createSession(user_id, provider, req) {
-    var user;
-    var newToken;
-    var newSession;
-    var password;
-    req = req || {};
-    var ip = req.ip;
-    return this.userDB
-      .get(user_id)
-      .then(record => {
-        user = record;
-        return this.generateSession(user._id, user.roles);
-      })
-      .then(token => {
-        password = token.password;
-        newToken = token;
-        newToken.provider = provider;
-        return this.#session.storeToken(newToken);
-      })
-      .then(() => {
-        return this.#dbAuth.storeKey(
-          user_id,
-          newToken.key,
-          password,
-          newToken.expires,
-          user.roles,
-          provider
-        );
-      })
-      .then(() => {
-        // authorize the new session across all dbs
-        if (!user.personalDBs) {
-          return Promise.resolve();
-        }
-        return this.#dbAuth.authorizeUserSessions(
-          user_id,
-          user.personalDBs,
-          newToken.key,
-          user.roles
-        );
-      })
-      .then(() => {
-        if (!user.session) {
-          user.session = {};
-        }
-        newSession = {
-          issued: newToken.issued,
-          expires: newToken.expires,
-          provider: provider,
-          ip: ip
-        };
-        user.session[newToken.key] = newSession;
-        // Clear any failed login attempts
-        if (provider === 'local') {
-          if (!user.local) user.local = {};
-          user.local.failedLoginAttempts = 0;
-          delete user.local.lockedUntil;
-        }
-        return this.logActivity(user._id, 'login', provider, req, user);
-      })
-      .then(userDoc => {
-        // Clean out expired sessions on login
-        return this.logoutUserSessions(userDoc, 'expired');
-      })
-      .then(finalUser => {
-        user = finalUser;
-        return this.userDB.put(finalUser);
-      })
-      .then(() => {
-        newSession.token = newToken.key;
-        newSession.password = password;
-        newSession.user_id = user._id;
-        newSession.roles = user.roles;
-        // Inject the list of userDBs
-        if (typeof user.personalDBs === 'object') {
-          var userDBs = {};
-          var publicURL;
-          if (this.config.getItem('dbServer.publicURL')) {
-            var dbObj = url.parse(this.config.getItem('dbServer.publicURL'));
-            dbObj.auth = newSession.token + ':' + newSession.password;
-            publicURL = url.format(dbObj);
-          } else {
-            publicURL =
-              this.config.getItem('dbServer.protocol') +
-              newSession.token +
-              ':' +
-              newSession.password +
-              '@' +
-              this.config.getItem('dbServer.host') +
-              '/';
-          }
-          Object.keys(user.personalDBs).forEach(finalDBName => {
-            userDBs[user.personalDBs[finalDBName].name] =
-              publicURL + finalDBName;
-          });
-          newSession.userDBs = userDBs;
-        }
-        if (user.profile) {
-          newSession.profile = user.profile;
-        }
-        // New config option: also send name and user-ID
-        if (this.config.getItem('local.sendNameAndUUID')) {
-          if (user.name) {
-            newSession.name = user.name;
-          }
-          if (user.user_uid) {
-            newSession.user_uid = user.user_uid;
-          }
-        }
-        this.emitter.emit('login', newSession, provider);
-        return Promise.resolve(newSession);
+  async createSession(user_id: string, provider: string, req: any = {}) {
+    const ip = req.ip;
+    let user = await this.userDB.get(user_id);
+    const token = await this.generateSession(user._id, user.roles);
+    const password = token.password;
+    const newToken = token;
+    newToken.provider = provider;
+    await this.#session.storeToken(newToken);
+    await this.#dbAuth.storeKey(
+      user_id,
+      newToken.key,
+      password,
+      newToken.expires,
+      user.roles,
+      provider
+    );
+    // authorize the new session across all dbs
+    if (user.personalDBs) {
+      await this.#dbAuth.authorizeUserSessions(
+        user_id,
+        user.personalDBs,
+        newToken.key,
+        user.roles
+      );
+    }
+    if (!user.session) {
+      user.session = {};
+    }
+    const newSession: Partial<SlSession> = {
+      issued: newToken.issued,
+      expires: newToken.expires,
+      provider: provider,
+      ip: ip
+    };
+    user.session[newToken.key] = newSession;
+    // Clear any failed login attempts
+    if (provider === 'local') {
+      if (!user.local) user.local = {};
+      user.local.failedLoginAttempts = 0;
+      delete user.local.lockedUntil;
+    }
+    const userDoc = await this.logActivity(
+      user._id,
+      'login',
+      provider,
+      req,
+      user
+    );
+    // Clean out expired sessions on login
+    const finalUser = await this.logoutUserSessions(userDoc, 'expired');
+    user = finalUser;
+    await this.userDB.insert(finalUser);
+    newSession.token = newToken.key;
+    newSession.password = password;
+    newSession.user_id = user._id;
+    newSession.roles = user.roles;
+    // Inject the list of userDBs
+    if (typeof user.personalDBs === 'object') {
+      const userDBs = {};
+      let publicURL;
+      if (this.config.getItem('dbServer.publicURL')) {
+        const dbObj = url.parse(this.config.getItem('dbServer.publicURL'));
+        dbObj.auth = newSession.token + ':' + newSession.password;
+        publicURL = url.format(dbObj);
+      } else {
+        publicURL =
+          this.config.getItem('dbServer.protocol') +
+          newSession.token +
+          ':' +
+          newSession.password +
+          '@' +
+          this.config.getItem('dbServer.host') +
+          '/';
+      }
+      Object.keys(user.personalDBs).forEach(finalDBName => {
+        userDBs[user.personalDBs[finalDBName].name] = publicURL + finalDBName;
       });
+      newSession.userDBs = userDBs;
+    }
+    if (user.profile) {
+      newSession.profile = user.profile;
+    }
+    // New config option: also send name and user-ID
+    if (this.config.getItem('local.sendNameAndUUID')) {
+      if (user.name) {
+        newSession.name = user.name;
+      }
+      if (user.user_uid) {
+        newSession.user_uid = user.user_uid;
+      }
+    }
+    this.emitter.emit('login', newSession, provider);
+    return newSession;
   }
 
   handleFailedLogin(user, req) {
     req = req || {};
-    var maxFailedLogins = this.config.getItem('security.maxFailedLogins');
+    const maxFailedLogins = this.config.getItem('security.maxFailedLogins');
     if (!maxFailedLogins) {
       return Promise.resolve();
     }
@@ -805,19 +818,19 @@ class User {
     }
     return this.logActivity(user._id, 'failed login', 'local', req, user)
       .then(finalUser => {
-        return this.userDB.put(finalUser);
+        return this.userDB.insert(finalUser);
       })
       .then(() => {
         return Promise.resolve(!!user.local.lockedUntil);
       });
   }
 
-  logActivity(user_id, action, provider, req, userDoc, saveDoc) {
-    var logSize = this.config.getItem('security.userActivityLogSize');
+  logActivity(user_id, action, provider, req, userDoc, saveDoc?) {
+    const logSize = this.config.getItem('security.userActivityLogSize');
     if (!logSize) {
       return Promise.resolve(userDoc);
     }
-    var promise;
+    let promise;
     if (userDoc) {
       promise = Promise.resolve(userDoc);
     } else {
@@ -831,7 +844,7 @@ class User {
       if (!userDoc.activity || !(userDoc.activity instanceof Array)) {
         userDoc.activity = [];
       }
-      var entry = {
+      const entry = {
         timestamp: new Date().toISOString(),
         action: action,
         provider: provider,
@@ -842,7 +855,7 @@ class User {
         userDoc.activity.pop();
       }
       if (saveDoc) {
-        return this.userDB.put(userDoc).then(() => {
+        return this.userDB.insert(userDoc).then(() => {
           return Promise.resolve(userDoc);
         });
       } else {
@@ -858,7 +871,7 @@ class User {
    * @returns {import('../types/user').SlSession} the updated session
    */
   refreshSession(key) {
-    var newSession;
+    let newSession;
     return this.#session
       .fetchToken(key)
       .then(oldToken => {
@@ -870,13 +883,13 @@ class User {
         ]);
       })
       .then(results => {
-        var userDoc = results[0];
+        const userDoc = results[0];
         userDoc.session[key].expires = newSession.expires;
         // Clean out expired sessions on refresh
         return this.logoutUserSessions(userDoc, 'expired');
       })
       .then(finalUser => {
-        return this.userDB.put(finalUser);
+        return this.userDB.insert(finalUser);
       })
       .then(() => {
         delete newSession.password;
@@ -898,15 +911,15 @@ class User {
    */
   resetPassword(form, req = undefined) {
     req = req || {};
-    var ResetPasswordModel = Model(this.resetPasswordModel);
-    var passwordResetForm = new ResetPasswordModel(form);
-    var user;
+    const ResetPasswordModel = Model(this.resetPasswordModel);
+    const passwordResetForm = new ResetPasswordModel(form);
+    let user;
     return passwordResetForm
       .validate()
       .then(
         () => {
-          var tokenHash = util.hashToken(form.token);
-          return this.userDB.query('auth/passwordReset', {
+          const tokenHash = util.hashToken(form.token);
+          return this.userDB.view('auth', 'passwordReset', {
             key: tokenHash,
             include_docs: true
           });
@@ -941,19 +954,12 @@ class User {
         // logout user completely
         return this.logoutUserSessions(user, 'all');
       })
-      .then(async userDoc => {
+      .then(userDoc => {
         user = userDoc;
         delete user.forgotPassword;
-        if (user.unverifiedEmail) {
-          user = await this.markEmailAsVerified(
-            user,
-            'verified via password reset',
-            req
-          );
-        }
         return this.logActivity(user._id, 'reset password', 'local', req, user);
       })
-      .then(finalUser => this.userDB.put(finalUser))
+      .then(finalUser => this.userDB.insert(finalUser))
       .then(() => this.sendModifiedPasswordEmail(user, req))
       .then(() => {
         this.emitter.emit('password-reset', user);
@@ -963,9 +969,9 @@ class User {
 
   changePasswordSecure(user_id, form, req) {
     req = req || {};
-    var ChangePasswordModel = Model(this.changePasswordModel);
-    var changePasswordForm = new ChangePasswordModel(form);
-    var user;
+    const ChangePasswordModel = Model(this.changePasswordModel);
+    const changePasswordForm = new ChangePasswordModel(form);
+    let user;
     return changePasswordForm
       .validate()
       .then(
@@ -1025,7 +1031,7 @@ class User {
 
   changePassword(user_id, newPassword, userDoc, req) {
     req = req || {};
-    var promise, user;
+    let promise, user;
     if (userDoc) {
       promise = Promise.resolve(userDoc);
     } else {
@@ -1061,14 +1067,13 @@ class User {
           user
         );
       })
-      .then(finalUser => this.userDB.put(finalUser))
+      .then(finalUser => this.userDB.insert(finalUser))
       .then(() => this.sendModifiedPasswordEmail(user, req))
       .then(() => {
         this.emitter.emit('password-change', user);
       });
   }
 
-  /** @private */
   sendModifiedPasswordEmail(user, req) {
     if (this.config.getItem('local.sendPasswordChangedEmail')) {
       return this.mailer.sendEmail(
@@ -1083,9 +1088,9 @@ class User {
 
   forgotPassword(email, req) {
     req = req || {};
-    var user, token, tokenHash;
+    let user, token, tokenHash;
     return this.userDB
-      .query('auth/email', { key: email, include_docs: true })
+      .view('auth', 'email', { key: email, include_docs: true })
       .then(result => {
         if (!result.rows.length) {
           return Promise.reject({
@@ -1116,7 +1121,7 @@ class User {
         );
       })
       .then(finalUser => {
-        return this.userDB.put(finalUser);
+        return this.userDB.insert(finalUser);
       })
       .then(() => {
         return this.mailer.sendEmail(
@@ -1133,70 +1138,72 @@ class User {
 
   verifyEmail(token, req) {
     req = req || {};
-    var user;
+    let user;
     return this.userDB
-      .query('auth/verifyEmail', { key: token, include_docs: true })
+      .view('auth', 'verifyEmail', { key: token, include_docs: true })
       .then(result => {
         if (!result.rows.length) {
           return Promise.reject({ error: 'Invalid token', status: 400 });
         }
         user = result.rows[0].doc;
-        return this.markEmailAsVerified(user, 'verified email', req);
+        user.email = user.unverifiedEmail.email;
+        delete user.unverifiedEmail;
+        this.emitter.emit('email-verified', user);
+        return this.logActivity(user._id, 'verified email', 'local', req, user);
       })
       .then(finalUser => {
-        return this.userDB.put(finalUser);
+        return this.userDB.insert(finalUser);
       });
   }
 
-  /**
-   * @private
-   */
-  async markEmailAsVerified(userDoc, logInfo, req) {
-    userDoc.email = userDoc.unverifiedEmail.email;
-    delete userDoc.unverifiedEmail;
-    this.emitter.emit('email-verified', userDoc);
-    return await this.logActivity(userDoc._id, logInfo, 'local', req, userDoc);
-  }
-
-  async changeEmail(user_id, newEmail, req) {
+  changeEmail(user_id, newEmail, req) {
     req = req || {};
     if (!req.user) {
       req.user = { provider: 'local' };
     }
-    const emailError = await this.validateEmail();
-    if (emailError) {
-      throw emailError;
-    }
-    let user = await this.userDB.get(user_id);
-    if (this.config.getItem('local.sendConfirmEmail')) {
-      user.unverifiedEmail = {
-        email: newEmail,
-        token: util.URLSafeUUID()
-      };
-      const mailType = this.config.getItem('emails.confirmEmailChange')
-        ? 'confirmEmailChange'
-        : 'confirmEmail';
-      await this.mailer.sendEmail(mailType, user.unverifiedEmail.email, {
-        req: req,
-        user: user
+    let user;
+    return this.validateEmail(newEmail)
+      .then(err => {
+        if (err) {
+          return Promise.reject(err);
+        }
+        return this.userDB.get(user_id);
+      })
+      .then(userDoc => {
+        user = userDoc;
+        if (this.config.getItem('local.sendConfirmEmail')) {
+          user.unverifiedEmail = {
+            email: newEmail,
+            token: util.URLSafeUUID()
+          };
+          return this.mailer.sendEmail(
+            'confirmEmail',
+            user.unverifiedEmail.email,
+            { req: req, user: user }
+          );
+        } else {
+          user.email = newEmail;
+          return Promise.resolve();
+        }
+      })
+      .then(() => {
+        this.emitter.emit('email-changed', user);
+        return this.logActivity(
+          user._id,
+          'changed email',
+          req.user.provider,
+          req,
+          user
+        );
+      })
+      .then(finalUser => {
+        return this.userDB.insert(finalUser);
       });
-    } else {
-      user.email = newEmail;
-    }
-    this.emitter.emit('email-changed', user);
-    const finalUser = await this.logActivity(
-      user._id,
-      'changed email',
-      req.user.provider,
-      req,
-      user
-    );
-    return this.userDB.put(finalUser);
   }
 
   addUserDB(user_id, dbName, type, designDocs, permissions) {
-    var userDoc;
-    var dbConfig = this.#dbAuth.getDBConfig(dbName, type || 'private');
+    let userDoc;
+    const dbConfig = this.#dbAuth.getDBConfig(dbName, type || 'private');
     dbConfig.designDocs = designDocs || dbConfig.designDocs || '';
     dbConfig.permissions = permissions || dbConfig.permissions;
     return this.userDB
@@ -1226,45 +1233,36 @@ class User {
         delete dbConfig.memberRoles;
         userDoc.personalDBs[finalDBName] = dbConfig;
         this.emitter.emit('user-db-added', user_id, dbName);
-        return this.userDB.put(userDoc);
+        return this.userDB.insert(userDoc);
       });
   }
 
-  removeUserDB(user_id, dbName, deletePrivate, deleteShared) {
-    var user;
-    var update = false;
-    return this.userDB
-      .get(user_id)
-      .then(userDoc => {
-        user = userDoc;
-        if (user.personalDBs && typeof user.personalDBs === 'object') {
-          Object.keys(user.personalDBs).forEach(db => {
-            if (user.personalDBs[db].name === dbName) {
-              var type = user.personalDBs[db].type;
-              delete user.personalDBs[db];
-              update = true;
-              if (type === 'private' && deletePrivate) {
-                return this.#dbAuth.removeDB(dbName);
-              }
-              if (type === 'shared' && deleteShared) {
-                return this.#dbAuth.removeDB(dbName);
-              }
-            }
-          });
+  async removeUserDB(user_id, dbName, deletePrivate, deleteShared) {
+    let update = false;
+    const user = await this.userDB.get(user_id);
+    if (user.personalDBs && typeof user.personalDBs === 'object') {
+      for (const db of Object.keys(user.personalDBs)) {
+        if (user.personalDBs[db].name === dbName) {
+          const type = user.personalDBs[db].type;
+          delete user.personalDBs[db];
+          update = true;
+          if (type === 'private' && deletePrivate) {
+            await this.#dbAuth.removeDB(dbName);
+          }
+          if (type === 'shared' && deleteShared) {
+            await this.#dbAuth.removeDB(dbName);
+          }
         }
-        return Promise.resolve();
-      })
-      .then(() => {
-        if (update) {
-          this.emitter.emit('user-db-removed', user_id, dbName);
-          return this.userDB.put(user);
-        }
-        return Promise.resolve();
-      });
+      }
+    }
+    if (update) {
+      this.emitter.emit('user-db-removed', user_id, dbName);
+      return this.userDB.insert(user);
+    }
   }
 
   logoutUser(user_id, session_id) {
-    var promise, user;
+    let promise, user;
     if (user_id) {
       promise = this.userDB.get(user_id);
     } else {
@@ -1276,7 +1274,7 @@ class User {
         });
       }
       promise = this.userDB
-        .query('auth/session', { key: session_id, include_docs: true })
+        .view('auth', 'session', { key: session_id, include_docs: true })
         .then(results => {
           if (!results.rows.length) {
             return Promise.reject({
@@ -1296,82 +1294,76 @@ class User {
       .then(() => {
         this.emitter.emit('logout', user_id);
         this.emitter.emit('logout-all', user_id);
-        return this.userDB.put(user);
+        return this.userDB.insert(user);
       });
   }
 
-  logoutSession(session_id) {
-    var user;
-    var startSessions = 0;
-    var endSessions = 0;
-    return this.userDB
-      .query('auth/session', { key: session_id, include_docs: true })
-      .then(results => {
-        if (!results.rows.length) {
-          return Promise.reject({
-            error: 'unauthorized',
-            status: 401
-          });
-        }
-        user = results.rows[0].doc;
-        if (user.session) {
-          startSessions = Object.keys(user.session).length;
-          if (user.session[session_id]) {
-            delete user.session[session_id];
-          }
-        }
-        var promises = [];
-        promises.push(this.#session.deleteTokens(session_id));
-        promises.push(this.#dbAuth.removeKeys(session_id));
-        if (user) {
-          promises.push(this.#dbAuth.deauthorizeUser(user, session_id));
-        }
-        return Promise.all(promises);
-      })
-      .then(() => {
-        // Clean out expired sessions
-        return this.logoutUserSessions(user, 'expired');
-      })
-      .then(finalUser => {
-        user = finalUser;
-        if (user.session) {
-          endSessions = Object.keys(user.session).length;
-        }
-        this.emitter.emit('logout', user._id);
-        if (startSessions !== endSessions) {
-          return this.userDB.put(user);
-        } else {
-          return Promise.resolve(false);
-        }
-      });
+  async logoutSession(session_id: string) {
+    let user;
+    let startSessions = 0;
+    let endSessions = 0;
+    const results = await this.userDB.view('auth', 'session', {
+      key: session_id,
+      include_docs: true
+    });
+    if (!results.rows.length) {
+      throw {
+        error: 'unauthorized',
+        status: 401
+      };
+    }
+    user = results.rows[0].doc;
+    if (user.session) {
+      startSessions = Object.keys(user.session).length;
+      if (user.session[session_id]) {
+        delete user.session[session_id];
+      }
+    }
+    const promises = [];
+    promises.push(this.#session.deleteTokens(session_id));
+    promises.push(this.#dbAuth.removeKeys(session_id));
+    if (user) {
+      promises.push(this.#dbAuth.deauthorizeUser(user, session_id));
+    }
+    await Promise.all(promises);
+    // Clean out expired sessions
+    const finalUser = await this.logoutUserSessions(user, 'expired');
+    user = finalUser;
+    if (user.session) {
+      endSessions = Object.keys(user.session).length;
+    }
+    this.emitter.emit('logout', user._id);
+    if (startSessions !== endSessions) {
+      return this.userDB.insert(user);
+    } else {
+      return false;
+    }
   }
 
-  logoutOthers(session_id) {
-    var user;
-    return this.userDB
-      .query('auth/session', { key: session_id, include_docs: true })
-      .then(results => {
-        if (results.rows.length) {
-          user = results.rows[0].doc;
-          if (user.session && user.session[session_id]) {
-            return this.logoutUserSessions(user, 'other', session_id);
-          }
-        }
-        return Promise.resolve();
-      })
-      .then(finalUser => {
-        if (finalUser) {
-          return this.userDB.put(finalUser);
-        } else {
-          return Promise.resolve(false);
-        }
-      });
+  async logoutOthers(session_id) {
+    let user;
+    const results = await this.userDB.view('auth', 'session', {
+      key: session_id,
+      include_docs: true
+    });
+    if (results.rows.length) {
+      user = results.rows[0].doc;
+      if (user.session && user.session[session_id]) {
+        const finalUser = await this.logoutUserSessions(
+          user,
+          'other',
+          session_id
+        );
+        return this.userDB.insert(finalUser);
+      }
+    }
+    return false;
   }
 
-  logoutUserSessions(userDoc, op, currentSession) {
+  logoutUserSessions(userDoc, op, currentSession?) {
     // When op is 'other' it will logout all sessions except for the specified 'currentSession'
-    var promises = [];
-    var sessions;
+    const promises = [];
+    let sessions;
     if (op === 'all' || op === 'other') {
       sessions = util.getSessions(userDoc);
     } else if (op === 'expired') {
@@ -1379,7 +1371,7 @@ class User {
     }
     if (op === 'other' && currentSession) {
       // Remove the current session from the list of sessions we are going to delete
-      var index = sessions.indexOf(currentSession);
+      const index = sessions.indexOf(currentSession);
       if (index > -1) {
         sessions.splice(index, 1);
       }
@@ -1405,29 +1397,20 @@ class User {
     });
   }
 
-  removeUser(user_id, destroyDBs) {
-    var user;
-    var promises = [];
-    return this.userDB
-      .get(user_id)
-      .then(userDoc => {
-        return this.logoutUserSessions(userDoc, 'all');
-      })
-      .then(userDoc => {
-        user = userDoc;
-        if (destroyDBs !== true || !user.personalDBs) {
-          return Promise.resolve();
-        }
-        Object.keys(user.personalDBs).forEach(userdb => {
-          if (user.personalDBs[userdb].type === 'private') {
-            promises.push(this.#dbAuth.removeDB(userdb));
-          }
-        });
-        return Promise.all(promises);
-      })
-      .then(() => {
-        return this.userDB.remove(user);
-      });
+  async removeUser(user_id, destroyDBs) {
+    const promises = [];
+    const userDoc = await this.userDB.get(user_id);
+    const user = await this.logoutUserSessions(userDoc, 'all');
+    if (destroyDBs !== true || !user.personalDBs) {
+      return Promise.resolve();
+    }
+    Object.keys(user.personalDBs).forEach(userdb => {
+      if (user.personalDBs[userdb].type === 'private') {
+        promises.push(this.#dbAuth.removeDB(userdb));
+      }
+    });
+    await Promise.all(promises);
+    return this.userDB.destroy(user, user._rev);
   }
 
   async confirmSession(key, password) {
@@ -1436,9 +1419,9 @@ class User {
     } catch (error) {
       if (this.useDbFallback) {
         try {
-          let doc = await this.#dbAuth.retrieveKey(key);
+          const doc = await this.#dbAuth.retrieveKey(key);
           if (doc.expires > Date.now()) {
-            let token = doc;
+            const token: any = doc;
             token._id = token.user_id;
             token.key = key;
             delete token.user_id;
@@ -1465,11 +1448,11 @@ class User {
   }
 
   generateSession(username, roles) {
-    var getKey;
+    let getKey;
     if (this.config.getItem('dbServer.cloudant')) {
       getKey = require('./dbauth/cloudant').getAPIKey(this.userDB);
     } else {
-      var token = util.URLSafeUUID();
+      let token = util.URLSafeUUID();
       // Make sure our token doesn't start with illegal characters
       while (token[0] === '_' || token[0] === '-') {
         token = util.URLSafeUUID();
@@ -1480,7 +1463,7 @@ class User {
       });
     }
     return getKey.then(key => {
-      var now = Date.now();
+      const now = Date.now();
       return Promise.resolve({
         _id: username,
         key: key.key,
@@ -1498,21 +1481,21 @@ class User {
    */
   generateUsername(base) {
     base = base.toLowerCase();
-    var entries = [];
-    var finalName;
+    const entries = [];
+    let finalName;
     return this.userDB
-      .allDocs({ startkey: base, endkey: base + '\uffff', include_docs: false })
+      .list({ startkey: base, endkey: base + '\uffff', include_docs: false })
       .then(results => {
         if (results.rows.length === 0) {
           return Promise.resolve(base);
         }
-        for (var i = 0; i < results.rows.length; i++) {
+        for (let i = 0; i < results.rows.length; i++) {
           entries.push(results.rows[i].id);
         }
         if (entries.indexOf(base) === -1) {
           return Promise.resolve(base);
         }
-        var num = 0;
+        let num = 0;
         while (!finalName) {
           num++;
           if (entries.indexOf(base + num) === -1) {
@@ -1528,12 +1511,12 @@ class User {
     if (!this.config.getItem('userDBs.defaultDBs')) {
       return Promise.resolve(newUser);
     }
-    var promises = [];
+    const promises = [];
     newUser.personalDBs = {};
 
-    var processUserDBs = (dbList, type) => {
+    const processUserDBs = (dbList, type) => {
       dbList.forEach(userDBName => {
-        var dbConfig = this.#dbAuth.getDBConfig(userDBName);
+        const dbConfig = this.#dbAuth.getDBConfig(userDBName);
         promises.push(
           this.#dbAuth
             .addUserDB(
@@ -1558,12 +1541,12 @@ class User {
     };
 
     // Just in case defaultDBs is not specified
-    var defaultPrivateDBs = this.config.getItem('userDBs.defaultDBs.private');
+    let defaultPrivateDBs = this.config.getItem('userDBs.defaultDBs.private');
     if (!Array.isArray(defaultPrivateDBs)) {
       defaultPrivateDBs = [];
     }
     processUserDBs(defaultPrivateDBs, 'private');
-    var defaultSharedDBs = this.config.getItem('userDBs.defaultDBs.shared');
+    let defaultSharedDBs = this.config.getItem('userDBs.defaultDBs.shared');
     if (!Array.isArray(defaultSharedDBs)) {
       defaultSharedDBs = [];
     }
@@ -1579,5 +1562,3 @@ class User {
     return this.#dbAuth.removeExpiredKeys();
   }
 }
-
-module.exports = User;

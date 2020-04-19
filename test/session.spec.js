@@ -1,11 +1,11 @@
 'use strict';
-var util = require('util');
-var expect = require('chai').expect;
-var Session = require('../lib/session');
-var Configure = require('../lib/configure');
-var rimraf = util.promisify(require('rimraf'));
+const util = require('util');
+const expect = require('chai').expect;
+const Session = require('../lib/session');
+const Configure = require('../lib/config/configure').ConfigHelper;
+const rimraf = util.promisify(require('rimraf'));
 
-var testToken = {
+const testToken = {
   _id: 'colinskow',
   roles: ['admin', 'user'],
   key: 'test123',
@@ -14,13 +14,13 @@ var testToken = {
   expires: Date.now() + 50000
 };
 
-var config = new Configure({
+const config = new Configure({
   session: {
     adapter: 'memory'
   }
 });
 
-var fileConfig = new Configure({
+const fileConfig = new Configure({
   session: {
     adapter: 'file',
     file: {
@@ -44,8 +44,8 @@ describe('Session', function () {
 });
 
 function runTest(config, adapter) {
-  var session = new Session(config);
-  var previous;
+  const session = new Session(config);
+  let previous;
 
   return new Promise(function (resolve, reject) {
     describe(adapter, function () {

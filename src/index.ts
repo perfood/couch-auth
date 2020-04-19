@@ -1,28 +1,47 @@
 'use strict';
-var events = require('events');
-var express = require('express');
-var PouchDB = require('pouchdb');
-var seed = require('pouchdb-seed-design');
+import events from 'events';
+import express, { Router } from 'express';
+import seed from './design/seed';
+import nano, { DocumentScope } from 'nano';
 
-var Configure = require('./configure');
-var User = require('./user');
-var Oauth = require('./oauth');
-var loadRoutes = require('./routes');
-var localConfig = require('./local');
-var Middleware = require('./middleware');
-var Mailer = require('./mailer');
-var util = require('./util');
+import { ConfigHelper } from './config/configure';
+import { User } from './user';
+const Oauth = require('./oauth');
+const loadRoutes = require('./routes');
+const localConfig = require('./local');
+import { Middleware } from './middleware';
+import { Mailer } from './mailer';
+import * as util from './util';
+//import { PassportStatic } from 'passport';
 
 class SuperLogin extends User {
+  router: Router;
+  mailer: Mailer;
+  passport: any;
+  couchAuthDB: DocumentScope<any>;
+  registerProvider: Function;
+  registerOAuth2: Function;
+  registerTokenProvider: Function;
+  hashPassword: Function;
+  verifyPassword: Function;
+  sendEmail: Function;
+  requireAuth: Function;
+  requireRole: Function;
+  requireAnyRole: Function;
+  requireAllRoles: Function;
+
   constructor(configData, passport, userDB, couchAuthDB) {
-    var config = new Configure(configData, require('../config/default.config'));
-    var router = express.Router();
-    var emitter = new events.EventEmitter();
+    const config = new ConfigHelper(
+      configData,
+      require('./config/default.config')
+    );
+    const router = express.Router();
+    const emitter = new events.EventEmitter();
 
     if (!passport || typeof passport !== 'object') {
       passport = require('passport');
     }
-    var middleware = new Middleware(passport);
+    const middleware = new Middleware(passport);
 
     // Some extra default settings if no config object is specified
     if (!configData) {
@@ -32,11 +51,8 @@ class SuperLogin extends User {
 
     // Create the DBs if they weren't passed in
     if (!userDB && config.getItem('dbServer.userDB')) {
-      userDB = new PouchDB(
-        util.getFullDBURL(
-          config.getItem('dbServer'),
-          config.getItem('dbServer.userDB')
-        )
+      userDB = nano(util.getDBURL(config.getItem('dbServer'))).use(
+        config.getItem('dbServer.userDB')
       );
     }
     if (
@@ -44,11 +60,8 @@ class SuperLogin extends User {
       config.getItem('dbServer.couchAuthDB') &&
       !config.getItem('dbServer.cloudant')
     ) {
-      couchAuthDB = new PouchDB(
-        util.getFullDBURL(
-          config.getItem('dbServer'),
-          config.getItem('dbServer.couchAuthDB')
-        )
+      couchAuthDB = nano(util.getDBURL(config.getItem('dbServer'))).use(
+        config.getItem('dbServer.couchAuthDB')
       );
     }
     if (!userDB || typeof userDB !== 'object') {
@@ -57,12 +70,12 @@ class SuperLogin extends User {
       );
     }
 
-    var mailer = new Mailer(config);
+    const mailer = new Mailer(config);
     super(config, userDB, couchAuthDB, mailer, emitter);
-    var oauth = Oauth(router, passport, this, config);
+    const oauth = Oauth(router, passport, this, config);
 
     // Seed design docs for the user database
-    var userDesign = require('../designDocs/user-design');
+    let userDesign = require('./design/user-design');
     userDesign = util.addProvidersToDesignDoc(config, userDesign);
     seed(userDB, userDesign);
     // Configure Passport local login and api keys
@@ -92,7 +105,7 @@ class SuperLogin extends User {
     this.requireAllRoles = middleware.requireAllRoles;
 
     // Inherit emitter
-    for (var key in emitter) {
+    for (const key in emitter) {
       this[key] = emitter[key];
     }
   }

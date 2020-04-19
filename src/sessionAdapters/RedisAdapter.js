@@ -1,8 +1,8 @@
-var BPromise = require('bluebird');
-var redis = BPromise.promisifyAll(require('redis'));
+const BPromise = require('bluebird');
+const redis = BPromise.promisifyAll(require('redis'));
 
 function RedisAdapter(config) {
-  var redisClient;
+  let redisClient;
 
   if (!config.getItem('session.redis.unix_socket')) {
     if (config.getItem('session.redis.url')) {

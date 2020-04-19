@@ -58,7 +58,7 @@ class Session {
   }
 
   deleteTokens(keys) {
-    var entries = [];
+    const entries = [];
     if (!(keys instanceof Array)) {
       keys = [keys];
     }
@@ -74,7 +74,7 @@ class Session {
       if (!result) {
         throw this.invalidMsg;
       }
-      let token = JSON.parse(result);
+      const token = JSON.parse(result);
       await util.verifyPassword(token, password);
       delete token.salt;
       delete token.derived_key;

@@ -1,3 +1,4 @@
+/* eslint-disable no-var */
 module.exports = {
   auth: {
     views: {

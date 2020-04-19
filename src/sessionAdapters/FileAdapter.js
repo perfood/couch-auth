@@ -1,7 +1,7 @@
-var fs = require('fs-extra');
-var path = require('path');
+const fs = require('fs-extra');
+const path = require('path');
 function FileAdapter(config) {
-  var sessionsRoot = config.getItem('session.file.sessionsRoot');
+  const sessionsRoot = config.getItem('session.file.sessionsRoot');
   this._sessionFolder = path.join(process.env.PWD, sessionsRoot);
   console.log('File Adapter loaded');
 }
@@ -16,7 +16,7 @@ FileAdapter.prototype._getFilepath = function (key) {
 };
 
 FileAdapter.prototype.storeKey = function (key, life, data) {
-  var now = Date.now();
+  const now = Date.now();
   return fs.outputJson(this._getFilepath(key), {
     data: data,
     expire: now + life
@@ -24,7 +24,7 @@ FileAdapter.prototype.storeKey = function (key, life, data) {
 };
 
 FileAdapter.prototype.getKey = function (key) {
-  var now = Date.now();
+  const now = Date.now();
   return fs
     .readJson(this._getFilepath(key))
     .then(function (session) {
@@ -42,8 +42,8 @@ FileAdapter.prototype.deleteKeys = function (keys) {
   if (!(keys instanceof Array)) {
     keys = [keys];
   }
-  var self = this;
-  var deleteQueue = keys.map(function (key) {
+  const self = this;
+  const deleteQueue = keys.map(function (key) {
     return fs.remove(self._getFilepath(key));
   });
 
