@@ -1,27 +1,27 @@
 'use strict';
-import * as util from '../util';
+import { getDBURL, toArray, getSessions } from '../util';
 import seed from '../design/seed';
 import request from 'superagent';
 import { CouchAdapter } from './couchdb';
 import { CloudantAdapter } from './cloudant';
 import nano, { DocumentScope, ServerScope } from 'nano';
-import { Config } from '../types/config';
 import { SlUserDoc, CouchDbAuthDoc } from '../types/typings';
+import { ConfigHelper } from '../config/configure';
 
 export class DBAuth {
   #adapter: CouchAdapter | CloudantAdapter;
-  #config: Config;
+  #config: ConfigHelper;
   #userDB: DocumentScope<SlUserDoc>;
   #couch: ServerScope;
 
   constructor(
-    config: Config,
+    config: ConfigHelper,
     userDB: DocumentScope<SlUserDoc>,
     couchAuthDB: DocumentScope<CouchDbAuthDoc>
   ) {
     this.#config = config;
     this.#userDB = userDB;
-    this.#couch = nano(util.getDBURL(config.getItem('dbServer')));
+    this.#couch = nano(getDBURL(config.getItem('dbServer')));
     const cloudant = this.#config.getItem('dbServer.cloudant');
     if (cloudant) {
       this.#adapter = new CloudantAdapter();
@@ -94,7 +94,7 @@ export class DBAuth {
         this.authorizeKeys(
           user_id,
           db,
-          util.toArray(sessionKeys),
+          toArray(sessionKeys),
           permissions,
           roles
         )
@@ -219,9 +219,9 @@ export class DBAuth {
     const promises = [];
     // If keys is not specified we will deauthorize all of the users sessions
     if (!keys) {
-      keys = util.getSessions(userDoc);
+      keys = getSessions(userDoc);
     }
-    keys = util.toArray(keys);
+    keys = toArray(keys);
     if (userDoc.personalDBs && typeof userDoc.personalDBs === 'object') {
       Object.keys(userDoc.personalDBs).forEach(personalDB => {
         const db = this.#couch.use(personalDB);
@@ -303,8 +303,7 @@ export class DBAuth {
   }
 
   createDB(dbName) {
-    const finalUrl =
-      util.getDBURL(this.#config.getItem('dbServer')) + '/' + dbName;
+    const finalUrl = getDBURL(this.#config.getItem('dbServer')) + '/' + dbName;
     return request
       .put(finalUrl)
       .send({})

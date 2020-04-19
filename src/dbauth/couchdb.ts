@@ -1,12 +1,12 @@
 'use strict';
 
-import nano, { DocumentScope, ServerScope } from 'nano';
+import { DocumentScope, ServerScope } from 'nano';
 import { CouchDbAuthDoc } from '../types/typings';
-
-import * as util from '../util';
+import { toArray } from '../util';
+import { DBAdapter } from 'adapters';
 const userPrefix = 'org.couchdb.user:';
 
-export class CouchAdapter {
+export class CouchAdapter implements DBAdapter {
   #couchAuthDB: DocumentScope<CouchDbAuthDoc>;
   #couch: ServerScope;
   constructor(couchAuthDB: DocumentScope<CouchDbAuthDoc>, couch: ServerScope) {
@@ -60,7 +60,7 @@ export class CouchAdapter {
   async removeKeys(keys: string[]) {
     const keylist: string[] = [];
     // Transform the list to contain the CouchDB _user ids
-    util.toArray(keys).forEach(key => {
+    toArray(keys).forEach(key => {
       keylist.push(userPrefix + key);
     });
     const toDelete: { _id: string; _rev: string; _deleted: boolean }[] = [];
@@ -147,7 +147,7 @@ export class CouchAdapter {
       keys = keysArr;
     }
     // Convert keys to an array if it is just a string
-    keys = util.toArray(keys);
+    keys = toArray(keys);
     const secDoc = await db.get('_security');
     if (!secDoc.members) {
       secDoc.members = { names: [], roles: [] };
@@ -174,7 +174,7 @@ export class CouchAdapter {
    * removes the keys from the security doc of the db
    */
   async deauthorizeKeys(db: DocumentScope<any>, keys: string[] | string) {
-    const keysArr = util.toArray(keys);
+    const keysArr = toArray(keys);
     const secDoc = await db.get('_security');
     if (!secDoc.members || !secDoc.members.names) {
       return false;

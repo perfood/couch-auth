@@ -1,13 +1,24 @@
 'use strict';
+
+import { capitalizeFirstLetter } from './util';
+import { Router } from 'express';
+import { Authenticator } from 'passport';
+//import { User } from './user';
+import { ConfigHelper } from './config/configure';
+import { callbackify } from 'util';
+
 const fs = require('fs');
 const path = require('path');
 const ejs = require('ejs');
 const extend = require('util')._extend;
-const util = require('./util');
-
 const stateRequired = ['google', 'linkedin'];
 
-module.exports = function (router, passport, user, config) {
+module.exports = function (
+  router: Router,
+  passport: Authenticator,
+  user,
+  config: ConfigHelper
+) {
   // Function to initialize a session following authentication from a socialAuth provider
   function initSession(req, res, next) {
     const provider = getProvider(req.path);
@@ -90,7 +101,7 @@ module.exports = function (router, passport, user, config) {
     const provider = getProviderToken(req.path);
     res.status(200).json({
       ok: true,
-      success: util.capitalizeFirstLetter(provider) + ' successfully linked',
+      success: capitalizeFirstLetter(provider) + ' successfully linked',
       provider: provider
     });
   }
@@ -186,12 +197,14 @@ module.exports = function (router, passport, user, config) {
           profile,
           done
         ) {
-          authHandler(
-            req,
-            providerName,
-            { accessToken: accessToken, refreshToken: refreshToken },
-            profile
-          ).asCallback(done);
+          callbackify(
+            authHandler(
+              req,
+              providerName,
+              { accessToken: accessToken, refreshToken: refreshToken },
+              profile
+            )
+          )(done);
         })
       );
     });
@@ -216,12 +229,14 @@ module.exports = function (router, passport, user, config) {
           profile,
           done
         ) {
-          authHandler(
-            req,
-            providerName,
-            { accessToken: accessToken, refreshToken: refreshToken },
-            profile
-          ).asCallback(done);
+          callbackify(
+            authHandler(
+              req,
+              providerName,
+              { accessToken: accessToken, refreshToken: refreshToken },
+              profile
+            )
+          )(done);
         })
       );
       router.post(

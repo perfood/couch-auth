@@ -1,7 +1,16 @@
 'use strict';
-const util = require('./util');
+import { getSessionToken, capitalizeFirstLetter } from './util';
+//import { Router } from 'express';
+import { ConfigHelper } from './config/configure';
+import { Authenticator } from 'passport';
+import { User } from './user';
 
-module.exports = function (config, router, passport, user) {
+module.exports = function (
+  config: ConfigHelper,
+  router: any,
+  passport: Authenticator,
+  user: User
+) {
   const env = process.env.NODE_ENV || 'development';
 
   router.post(
@@ -53,7 +62,7 @@ module.exports = function (config, router, passport, user) {
   );
 
   router.post('/logout', function (req, res, next) {
-    const sessionToken = util.getSessionToken(req);
+    const sessionToken = getSessionToken(req);
     if (!sessionToken) {
       return next({
         error: 'unauthorized',
@@ -88,7 +97,7 @@ module.exports = function (config, router, passport, user) {
   );
 
   router.post('/logout-all', function (req, res, next) {
-    const sessionToken = util.getSessionToken(req);
+    const sessionToken = getSessionToken(req);
     if (!sessionToken) {
       return next({
         error: 'unauthorized',
@@ -185,7 +194,7 @@ module.exports = function (config, router, passport, user) {
       user.unlink(req.user._id, provider).then(
         function () {
           res.status(200).json({
-            success: util.capitalizeFirstLetter(provider) + ' unlinked'
+            success: capitalizeFirstLetter(provider) + ' unlinked'
           });
         },
         function (err) {

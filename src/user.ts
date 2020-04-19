@@ -2,14 +2,24 @@
 
 import { DBAuth } from './dbauth';
 import { DocumentScope } from 'nano';
-import { Config } from 'config';
+//import { Config, SofaModelOptions } from 'config';
 
 const url = require('url');
 import Model from 'sofa-model';
 import extend from 'extend';
-import Session from './session';
-import * as util from './util';
+import { Session } from './session';
 import { SlSession } from './types/typings';
+import { ConfigHelper } from './config/configure';
+import {
+  arrayUnion,
+  URLSafeUUID,
+  hashPassword,
+  capitalizeFirstLetter,
+  hashToken,
+  getSessions,
+  getExpiredSessions,
+  verifyPassword
+} from './util';
 
 // regexp from https://github.com/angular/angular.js/blob/master/src/ng/directive/input.js#L27
 const EMAIL_REGEXP = /^(?=.{1,254}$)(?=.{1,64}@)[-!#$%&'*+/0-9=?A-Z^_`a-z{|}~]+(\.[-!#$%&'*+/0-9=?A-Z^_`a-z{|}~]+)*@[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/;
@@ -21,7 +31,7 @@ export class User {
   #onCreateActions;
   #onLinkActions;
   userDB: DocumentScope<any>;
-  config: Config;
+  config: ConfigHelper;
   mailer;
   emitter;
 
@@ -43,7 +53,7 @@ export class User {
   changePasswordModel;
 
   constructor(
-    config: Config,
+    config: ConfigHelper,
     userDB: DocumentScope<any>,
     couchAuthDB: DocumentScope<any>,
     mailer,
@@ -148,7 +158,8 @@ export class User {
       }
     };
 
-    const userModel = {
+    // SofaModelOptions
+    const userModel: any = {
       async: true,
       whitelist: ['name', 'username', 'email', 'password', 'confirmPassword'],
       customValidators: {
@@ -309,7 +320,7 @@ export class User {
     if (typeof newUserModel === 'object') {
       let whitelist;
       if (newUserModel.whitelist) {
-        whitelist = util.arrayUnion(
+        whitelist = arrayUnion(
           this.userModel.whitelist,
           newUserModel.whitelist
         );
@@ -335,11 +346,11 @@ export class User {
         if (this.config.getItem('local.sendConfirmEmail')) {
           newUser.unverifiedEmail = {
             email: newUser.email,
-            token: util.URLSafeUUID()
+            token: URLSafeUUID()
           };
           delete newUser.email;
         }
-        return util.hashPassword(newUser.password);
+        return hashPassword(newUser.password);
       })
       .catch(err => {
         console.log('validation failed.');
@@ -683,9 +694,7 @@ export class User {
           return Promise.reject({
             error: 'Unlink failed',
             message:
-              'Provider: ' +
-              util.capitalizeFirstLetter(provider) +
-              ' not found.',
+              'Provider: ' + capitalizeFirstLetter(provider) + ' not found.',
             status: 404
           });
         }
@@ -918,7 +927,7 @@ export class User {
       .validate()
       .then(
         () => {
-          const tokenHash = util.hashToken(form.token);
+          const tokenHash = hashToken(form.token);
           return this.userDB.view('auth', 'passwordReset', {
             key: tokenHash,
             include_docs: true
@@ -940,7 +949,7 @@ export class User {
         if (user.forgotPassword.expires < Date.now()) {
           return Promise.reject({ status: 400, error: 'Token expired' });
         }
-        return util.hashPassword(form.password);
+        return hashPassword(form.password);
       })
       .then(hash => {
         if (!user.local) {
@@ -967,66 +976,49 @@ export class User {
       });
   }
 
-  changePasswordSecure(user_id, form, req) {
+  async changePasswordSecure(user_id, form, req) {
     req = req || {};
     const ChangePasswordModel = Model(this.changePasswordModel);
     const changePasswordForm = new ChangePasswordModel(form);
-    let user;
-    return changePasswordForm
-      .validate()
-      .then(
-        () => {
-          return this.userDB.get(user_id);
-        },
-        err => {
-          return Promise.reject({
-            error: 'Validation failed',
-            validationErrors: err,
+    try {
+      await changePasswordForm.validate();
+    } catch (err) {
+      throw {
+        error: 'Validation failed',
+        validationErrors: err,
+        status: 400
+      };
+    }
+
+    try {
+      const user = await this.userDB.get(user_id);
+      if (user.local && user.local.salt && user.local.derived_key) {
+        // Password is required
+        if (!form.currentPassword) {
+          throw {
+            error: 'Password change failed',
+            message:
+              'You must supply your current password in order to change it.',
             status: 400
-          });
+          };
         }
-      )
-      .then(() => {
-        return this.userDB.get(user_id);
-      })
-      .then(userDoc => {
-        user = userDoc;
-        if (user.local && user.local.salt && user.local.derived_key) {
-          // Password is required
-          if (!form.currentPassword) {
-            return Promise.reject({
-              error: 'Password change failed',
-              message:
-                'You must supply your current password in order to change it.',
-              status: 400
-            });
-          }
-          return util.verifyPassword(user.local, form.currentPassword);
-        } else {
-          return Promise.resolve();
+        await verifyPassword(user.local, form.currentPassword);
+      }
+      await this.changePassword(user._id, form.newPassword, user, req);
+    } catch (err) {
+      throw (
+        err || {
+          error: 'Password change failed',
+          message: 'The current password you supplied is incorrect.',
+          status: 400
         }
-      })
-      .then(
-        () => {
-          return this.changePassword(user._id, form.newPassword, user, req);
-        },
-        err => {
-          return Promise.reject(
-            err || {
-              error: 'Password change failed',
-              message: 'The current password you supplied is incorrect.',
-              status: 400
-            }
-          );
-        }
-      )
-      .then(() => {
-        if (req.user && req.user.key) {
-          return this.logoutOthers(req.user.key);
-        } else {
-          return Promise.resolve();
-        }
-      });
+      );
+    }
+    if (req.user && req.user.key) {
+      return this.logoutOthers(req.user.key);
+    } else {
+      return;
+    }
   }
 
   changePassword(user_id, newPassword, userDoc, req) {
@@ -1041,7 +1033,7 @@ export class User {
       .then(
         doc => {
           user = doc;
-          return util.hashPassword(newPassword);
+          return hashPassword(newPassword);
         },
         err => {
           return Promise.reject({
@@ -1099,14 +1091,14 @@ export class User {
           });
         }
         user = result.rows[0].doc;
-        token = util.URLSafeUUID();
+        token = URLSafeUUID();
         if (this.config.getItem('local.tokenLengthOnReset')) {
           token = token.substring(
             0,
             this.config.getItem('local.tokenLengthOnReset')
           );
         }
-        tokenHash = util.hashToken(token);
+        tokenHash = hashToken(token);
         user.forgotPassword = {
           token: tokenHash, // Store secure hashed token
           issued: Date.now(),
@@ -1174,7 +1166,7 @@ export class User {
         if (this.config.getItem('local.sendConfirmEmail')) {
           user.unverifiedEmail = {
             email: newEmail,
-            token: util.URLSafeUUID()
+            token: URLSafeUUID()
           };
           return this.mailer.sendEmail(
             'confirmEmail',
@@ -1365,9 +1357,9 @@ export class User {
     const promises = [];
     let sessions;
     if (op === 'all' || op === 'other') {
-      sessions = util.getSessions(userDoc);
+      sessions = getSessions(userDoc);
     } else if (op === 'expired') {
-      sessions = util.getExpiredSessions(userDoc, Date.now());
+      sessions = getExpiredSessions(userDoc, Date.now());
     }
     if (op === 'other' && currentSession) {
       // Remove the current session from the list of sessions we are going to delete
@@ -1436,7 +1428,7 @@ export class User {
         } catch {}
       }
     }
-    throw this.#session.invalidMsg;
+    throw Session.invalidMsg;
   }
 
   removeFromSessionCache(keys) {
@@ -1452,14 +1444,14 @@ export class User {
     if (this.config.getItem('dbServer.cloudant')) {
       getKey = require('./dbauth/cloudant').getAPIKey(this.userDB);
     } else {
-      let token = util.URLSafeUUID();
+      let token = URLSafeUUID();
       // Make sure our token doesn't start with illegal characters
       while (token[0] === '_' || token[0] === '-') {
-        token = util.URLSafeUUID();
+        token = URLSafeUUID();
       }
       getKey = Promise.resolve({
         key: token,
-        password: util.URLSafeUUID()
+        password: URLSafeUUID()
       });
     }
     return getKey.then(key => {

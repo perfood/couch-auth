@@ -1,31 +1,26 @@
 'use strict';
-import { SlUserDoc, LocalHashObj } from './types/typings';
+import { SlUserDoc, LocalHashObj, HashResult } from './types/typings';
 import { Request } from 'express';
-import { Config, DBServerConfig } from './types/config';
-
+import { DBServerConfig } from './types/config';
 import URLSafeBase64 from 'urlsafe-base64';
 import { v4 as uuidv4 } from 'uuid';
 import pwd from '@sensu/couch-pwd';
 import crypto from 'crypto';
-import util from 'util';
+import { promisify } from 'util';
+import { ConfigHelper } from './config/configure';
+const getHash = promisify(pwd.hash);
 
 export function URLSafeUUID() {
   return URLSafeBase64.encode(uuidv4(null, Buffer.alloc(16)));
 }
 
-/**
- * @param {string} token
- */
-export function hashToken(token) {
+export function hashToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-/**
- * @param {string} password
- */
-export function hashPassword(password) {
-  return new Promise(function (resolve, reject) {
-    pwd.hash(password, function (err, salt, hash) {
+export function hashPassword(password: string): Promise<HashResult> {
+  return new Promise((resolve, reject) => {
+    pwd.hash(password, (err, salt, hash) => {
       if (err) {
         return reject(err);
       }
@@ -38,7 +33,6 @@ export function hashPassword(password) {
 }
 
 export function verifyPassword(hashObj: LocalHashObj, password: string) {
-  const getHash = util.promisify(pwd.hash);
   const iterations = hashObj.iterations;
   const salt = hashObj.salt;
   const derived_key = hashObj.derived_key;
@@ -122,7 +116,7 @@ export function getSessionToken(req: Request) {
 /**
  * Generates views for each registered provider in the user design doc
  */
-export function addProvidersToDesignDoc(config: Config, ddoc: any) {
+export function addProvidersToDesignDoc(config: ConfigHelper, ddoc: any) {
   const providers = config.getItem('providers');
   if (!providers) {
     return ddoc;

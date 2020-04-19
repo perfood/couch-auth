@@ -1,16 +1,17 @@
 'use strict';
-const util = require('./util');
+
+import { hashPassword, verifyPassword } from './util';
+import { RedisAdapter } from './sessionAdapters/RedisAdapter';
+import { FileAdapter } from './sessionAdapters/FileAdapter';
+import { MemoryAdapter } from './sessionAdapters/MemoryAdapter';
+
 const extend = require('util')._extend;
-const RedisAdapter = require('./sessionAdapters/RedisAdapter');
-const MemoryAdapter = require('./sessionAdapters/MemoryAdapter');
-const FileAdapter = require('./sessionAdapters/FileAdapter');
 
 const tokenPrefix = 'token';
 
-class Session {
+export class Session {
   #adapter;
-  #dbAuth;
-  invalidMsg = 'invalid token';
+  static invalidMsg = 'invalid token';
   constructor(config) {
     let adapter;
     const sessionAdapter = config.getItem('session.adapter');
@@ -23,6 +24,7 @@ class Session {
     }
     this.#adapter = adapter;
   }
+
   storeToken(token) {
     token = extend({}, token);
     if (!token.password && token.salt && token.derived_key) {
@@ -38,8 +40,7 @@ class Session {
           return Promise.resolve(token);
         });
     }
-    return util
-      .hashPassword(token.password)
+    return hashPassword(token.password)
       .then(hash => {
         token.salt = hash.salt;
         token.derived_key = hash.derived_key;
@@ -62,32 +63,31 @@ class Session {
     if (!(keys instanceof Array)) {
       keys = [keys];
     }
-    keys.forEach(function (key) {
+    keys.forEach(key => {
       entries.push(tokenPrefix + ':' + key);
     });
     return this.#adapter.deleteKeys(entries);
   }
 
-  async confirmToken(key, password) {
+  async confirmToken(key: string, password: string) {
     try {
       const result = await this.#adapter.getKey(tokenPrefix + ':' + key);
       if (!result) {
-        throw this.invalidMsg;
+        throw Session.invalidMsg;
       }
       const token = JSON.parse(result);
-      await util.verifyPassword(token, password);
+      await verifyPassword(token, password);
       delete token.salt;
       delete token.derived_key;
       return token;
     } catch (error) {
-      throw this.invalidMsg;
+      throw Session.invalidMsg;
     }
   }
   /**
    * retrieved the key from the session adapter
-   * @param {string} key
    */
-  fetchToken(key) {
+  fetchToken(key: string) {
     return this.#adapter.getKey(tokenPrefix + ':' + key).then(result => {
       return Promise.resolve(JSON.parse(result));
     });
@@ -96,5 +96,3 @@ class Session {
     return this.#adapter.quit();
   }
 }
-
-module.exports = Session;

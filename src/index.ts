@@ -11,7 +11,12 @@ const loadRoutes = require('./routes');
 const localConfig = require('./local');
 import { Middleware } from './middleware';
 import { Mailer } from './mailer';
-import * as util from './util';
+import {
+  getDBURL,
+  hashPassword,
+  verifyPassword,
+  addProvidersToDesignDoc
+} from './util';
 //import { PassportStatic } from 'passport';
 
 class SuperLogin extends User {
@@ -51,7 +56,7 @@ class SuperLogin extends User {
 
     // Create the DBs if they weren't passed in
     if (!userDB && config.getItem('dbServer.userDB')) {
-      userDB = nano(util.getDBURL(config.getItem('dbServer'))).use(
+      userDB = nano(getDBURL(config.getItem('dbServer'))).use(
         config.getItem('dbServer.userDB')
       );
     }
@@ -60,7 +65,7 @@ class SuperLogin extends User {
       config.getItem('dbServer.couchAuthDB') &&
       !config.getItem('dbServer.cloudant')
     ) {
-      couchAuthDB = nano(util.getDBURL(config.getItem('dbServer'))).use(
+      couchAuthDB = nano(getDBURL(config.getItem('dbServer'))).use(
         config.getItem('dbServer.couchAuthDB')
       );
     }
@@ -76,7 +81,7 @@ class SuperLogin extends User {
 
     // Seed design docs for the user database
     let userDesign = require('./design/user-design');
-    userDesign = util.addProvidersToDesignDoc(config, userDesign);
+    userDesign = addProvidersToDesignDoc(config, userDesign);
     seed(userDB, userDesign);
     // Configure Passport local login and api keys
     localConfig(config, passport, this);
@@ -90,19 +95,19 @@ class SuperLogin extends User {
     this.userDB = userDB;
     this.couchAuthDB = couchAuthDB;
 
-    this.registerProvider = oauth.registerProvider;
-    this.registerOAuth2 = oauth.registerOAuth2;
-    this.registerTokenProvider = oauth.registerTokenProvider;
+    this.registerProvider = oauth.registerProvider.bind(oauth);
+    this.registerOAuth2 = oauth.registerOAuth2.bind(oauth);
+    this.registerTokenProvider = oauth.registerTokenProvider.bind(oauth);
 
-    this.hashPassword = util.hashPassword;
-    this.verifyPassword = util.verifyPassword;
+    this.hashPassword = hashPassword;
+    this.verifyPassword = verifyPassword;
 
     this.sendEmail = mailer.sendEmail.bind(mailer);
 
-    this.requireAuth = middleware.requireAuth;
-    this.requireRole = middleware.requireRole;
-    this.requireAnyRole = middleware.requireAnyRole;
-    this.requireAllRoles = middleware.requireAllRoles;
+    this.requireAuth = middleware.requireAuth.bind(middleware);
+    this.requireRole = middleware.requireRole.bind(middleware);
+    this.requireAnyRole = middleware.requireAnyRole.bind(middleware);
+    this.requireAllRoles = middleware.requireAllRoles.bind(middleware);
 
     // Inherit emitter
     for (const key in emitter) {

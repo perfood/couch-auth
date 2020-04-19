@@ -1,11 +1,12 @@
 'use strict';
 import url from 'url';
 import request from 'superagent';
-import * as util from './../util';
 import { DocumentScope } from 'nano';
+import { toArray } from './../util';
+import { DBAdapter } from 'adapters';
 // todo: make work with nano...
 
-export class CloudantAdapter {
+export class CloudantAdapter implements DBAdapter {
   /** not needed/ implemented for Cloudant */
   storeKey() {
     return Promise.resolve();
@@ -40,7 +41,7 @@ export class CloudantAdapter {
     permissions = permissions.concat(roles || []);
     permissions.unshift('user:' + user_id);
     // If keys is a single value convert it to an Array
-    keys = util.toArray(keys);
+    keys = toArray(keys);
     // Check if keys is an array and convert it to an object
     if (keys instanceof Array) {
       keys.forEach(key => {
@@ -66,7 +67,7 @@ export class CloudantAdapter {
 
   deauthorizeKeys(db, keys) {
     // cast keys to an Array
-    keys = util.toArray(keys);
+    keys = toArray(keys);
     return this.getSecurityCloudant(db).then(secDoc => {
       let changes = false;
       if (!secDoc.cloudant) {

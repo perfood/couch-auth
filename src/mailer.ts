@@ -1,10 +1,14 @@
 'use strict';
-const fs = require('fs');
-const nodemailer = require('nodemailer');
-const ejs = require('ejs');
+import { ConfigHelper } from './config/configure';
+import nodemailer from 'nodemailer';
+import Mail from 'nodemailer/lib/mailer';
+import fs from 'fs';
+import ejs from 'ejs';
 
 export class Mailer {
-  constructor(config) {
+  config: ConfigHelper;
+  transporter: Mail;
+  constructor(config: ConfigHelper) {
     // Initialize the transport mechanism with nodermailer
     this.config = config;
     const customTransport = config.getItem('mailer.transport');
@@ -23,7 +27,7 @@ export class Mailer {
     }
   }
 
-  sendEmail(templateName, email, locals) {
+  sendEmail(templateName: string, email, locals) {
     // load the template and parse it
     let templateFiles = this.config.getItem(`emails.${templateName}.templates`);
     if (!templateFiles) {

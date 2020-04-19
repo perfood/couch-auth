@@ -1,12 +1,12 @@
 'use strict';
-const util = require('./util');
-const LocalStrategy = require('passport-local');
+import { verifyPassword } from './util';
+import { Strategy as LocalStrategy } from 'passport-local';
 const BearerStrategy = require('passport-http-bearer-sl').Strategy;
 
 module.exports = function (config, passport, user) {
   // API token strategy
   passport.use(
-    new BearerStrategy(function (tokenPass, done) {
+    new BearerStrategy((tokenPass, done) => {
       const parse = tokenPass.split(':');
       if (parse.length < 2) {
         done(null, false, { message: 'invalid token' });
@@ -14,10 +14,10 @@ module.exports = function (config, passport, user) {
       const token = parse[0];
       const password = parse[1];
       user.confirmSession(token, password).then(
-        function (theuser) {
+        theuser => {
           done(null, theuser);
         },
-        function (err) {
+        err => {
           if (err instanceof Error) {
             done(err, false);
           } else {
@@ -37,9 +37,9 @@ module.exports = function (config, passport, user) {
         session: false,
         passReqToCallback: true
       },
-      function (req, username, password, done) {
+      (req, username, password, done) => {
         user.getUser(username).then(
-          function (theuser) {
+          theuser => {
             if (theuser) {
               // Check if the account is locked
               if (
@@ -48,33 +48,30 @@ module.exports = function (config, passport, user) {
                 theuser.local.lockedUntil > Date.now()
               ) {
                 return done(null, false, {
-                  error: 'Unauthorized',
                   message:
                     'Your account is currently locked. Please wait a few minutes and try again.'
                 });
               }
               if (!theuser.local || !theuser.local.derived_key) {
                 return done(null, false, {
-                  error: 'Unauthorized',
                   message: 'Invalid username or password'
                 });
               }
-              util.verifyPassword(theuser.local, password).then(
-                function () {
+              verifyPassword(theuser.local, password).then(
+                () => {
                   // Check if the email has been confirmed if it is required
                   if (
                     config.getItem('local.requireEmailConfirm') &&
                     !theuser.email
                   ) {
                     return done(null, false, {
-                      error: 'Unauthorized',
                       message: 'You must confirm your email address.'
                     });
                   }
                   // Success!!!
                   return done(null, theuser);
                 },
-                function (err) {
+                err => {
                   if (!err) {
                     // Password didn't authenticate
                     return handleFailedLogin(theuser, req, done);
@@ -87,12 +84,12 @@ module.exports = function (config, passport, user) {
             } else {
               // user not found
               return done(null, false, {
-                error: 'Unauthorized',
+                //error: 'Unauthorized',
                 message: 'Invalid username or password'
               });
             }
           },
-          function (err) {
+          err => {
             // Database threw an error
             return done(err);
           }
@@ -106,7 +103,7 @@ module.exports = function (config, passport, user) {
       error: 'Unauthorized',
       message: 'Invalid username or password'
     };
-    return user.handleFailedLogin(userDoc, req).then(function (locked) {
+    return user.handleFailedLogin(userDoc, req).then(locked => {
       if (locked) {
         invalid.message =
           'Maximum failed login attempts exceeded. Your account has been locked for ' +

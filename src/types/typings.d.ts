@@ -16,9 +16,12 @@ export interface CouchDbAuthDoc
   provider: string;
 }
 
-export interface LocalHashObj {
+export interface HashResult {
   salt: string;
   derived_key: string;
+}
+
+export interface LocalHashObj extends HashResult {
   failedLoginAttempts: number;
   iterations?: number;
 }

@@ -1,7 +1,7 @@
 'use strict';
 const util = require('util');
 const expect = require('chai').expect;
-const Session = require('../lib/session');
+const Session = require('../lib/session').Session;
 const Configure = require('../lib/config/configure').ConfigHelper;
 const rimraf = util.promisify(require('rimraf'));
 
