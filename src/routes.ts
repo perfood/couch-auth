@@ -12,29 +12,35 @@ module.exports = function (
   user: User
 ) {
   const env = process.env.NODE_ENV || 'development';
+  const requirePass =
+    config.getItem('local.requirePasswordOnEmailChange') === true;
+  const requireConf = config.getItem('local.requireEmailConfirm') === true;
 
-  router.post(
-    '/login',
-    function (req: Request, res: Response, next: NextFunction) {
-      passport.authenticate('local', function (err: Error, user, info) {
+  function loginLocal(req, res, next) {
+    passport.authenticate('local', function (err, user, info) {
+      if (err) {
+        return next(err);
+      }
+      if (!user) {
+        // Authentication failed
+        return res.status(401).json(info);
+      }
+      // Success
+      req.logIn(user, { session: false }, function (err) {
         if (err) {
           return next(err);
         }
-        if (!user) {
-          // Authentication failed
-          return res.status(401).json(info);
-        }
-        // Success
-        req.logIn(user, { session: false }, function (err) {
-          if (err) {
-            return next(err);
-          }
-        });
-        return next();
-      })(req, res, next);
+      });
+      return next();
+    })(req, res, next);
+  }
+
+  router.post(
+    '/login',
+    function (req, res, next) {
+      loginLocal(req, res, next);
     },
-    function (req: Request, res: Response, next: NextFunction) {
-      // Success handler
+    function (req, res, next) {
       // @ts-ignore
       return user.createSession(req.user._id, 'local', req).then(
         function (mySession) {
@@ -318,10 +324,18 @@ module.exports = function (
     '/change-email',
     passport.authenticate('bearer', { session: false }),
     function (req: Request, res: Response, next: NextFunction) {
+      if (requirePass) {
+        loginLocal(req, res, next);
+      } else {
+        next();
+      }
+    },
+    function (req: Request, res: Response, next: NextFunction) {
       // @ts-ignore
       user.changeEmail(req.user._id, req.body.newEmail, req).then(
         function () {
-          res.status(200).json({ ok: true, success: 'Email changed' });
+          const info = requireConf ? 'change requested' : 'changed';
+          res.status(200).json({ ok: true, success: `Email ${info}` });
         },
         function (err) {
           return next(err);

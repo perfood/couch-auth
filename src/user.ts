@@ -967,9 +967,16 @@ export class User {
         // logout user completely
         return this.logoutUserSessions(user, 'all');
       })
-      .then(userDoc => {
+      .then(async userDoc => {
         user = userDoc;
         delete user.forgotPassword;
+        if (user.unverifiedEmail) {
+          user = await this.markEmailAsVerified(
+            user,
+            'verified via password reset',
+            req
+          );
+        }
         return this.logActivity(user._id, 'reset password', 'local', req, user);
       })
       .then(finalUser => this.userDB.insert(finalUser))
@@ -1070,7 +1077,7 @@ export class User {
       });
   }
 
-  sendModifiedPasswordEmail(user, req) {
+  private sendModifiedPasswordEmail(user, req) {
     if (this.config.getItem('local.sendPasswordChangedEmail')) {
       return this.mailer.sendEmail(
         'modifiedPassword',
@@ -1142,60 +1149,55 @@ export class User {
           return Promise.reject({ error: 'Invalid token', status: 400 });
         }
         user = result.rows[0].doc;
-        user.email = user.unverifiedEmail.email;
-        delete user.unverifiedEmail;
-        this.emitter.emit('email-verified', user);
-        return this.logActivity(user._id, 'verified email', 'local', req, user);
+        return this.markEmailAsVerified(user, 'verified email', req);
       })
       .then(finalUser => {
         return this.userDB.insert(finalUser);
       });
   }
 
-  changeEmail(user_id: string, newEmail: string, req: Partial<Request>) {
+  private async markEmailAsVerified(userDoc, logInfo, req) {
+    userDoc.email = userDoc.unverifiedEmail.email;
+    delete userDoc.unverifiedEmail;
+    this.emitter.emit('email-verified', userDoc);
+    return await this.logActivity(userDoc._id, logInfo, 'local', req, userDoc);
+  }
+
+  async changeEmail(user_id: string, newEmail: string, req: Partial<Request>) {
     req = req || {};
     if (!req.user) {
       req.user = { provider: 'local' };
     }
-    let user;
-    return this.validateEmail(newEmail)
-      .then(err => {
-        if (err) {
-          return Promise.reject(err);
-        }
-        return this.userDB.get(user_id);
-      })
-      .then(userDoc => {
-        user = userDoc;
-        if (this.config.getItem('local.sendConfirmEmail')) {
-          user.unverifiedEmail = {
-            email: newEmail,
-            token: URLSafeUUID()
-          };
-          return this.mailer.sendEmail(
-            'confirmEmail',
-            user.unverifiedEmail.email,
-            { req: req, user: user }
-          );
-        } else {
-          user.email = newEmail;
-          return Promise.resolve();
-        }
-      })
-      .then(() => {
-        this.emitter.emit('email-changed', user);
-        return this.logActivity(
-          user._id,
-          'changed email',
-          // @ts-ignore
-          req.user.provider,
-          req,
-          user
-        );
-      })
-      .then(finalUser => {
-        return this.userDB.insert(finalUser);
+    const emailError = await this.validateEmail();
+    if (emailError) {
+      throw emailError;
+    }
+    const user = await this.userDB.get(user_id);
+    if (this.config.getItem('local.sendConfirmEmail')) {
+      user.unverifiedEmail = {
+        email: newEmail,
+        token: URLSafeUUID()
+      };
+      const mailType = this.config.getItem('emails.confirmEmailChange')
+        ? 'confirmEmailChange'
+        : 'confirmEmail';
+      await this.mailer.sendEmail(mailType, user.unverifiedEmail.email, {
+        req: req,
+        user: user
       });
+    } else {
+      user.email = newEmail;
+    }
+    this.emitter.emit('email-changed', user);
+    const finalUser = await this.logActivity(
+      user._id,
+      'changed email',
+      // @ts-ignore
+      req.user.provider,
+      req,
+      user
+    );
+    return this.userDB.insert(finalUser);
   }
 
   addUserDB(

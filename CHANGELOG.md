@@ -1,5 +1,11 @@
 ## Change Log
 
+#### Refactoring to TypeScript and Nano (0.10.0)
+
+- Replaced PouchDB with Nano. Still todo: fix Cloudant-Adapter, doesn't work currently.
+- Bugfix: oauth should work again, via using `callbackify`
+- More modules refactored to classes, moved refactored `pouchdb-seed-design` inside this project.
+
 #### Adjusted Email handling (0.9.0)
 
 - If password is reset, email will be marked as confirmed and `"'verified via password reset'"` will be logged.
@@ -10,8 +16,8 @@
 
 #### Refactoring, notify on password change, CouchDB as Fallback
 
-- babel + eslint instead of jshint; prettier hook for code formatting
-- refactored Mailer and User into classes, SL extends user, some vars private
+- eslint/prettier for code linting/formatting
+- refactored Mailer and User into classes
 - provider is now also stored in the doc in CouchDB's `_user` - DB
 - new config options:
   - `local.sendPasswordChangedEmail`: if true, send a notification email when password is changed
