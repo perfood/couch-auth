@@ -22,7 +22,10 @@ export class DBAuth {
   ) {
     this.#config = config;
     this.#userDB = userDB;
-    this.#couch = nano(getDBURL(config.getItem('dbServer')));
+    this.#couch = nano({
+      url: getDBURL(config.getItem('dbServer')),
+      parseUrl: false
+    });
     const cloudant = this.#config.getItem('dbServer.cloudant');
     if (cloudant) {
       this.#adapter = new CloudantAdapter();

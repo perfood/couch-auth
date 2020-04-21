@@ -10,7 +10,7 @@ const util = require('../lib/util.js');
 const config = require('./test.config.js');
 
 const dbUrl = util.getDBURL(config.dbServer);
-const couch = nano(dbUrl);
+const couch = nano({ url: dbUrl, parseUrl: false });
 
 couch.db.create('cane_test_users');
 couch.db.create('cane_test_keys');

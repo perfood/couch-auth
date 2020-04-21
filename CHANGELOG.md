@@ -2,7 +2,10 @@
 
 #### Refactoring to TypeScript and Nano (0.10.0)
 
-- Replaced PouchDB with Nano. Still todo: fix Cloudant-Adapter, doesn't work currently.
+**Breaking**
+Replaced PouchDB with Nano. Still todo: fix Cloudant-Adapter, doesn't work currently. A PouchDB can no longer be passed
+to SuperLogin, but a Nano-DB can be used instead.
+
 - Bugfix: oauth should work again, via using `callbackify`
 - More modules refactored to classes, moved refactored `pouchdb-seed-design` inside this project.
 

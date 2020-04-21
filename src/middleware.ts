@@ -2,6 +2,7 @@
 'use strict';
 
 import { NextFunction, Request, Response } from 'express';
+import { Authenticator } from 'passport';
 
 export class Middleware {
   static forbiddenError = {
@@ -15,8 +16,8 @@ export class Middleware {
     message: 'requireAuth must be used before checking roles',
     status: 500
   };
-  #passport;
-  constructor(passport) {
+  #passport: Authenticator;
+  constructor(passport: Authenticator) {
     this.#passport = passport;
   }
 

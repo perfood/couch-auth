@@ -22,7 +22,7 @@ describe('SuperLogin', function () {
   const config = require('./test.config');
   const server = 'http://localhost:5000';
   const dbUrl = util.getDBURL(config.dbServer);
-  const couch = nano(dbUrl);
+  const couch = nano({ url: dbUrl, parseUrl: false });
   const newUser = {
     name: 'Kewl Uzer',
     username: 'kewluzer',

@@ -16,7 +16,7 @@ const expect = chai.expect;
 chai.use(require('sinon-chai'));
 
 const dbUrl = util.getDBURL(config.dbServer);
-const couch = nano(dbUrl);
+const couch = nano({ url: dbUrl, parseUrl: false });
 
 const emitter = new events.EventEmitter();
 

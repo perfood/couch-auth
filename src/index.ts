@@ -17,6 +17,8 @@ import {
   verifyPassword,
   addProvidersToDesignDoc
 } from './util';
+import { Config } from 'config';
+import { Authenticator } from 'passport';
 //import { PassportStatic } from 'passport';
 
 class SuperLogin extends User {
@@ -35,7 +37,12 @@ class SuperLogin extends User {
   requireAnyRole: Function;
   requireAllRoles: Function;
 
-  constructor(configData, passport, userDB, couchAuthDB) {
+  constructor(
+    configData: Partial<Config>,
+    passport: Authenticator,
+    userDB: DocumentScope<any>,
+    couchAuthDB: DocumentScope<any>
+  ) {
     const config = new ConfigHelper(
       configData,
       require('./config/default.config')
@@ -56,18 +63,20 @@ class SuperLogin extends User {
 
     // Create the DBs if they weren't passed in
     if (!userDB && config.getItem('dbServer.userDB')) {
-      userDB = nano(getDBURL(config.getItem('dbServer'))).use(
-        config.getItem('dbServer.userDB')
-      );
+      userDB = nano({
+        url: getDBURL(config.getItem('dbServer')),
+        parseUrl: false
+      }).use(config.getItem('dbServer.userDB'));
     }
     if (
       !couchAuthDB &&
       config.getItem('dbServer.couchAuthDB') &&
       !config.getItem('dbServer.cloudant')
     ) {
-      couchAuthDB = nano(getDBURL(config.getItem('dbServer'))).use(
-        config.getItem('dbServer.couchAuthDB')
-      );
+      couchAuthDB = nano({
+        url: getDBURL(config.getItem('dbServer')),
+        parseUrl: false
+      }).use(config.getItem('dbServer.couchAuthDB'));
     }
     if (!userDB || typeof userDB !== 'object') {
       throw new Error(
