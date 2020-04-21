@@ -1,6 +1,8 @@
 // Contains middleware useful for securing your routes
 'use strict';
 
+import { NextFunction, Request, Response } from 'express';
+
 export class Middleware {
   static forbiddenError = {
     error: 'Forbidden',
@@ -19,16 +21,17 @@ export class Middleware {
   }
 
   /** Requires that the user be authenticated with a bearer token */
-  requireAuth(req, res, next) {
+  requireAuth(req: Request, res: Response, next: NextFunction) {
     this.#passport.authenticate('bearer', { session: false })(req, res, next);
   }
 
   // Requires that the user have the specified role
   requireRole(requiredRole: string) {
-    return (req, res, next) => {
+    return (req: Request, res: Response, next: NextFunction) => {
       if (!req.user) {
         return next(Middleware.superloginError);
       }
+      // @ts-ignore
       const roles = req.user.roles;
       if (!roles || !roles.length || roles.indexOf(requiredRole) === -1) {
         res.status(Middleware.forbiddenError.status);
@@ -41,11 +44,12 @@ export class Middleware {
 
   /** Requires that the user have at least one of the specified roles */
   requireAnyRole(possibleRoles: string[]) {
-    return (req, res, next) => {
+    return (req: Request, res: Response, next: NextFunction) => {
       if (!req.user) {
         return next(Middleware.superloginError);
       }
       let denied = true;
+      // @ts-ignore
       const roles = req.user.roles;
       if (roles && roles.length) {
         for (let i = 0; i < possibleRoles.length; i++) {

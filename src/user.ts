@@ -8,7 +8,7 @@ const url = require('url');
 import Model from 'sofa-model';
 import extend from 'extend';
 import { Session } from './session';
-import { SlSession } from './types/typings';
+import { SlSession, SlUserDoc } from './types/typings';
 import { ConfigHelper } from './config/configure';
 import {
   arrayUnion,
@@ -20,6 +20,7 @@ import {
   getExpiredSessions,
   verifyPassword
 } from './util';
+import { Request } from 'express';
 
 // regexp from https://github.com/angular/angular.js/blob/master/src/ng/directive/input.js#L27
 const EMAIL_REGEXP = /^(?=.{1,254}$)(?=.{1,64}@)[-!#$%&'*+/0-9=?A-Z^_`a-z{|}~]+(\.[-!#$%&'*+/0-9=?A-Z^_`a-z{|}~]+)*@[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/;
@@ -807,7 +808,7 @@ export class User {
     return newSession;
   }
 
-  handleFailedLogin(user, req) {
+  handleFailedLogin(user: SlUserDoc, req: Partial<Request>) {
     req = req || {};
     const maxFailedLogins = this.config.getItem('security.maxFailedLogins');
     if (!maxFailedLogins) {
@@ -834,7 +835,14 @@ export class User {
       });
   }
 
-  logActivity(user_id, action, provider, req, userDoc, saveDoc?) {
+  logActivity(
+    user_id: string,
+    action: string,
+    provider: string,
+    req: Partial<Request>,
+    userDoc: SlUserDoc,
+    saveDoc?: boolean
+  ): Promise<SlUserDoc> {
     const logSize = this.config.getItem('security.userActivityLogSize');
     if (!logSize) {
       return Promise.resolve(userDoc);
@@ -876,10 +884,8 @@ export class User {
   /**
    * Extends the life of your current token and returns updated token information.
    * The only field that will change is expires. Expired sessions are removed.
-   * @param {string} key
-   * @returns {import('../types/user').SlSession} the updated session
    */
-  refreshSession(key) {
+  refreshSession(key: string): Promise<SlSession> {
     let newSession;
     return this.#session
       .fetchToken(key)
@@ -915,10 +921,8 @@ export class User {
 
   /**
    * Required form fields: token, password, and confirmPassword
-   * @param {any} form
-   * @param {any} req
    */
-  resetPassword(form, req = undefined) {
+  resetPassword(form, req: Partial<Request> = undefined): Promise<SlUserDoc> {
     req = req || {};
     const ResetPasswordModel = Model(this.resetPasswordModel);
     const passwordResetForm = new ResetPasswordModel(form);
@@ -976,7 +980,7 @@ export class User {
       });
   }
 
-  async changePasswordSecure(user_id, form, req) {
+  async changePasswordSecure(user_id: string, form, req) {
     req = req || {};
     const ChangePasswordModel = Model(this.changePasswordModel);
     const changePasswordForm = new ChangePasswordModel(form);
@@ -1078,9 +1082,9 @@ export class User {
     }
   }
 
-  forgotPassword(email, req) {
+  forgotPassword(email: string, req: Partial<Request>) {
     req = req || {};
-    let user, token, tokenHash;
+    let user: SlUserDoc, token, tokenHash;
     return this.userDB
       .view('auth', 'email', { key: email, include_docs: true })
       .then(result => {
@@ -1128,9 +1132,9 @@ export class User {
       });
   }
 
-  verifyEmail(token, req) {
+  verifyEmail(token: string, req: Partial<Request>) {
     req = req || {};
-    let user;
+    let user: SlUserDoc;
     return this.userDB
       .view('auth', 'verifyEmail', { key: token, include_docs: true })
       .then(result => {
@@ -1148,7 +1152,7 @@ export class User {
       });
   }
 
-  changeEmail(user_id, newEmail, req) {
+  changeEmail(user_id: string, newEmail: string, req: Partial<Request>) {
     req = req || {};
     if (!req.user) {
       req.user = { provider: 'local' };
@@ -1183,6 +1187,7 @@ export class User {
         return this.logActivity(
           user._id,
           'changed email',
+          // @ts-ignore
           req.user.provider,
           req,
           user
@@ -1193,8 +1198,14 @@ export class User {
       });
   }
 
-  addUserDB(user_id, dbName, type, designDocs, permissions) {
-    let userDoc;
+  addUserDB(
+    user_id: string,
+    dbName: string,
+    type: string,
+    designDocs,
+    permissions: string[]
+  ) {
+    let userDoc: SlUserDoc;
     const dbConfig = this.#dbAuth.getDBConfig(dbName, type || 'private');
     dbConfig.designDocs = designDocs || dbConfig.designDocs || '';
     dbConfig.permissions = permissions || dbConfig.permissions;
@@ -1405,7 +1416,7 @@ export class User {
     return this.userDB.destroy(user, user._rev);
   }
 
-  async confirmSession(key, password) {
+  async confirmSession(key: string, password: string) {
     try {
       return await this.#session.confirmToken(key, password);
     } catch (error) {

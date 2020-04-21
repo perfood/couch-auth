@@ -1,9 +1,9 @@
 'use strict';
 
 import { capitalizeFirstLetter } from './util';
-import { Router } from 'express';
+import { Request, Response, Router, NextFunction } from 'express';
 import { Authenticator } from 'passport';
-//import { User } from './user';
+import { User } from './user';
 import { ConfigHelper } from './config/configure';
 import { callbackify } from 'util';
 
@@ -16,64 +16,73 @@ const stateRequired = ['google', 'linkedin'];
 module.exports = function (
   router: Router,
   passport: Authenticator,
-  user,
+  user: User,
   config: ConfigHelper
 ) {
   // Function to initialize a session following authentication from a socialAuth provider
-  function initSession(req, res, next) {
+  function initSession(req: Request, res: Response, next: NextFunction) {
     const provider = getProvider(req.path);
-    return user
-      .createSession(req.user._id, provider, req)
-      .then(function (mySession) {
-        return Promise.resolve({
-          error: null,
-          session: mySession,
-          link: null
-        });
-      })
-      .then(
-        function (results) {
-          let template;
-          if (config.getItem('testMode.oauthTest')) {
-            template = fs.readFileSync(
-              path.join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
-              'utf8'
-            );
-          } else {
-            template = fs.readFileSync(
-              path.join(__dirname, '../templates/oauth/auth-callback.ejs'),
-              'utf8'
-            );
+    return (
+      user
+        // @ts-ignore
+        .createSession(req.user._id, provider, req)
+        .then(function (mySession) {
+          return Promise.resolve({
+            error: null,
+            session: mySession,
+            link: null
+          });
+        })
+        .then(
+          function (results) {
+            let template;
+            if (config.getItem('testMode.oauthTest')) {
+              template = fs.readFileSync(
+                path.join(
+                  __dirname,
+                  '../templates/oauth/auth-callback-test.ejs'
+                ),
+                'utf8'
+              );
+            } else {
+              template = fs.readFileSync(
+                path.join(__dirname, '../templates/oauth/auth-callback.ejs'),
+                'utf8'
+              );
+            }
+            const html = ejs.render(template, results);
+            res.status(200).send(html);
+          },
+          function (err) {
+            return next(err);
           }
-          const html = ejs.render(template, results);
-          res.status(200).send(html);
-        },
-        function (err) {
-          return next(err);
-        }
-      );
+        )
+    );
   }
 
   // Function to initialize a session following authentication from a socialAuth provider
-  function initTokenSession(req, res, next) {
+  function initTokenSession(req: Request, res: Response, next: NextFunction) {
     const provider = getProviderToken(req.path);
-    return user
-      .createSession(req.user._id, provider, req)
-      .then(function (mySession) {
-        return Promise.resolve(mySession);
-      })
-      .then(
-        function (session) {
-          res.status(200).json(session);
-        },
-        function (err) {
-          return next(err);
-        }
-      );
+    return (
+      user
+        // @ts-ignore
+        .createSession(req.user._id, provider, req)
+        .then(function (mySession) {
+          return Promise.resolve(mySession);
+        })
+        .then(
+          function (session) {
+            res.status(200).json(session);
+          },
+          function (err) {
+            return next(err);
+          }
+        )
+    );
   }
 
   // Called after an account has been succesfully linked
-  function linkSuccess(req, res, next) {
+  function linkSuccess(req: Request, res: Response, next: NextFunction) {
     const provider = getProvider(req.path);
     const result = {
       error: null,
@@ -97,7 +106,7 @@ module.exports = function (
   }
 
   // Called after an account has been succesfully linked using access_token provider
-  function linkTokenSuccess(req, res, next) {
+  function linkTokenSuccess(req: Request, res: Response, next: NextFunction) {
     const provider = getProviderToken(req.path);
     res.status(200).json({
       ok: true,
@@ -107,7 +116,12 @@ module.exports = function (
   }
 
   // Handles errors if authentication fails
-  function oauthErrorHandler(err, req, res, next) {
+  function oauthErrorHandler(
+    err: Error,
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     let template;
     if (config.getItem('testMode.oauthTest')) {
       template = fs.readFileSync(
@@ -133,8 +147,14 @@ module.exports = function (
   }
 
   // Handles errors if authentication from access_token provider fails
-  function tokenAuthErrorHandler(err, req, res, next) {
+  function tokenAuthErrorHandler(
+    err: Error,
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     let status;
+    // @ts-ignore
     if (req.user && req.user._id) {
       status = 403;
     } else {
@@ -149,7 +169,7 @@ module.exports = function (
   }
 
   // Framework to register OAuth providers with passport
-  function registerProvider(provider, configFunction) {
+  function registerProvider(provider: string, configFunction: Function) {
     provider = provider.toLowerCase();
     const configRef = 'providers.' + provider;
     if (config.getItem(configRef + '.credentials')) {
@@ -183,11 +203,16 @@ module.exports = function (
   }
 
   // A shortcut to register OAuth2 providers that follow the exact accessToken, refreshToken pattern.
-  function registerOAuth2(providerName, Strategy) {
+  function registerOAuth2(providerName: string, Strategy: any) {
     registerProvider(providerName, function (
       credentials,
-      passport,
-      authHandler
+      passport: Authenticator,
+      authHandler: (
+        req: Request,
+        provider: string,
+        auth,
+        profile
+      ) => Promise<any>
     ) {
       passport.use(
         new Strategy(credentials, function (
@@ -197,14 +222,13 @@ module.exports = function (
           profile,
           done
         ) {
-          callbackify(
-            authHandler(
-              req,
-              providerName,
-              { accessToken: accessToken, refreshToken: refreshToken },
-              profile
-            )
-          )(done);
+          callbackify(authHandler)(
+            req,
+            providerName,
+            { accessToken: accessToken, refreshToken: refreshToken },
+            profile,
+            done
+          );
         })
       );
     });
@@ -212,7 +236,7 @@ module.exports = function (
 
   // Registers a provider that accepts an access_token directly from the client, skipping the popup window and callback
   // This is for supporting Cordova, native IOS and Android apps, as well as other devices
-  function registerTokenProvider(providerName, Strategy) {
+  function registerTokenProvider(providerName: string, Strategy) {
     providerName = providerName.toLowerCase();
     const configRef = 'providers.' + providerName;
     if (config.getItem(configRef + '.credentials')) {
@@ -229,14 +253,13 @@ module.exports = function (
           profile,
           done
         ) {
-          callbackify(
-            authHandler(
-              req,
-              providerName,
-              { accessToken: accessToken, refreshToken: refreshToken },
-              profile
-            )
-          )(done);
+          callbackify(authHandler)(
+            req,
+            providerName,
+            { accessToken: accessToken, refreshToken: refreshToken },
+            profile,
+            done
+          );
         })
       );
       router.post(
@@ -261,8 +284,10 @@ module.exports = function (
   // This is called after a user has successfully authenticated with a provider
   // If a user is authenticated with a bearer token we will link an account, otherwise log in
   // auth is an object containing 'access_token' and optionally 'refresh_token'
-  function authHandler(req, provider, auth, profile) {
+  function authHandler(req: Request, provider: string, auth, profile) {
+    //@ts-ignore
     if (req.user && req.user._id && req.user.key) {
+      //@ts-ignore
       return user.linkSocial(req.user._id, provider, auth, profile, req);
     } else {
       return user.socialAuth(provider, auth, profile, req);
@@ -271,8 +296,8 @@ module.exports = function (
 
   // Configures the passport.authenticate for the given provider, passing in options
   // Operation is 'login' or 'link'
-  function passportCallback(provider, options, operation) {
-    return function (req, res, next) {
+  function passportCallback(provider: string, options, operation) {
+    return function (req: Request, res: Response, next: NextFunction) {
       const theOptions = extend({}, options);
       if (provider === 'linkedin') {
         theOptions.state = true;
@@ -297,15 +322,20 @@ module.exports = function (
   }
 
   // Configures the passport.authenticate for the given access_token provider, passing in options
-  function passportTokenCallback(provider, options) {
-    return function (req, res, next) {
+  function passportTokenCallback(provider: string, options) {
+    return function (req: Request, res: Response, next: NextFunction) {
       const theOptions = extend({}, options);
       theOptions.session = false;
       passport.authenticate(provider + '-token', theOptions)(req, res, next);
     };
   }
 
-  function getLinkCallbackURLs(provider, req, operation, accessToken) {
+  function getLinkCallbackURLs(
+    provider: string,
+    req: Request,
+    operation,
+    accessToken
+  ) {
     if (accessToken) {
       accessToken = encodeURIComponent(accessToken);
     }
@@ -343,8 +373,8 @@ module.exports = function (
     }
   }
 
-  // Gets the provider name from a callback path
-  function getProvider(pathname) {
+  /** Gets the provider name from a callback path */
+  function getProvider(pathname: string) {
     const items = pathname.split('/');
     const index = items.indexOf('callback');
     if (index > 0) {
@@ -352,8 +382,8 @@ module.exports = function (
     }
   }
 
-  // Gets the provider name from a callback path for access_token strategy
-  function getProviderToken(pathname) {
+  /** Gets the provider name from a callback path for access_token strategy */
+  function getProviderToken(pathname: string) {
     const items = pathname.split('/');
     const index = items.indexOf('token');
     if (index > 0) {

@@ -22,8 +22,9 @@ export interface HashResult {
 }
 
 export interface LocalHashObj extends HashResult {
-  failedLoginAttempts: number;
+  failedLoginAttempts?: number;
   iterations?: number;
+  lockedUntil?: number;
 }
 
 export interface SignUpObj {
@@ -36,9 +37,12 @@ export interface PersonalDBCollection {
   [dbName: string]: IdentifiedObj;
 }
 
-export interface SessionObj {
+export interface TimeRestricted {
   issued: number;
   expires: number;
+}
+
+export interface SessionObj extends TimeRestricted {
   provider: string;
   ip: string;
 }
@@ -47,11 +51,25 @@ export interface SessionCollection {
   [session: string]: SessionObj;
 }
 
+export interface UserActivity {
+  timestamp: string;
+  action: string;
+  provider: string;
+  ip: string;
+}
+
+export interface PasswortResetEntry extends TimeRestricted {
+  token: string;
+}
+
 export interface SlUserDoc extends Document, IdentifiedObj {
   user_uid: string;
   roles: string[];
   providers: string[];
-  local: LocalHashObj;
+  local: Partial<LocalHashObj>;
+  activity?: UserActivity[];
+  forgotPassword?: PasswortResetEntry;
+  unverifiedEmail?: { email: string };
   signUp: SignUpObj;
   personalDBs: PersonalDBCollection;
   email: string;

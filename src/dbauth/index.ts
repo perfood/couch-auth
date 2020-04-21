@@ -5,8 +5,9 @@ import request from 'superagent';
 import { CouchAdapter } from './couchdb';
 import { CloudantAdapter } from './cloudant';
 import nano, { DocumentScope, ServerScope } from 'nano';
-import { SlUserDoc, CouchDbAuthDoc } from '../types/typings';
+import { SlUserDoc, CouchDbAuthDoc, IdentifiedObj } from '../types/typings';
 import { ConfigHelper } from '../config/configure';
+import { PersonalDBSettings } from 'config';
 
 export class DBAuth {
   #adapter: CouchAdapter | CloudantAdapter;
@@ -104,7 +105,7 @@ export class DBAuth {
   }
 
   async addUserDB(
-    userDoc: any,
+    userDoc: SlUserDoc,
     dbName: string,
     designDocs?: any[],
     type?: string,
@@ -215,7 +216,7 @@ export class DBAuth {
   }
 
   /** deauthenticates the keys from the user's personal DB */
-  deauthorizeUser(userDoc, keys) {
+  deauthorizeUser(userDoc: SlUserDoc, keys) {
     const promises = [];
     // If keys is not specified we will deauthorize all of the users sessions
     if (!keys) {
@@ -233,7 +234,7 @@ export class DBAuth {
     }
   }
 
-  getDesignDoc(docName) {
+  getDesignDoc(docName: string) {
     if (!docName) {
       return null;
     }
@@ -253,7 +254,7 @@ export class DBAuth {
     return designDoc;
   }
 
-  getDBConfig(dbName, type?) {
+  getDBConfig(dbName, type?): PersonalDBSettings & IdentifiedObj {
     const dbConfig: any = {
       name: dbName
     };
@@ -302,7 +303,7 @@ export class DBAuth {
     return dbConfig;
   }
 
-  createDB(dbName) {
+  createDB(dbName: string): Promise<any> {
     const finalUrl = getDBURL(this.#config.getItem('dbServer')) + '/' + dbName;
     return request
       .put(finalUrl)
@@ -321,11 +322,11 @@ export class DBAuth {
       );
   }
 
-  removeDB(dbName) {
+  removeDB(dbName: string) {
     return this.#couch.db.destroy(dbName);
   }
 
-  private getLegalDBName(input) {
+  private getLegalDBName(input: string) {
     input = input.toLowerCase();
     let output = encodeURIComponent(input);
     output = output.replace(/\./g, '%2E');

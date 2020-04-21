@@ -1,12 +1,21 @@
 'use strict';
 import { verifyPassword } from './util';
 import { Strategy as LocalStrategy } from 'passport-local';
+import { ConfigHelper } from './config/configure';
+import { Authenticator } from 'passport';
+import { User } from './user';
+import { Request } from 'express';
+import { SlUserDoc } from 'typings';
 const BearerStrategy = require('passport-http-bearer-sl').Strategy;
 
-module.exports = function (config, passport, user) {
+module.exports = function (
+  config: ConfigHelper,
+  passport: Authenticator,
+  user: User
+) {
   // API token strategy
   passport.use(
-    new BearerStrategy((tokenPass, done) => {
+    new BearerStrategy((tokenPass: string, done: Function) => {
       const parse = tokenPass.split(':');
       if (parse.length < 2) {
         done(null, false, { message: 'invalid token' });
@@ -37,7 +46,7 @@ module.exports = function (config, passport, user) {
         session: false,
         passReqToCallback: true
       },
-      (req, username, password, done) => {
+      (req: Request, username: string, password: string, done: Function) => {
         user.getUser(username).then(
           theuser => {
             if (theuser) {
@@ -98,11 +107,12 @@ module.exports = function (config, passport, user) {
     )
   );
 
-  function handleFailedLogin(userDoc, req, done) {
+  function handleFailedLogin(userDoc: SlUserDoc, req: Request, done: Function) {
     const invalid = {
       error: 'Unauthorized',
       message: 'Invalid username or password'
     };
+    // @ts-ignore
     return user.handleFailedLogin(userDoc, req).then(locked => {
       if (locked) {
         invalid.message =

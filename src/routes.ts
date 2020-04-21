@@ -1,13 +1,13 @@
 'use strict';
 import { getSessionToken, capitalizeFirstLetter } from './util';
-//import { Router } from 'express';
 import { ConfigHelper } from './config/configure';
 import { Authenticator } from 'passport';
 import { User } from './user';
+import { Request, Response, NextFunction, Router } from 'express';
 
 module.exports = function (
   config: ConfigHelper,
-  router: any,
+  router: Router,
   passport: Authenticator,
   user: User
 ) {
@@ -15,8 +15,8 @@ module.exports = function (
 
   router.post(
     '/login',
-    function (req, res, next) {
-      passport.authenticate('local', function (err, user, info) {
+    function (req: Request, res: Response, next: NextFunction) {
+      passport.authenticate('local', function (err: Error, user, info) {
         if (err) {
           return next(err);
         }
@@ -33,8 +33,9 @@ module.exports = function (
         return next();
       })(req, res, next);
     },
-    function (req, res, next) {
+    function (req: Request, res: Response, next: NextFunction) {
       // Success handler
+      // @ts-ignore
       return user.createSession(req.user._id, 'local', req).then(
         function (mySession) {
           res.status(200).json(mySession);
@@ -49,7 +50,8 @@ module.exports = function (
   router.post(
     '/refresh',
     passport.authenticate('bearer', { session: false }),
-    function (req, res, next) {
+    function (req: Request, res: Response, next: NextFunction) {
+      // @ts-ignore
       return user.refreshSession(req.user.key).then(
         function (mySession) {
           res.status(200).json(mySession);
@@ -61,7 +63,11 @@ module.exports = function (
     }
   );
 
-  router.post('/logout', function (req, res, next) {
+  router.post('/logout', function (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     const sessionToken = getSessionToken(req);
     if (!sessionToken) {
       return next({
@@ -83,7 +89,8 @@ module.exports = function (
   router.post(
     '/logout-others',
     passport.authenticate('bearer', { session: false }),
-    function (req, res, next) {
+    function (req: Request, res: Response, next: NextFunction) {
+      // @ts-ignore
       user.logoutOthers(req.user.key).then(
         function () {
           res.status(200).json({ success: 'Other sessions logged out' });
@@ -96,7 +103,11 @@ module.exports = function (
     }
   );
 
-  router.post('/logout-all', function (req, res, next) {
+  router.post('/logout-all', function (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     const sessionToken = getSessionToken(req);
     if (!sessionToken) {
       return next({
@@ -116,7 +127,11 @@ module.exports = function (
   });
 
   // Setting up the auth api
-  router.post('/register', function (req, res, next) {
+  router.post('/register', function (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     user.createUser(req.body, req).then(
       function (newUser) {
         if (config.getItem('security.loginOnRegistration')) {
@@ -138,7 +153,11 @@ module.exports = function (
     );
   });
 
-  router.post('/forgot-password', function (req, res, next) {
+  router.post('/forgot-password', function (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     user.forgotPassword(req.body.email, req).then(
       function () {
         res.status(200).json({ success: 'Password recovery email sent.' });
@@ -149,7 +168,11 @@ module.exports = function (
     );
   });
 
-  router.post('/password-reset', function (req, res, next) {
+  router.post('/password-reset', function (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     user.resetPassword(req.body, req).then(
       function (currentUser) {
         if (config.getItem('security.loginOnPasswordReset')) {
@@ -174,7 +197,8 @@ module.exports = function (
   router.post(
     '/password-change',
     passport.authenticate('bearer', { session: false }),
-    function (req, res, next) {
+    function (req: Request, res: Response, next: NextFunction) {
+      // @ts-ignore
       user.changePasswordSecure(req.user._id, req.body, req).then(
         function () {
           res.status(200).json({ success: 'password changed' });
@@ -189,8 +213,9 @@ module.exports = function (
   router.post(
     '/unlink/:provider',
     passport.authenticate('bearer', { session: false }),
-    function (req, res, next) {
+    function (req: Request, res: Response, next: NextFunction) {
       const provider = req.params.provider;
+      // @ts-ignore
       user.unlink(req.user._id, provider).then(
         function () {
           res.status(200).json({
@@ -204,7 +229,11 @@ module.exports = function (
     }
   );
 
-  router.get('/confirm-email/:token', function (req, res, next) {
+  router.get('/confirm-email/:token', function (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     const redirectURL = config.getItem('local.confirmEmailRedirectURL');
     if (!req.params.token) {
       const err = { error: 'Email verification token required' };
@@ -235,7 +264,11 @@ module.exports = function (
     );
   });
 
-  router.get('/validate-username/:username', function (req, res, next) {
+  router.get('/validate-username/:username', function (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     if (!req.params.username) {
       return next({ error: 'Username required', status: 400 });
     }
@@ -253,7 +286,11 @@ module.exports = function (
     );
   });
 
-  router.get('/validate-email/:email', function (req, res, next) {
+  router.get('/validate-email/:email', function (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     let promise;
     if (!req.params.email) {
       return next({ error: 'Email required', status: 400 });
@@ -280,7 +317,8 @@ module.exports = function (
   router.post(
     '/change-email',
     passport.authenticate('bearer', { session: false }),
-    function (req, res, next) {
+    function (req: Request, res: Response, next: NextFunction) {
+      // @ts-ignore
       user.changeEmail(req.user._id, req.body.newEmail, req).then(
         function () {
           res.status(200).json({ ok: true, success: 'Email changed' });
@@ -296,22 +334,30 @@ module.exports = function (
   router.get(
     '/session',
     passport.authenticate('bearer', { session: false }),
-    function (req, res) {
+    function (req: Request, res: Response) {
       const user = req.user;
+      // @ts-ignore
       user.user_id = user._id;
+      // @ts-ignore
       delete user._id;
-      // user.token = user.key;
+      // @ts-ignore
       delete user.key;
       res.status(200).json(user);
     }
   );
 
   // Error handling
-  router.use(function (err, req, res, next) {
+  router.use(function (
+    err: Error,
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     console.error(err);
     if (err.stack) {
       console.error(err.stack);
     }
+    // @ts-ignore todo: HttpError
     res.status(err.status || 500);
     if (err.stack && env !== 'development') {
       delete err.stack;
