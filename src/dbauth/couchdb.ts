@@ -64,11 +64,13 @@ export class CouchAdapter implements DBAdapter {
       keylist.push(userPrefix + key);
     });
     const toDelete: { _id: string; _rev: string; _deleted: boolean }[] = [];
-    // success: have row.doc
+    // success: have row.doc, but possibly row.doc = null and row.value.deleted = true
     // failure: have row.key and row.error
     const keyDocs = await this.#couchAuthDB.fetch({ keys: keylist });
     keyDocs.rows.forEach(row => {
-      if (!('error' in row)) {
+      if (!('doc' in row)) {
+        console.warn('removeKeys() - could not retrieve: ' + row.key);
+      } else if (!('deleted' in row.value)) {
         const deletion = {
           _id: row.doc._id,
           _rev: row.doc._rev,
