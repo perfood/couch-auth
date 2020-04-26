@@ -1,29 +1,21 @@
 'use strict';
-const PouchDB = require('pouchdb');
 const expect = require('chai').expect;
-const CloudantAdapter = require('../src/dbauth/cloudant').CloudantAdapter;
+const CloudantAdapter = require('../lib/dbauth/cloudant').CloudantAdapter;
 const cloudant = new CloudantAdapter();
-// todo: test with nano instead!
-
-const cloudantUrl =
-  'https://' +
-  process.env.CLOUDANT_USER +
-  ':' +
-  process.env.CLOUDANT_PASS +
-  '@' +
-  process.env.CLOUDANT_USER +
-  '.cloudant.com';
+const utils = require('../lib/util');
+const nano = require('nano')(utils.getCloudantURL());
+const testDBName = 'temp_test';
+/** @type {import('nano').DocumentScope<any>} */
 let testDB;
 let previous;
 
 describe('Cloudant', function () {
-  let apiKey;
-
   previous = Promise.resolve();
 
   before(function () {
-    return previous.then(function () {
-      testDB = new PouchDB(cloudantUrl + '/temp_test');
+    return previous.then(async () => {
+      await nano.db.create(testDBName);
+      testDB = nano.use(testDBName);
       return testDB;
     });
   });
@@ -31,8 +23,7 @@ describe('Cloudant', function () {
   after(function () {
     this.timeout(5000);
     return previous.finally(function () {
-      return testDB.destroy();
-      // return Promise.resolve();
+      return nano.db.destroy(testDBName);
     });
   });
 
@@ -40,12 +31,11 @@ describe('Cloudant', function () {
     this.timeout(5000);
     return previous
       .then(function () {
-        return cloudant.getAPIKey(testDB);
+        return cloudant.getAPIKey();
       })
       .then(function (result) {
         expect(result.ok).to.equal(true);
         expect(result.key).to.be.a('string');
-        apiKey = result.key;
       });
   });
 

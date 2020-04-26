@@ -25,6 +25,12 @@ function dbauth_test() {
   );
 }
 
+function cloudant_test() {
+  return src(['test/cloudant.spec.js'], { read: false }).pipe(
+    mocha({ timeout: 2000 })
+  );
+}
+
 // these three tasks all just need dbauth
 function session_test() {
   return src(['test/session.spec.js'], { read: false }).pipe(
@@ -49,12 +55,11 @@ function final_test() {
   return src(['test/test.js'], { read: false }).pipe(mocha({ timeout: 2000 }));
 }
 
-exports.default = series(
-  lint,
-  middleware_test,
-  dbauth_test,
-  session_test,
-  mailer_test,
-  user_test,
-  final_test
-);
+let tasks = [lint, middleware_test, dbauth_test];
+if (!process.env.CLOUDANT_USER || !process.env.CLOUDANT_PASS) {
+  console.warn('No credentials provided, skipping Cloudant test');
+} else {
+  tasks.push(cloudant_test);
+}
+tasks = tasks.concat([session_test, mailer_test, user_test, final_test]);
+exports.default = series(tasks);

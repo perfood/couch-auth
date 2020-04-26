@@ -51,6 +51,18 @@ export function verifyPassword(hashObj: LocalHashObj, password: string) {
   });
 }
 
+export function getCloudantURL() {
+  return (
+    'https://' +
+    process.env.CLOUDANT_USER +
+    ':' +
+    process.env.CLOUDANT_PASS +
+    '@' +
+    process.env.CLOUDANT_USER +
+    '.cloudantnosqldb.appdomain.cloud'
+  );
+}
+
 export function getDBURL(db: DBServerConfig) {
   let url;
   if (db.user) {

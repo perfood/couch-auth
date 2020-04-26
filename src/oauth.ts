@@ -6,6 +6,7 @@ import { Authenticator } from 'passport';
 import { User } from './user';
 import { ConfigHelper } from './config/configure';
 import { callbackify } from 'util';
+import { SlRequest } from 'typings';
 
 const fs = require('fs');
 const path = require('path');
@@ -20,65 +21,56 @@ module.exports = function (
   config: ConfigHelper
 ) {
   // Function to initialize a session following authentication from a socialAuth provider
-  function initSession(req: Request, res: Response, next: NextFunction) {
+  function initSession(req: SlRequest, res: Response, next: NextFunction) {
     const provider = getProvider(req.path);
-    return (
-      user
-        // @ts-ignore
-        .createSession(req.user._id, provider, req)
-        .then(function (mySession) {
-          return Promise.resolve({
-            error: null,
-            session: mySession,
-            link: null
-          });
-        })
-        .then(
-          function (results) {
-            let template;
-            if (config.getItem('testMode.oauthTest')) {
-              template = fs.readFileSync(
-                path.join(
-                  __dirname,
-                  '../templates/oauth/auth-callback-test.ejs'
-                ),
-                'utf8'
-              );
-            } else {
-              template = fs.readFileSync(
-                path.join(__dirname, '../templates/oauth/auth-callback.ejs'),
-                'utf8'
-              );
-            }
-            const html = ejs.render(template, results);
-            res.status(200).send(html);
-          },
-          function (err) {
-            return next(err);
+    return user
+      .createSession(req.user._id, provider, req)
+      .then(function (mySession) {
+        return Promise.resolve({
+          error: null,
+          session: mySession,
+          link: null
+        });
+      })
+      .then(
+        function (results) {
+          let template;
+          if (config.getItem('testMode.oauthTest')) {
+            template = fs.readFileSync(
+              path.join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
+              'utf8'
+            );
+          } else {
+            template = fs.readFileSync(
+              path.join(__dirname, '../templates/oauth/auth-callback.ejs'),
+              'utf8'
+            );
           }
-        )
-    );
+          const html = ejs.render(template, results);
+          res.status(200).send(html);
+        },
+        function (err) {
+          return next(err);
+        }
+      );
   }
 
   // Function to initialize a session following authentication from a socialAuth provider
-  function initTokenSession(req: Request, res: Response, next: NextFunction) {
+  function initTokenSession(req: SlRequest, res: Response, next: NextFunction) {
     const provider = getProviderToken(req.path);
-    return (
-      user
-        // @ts-ignore
-        .createSession(req.user._id, provider, req)
-        .then(function (mySession) {
-          return Promise.resolve(mySession);
-        })
-        .then(
-          function (session) {
-            res.status(200).json(session);
-          },
-          function (err) {
-            return next(err);
-          }
-        )
-    );
+    return user
+      .createSession(req.user._id, provider, req)
+      .then(function (mySession) {
+        return Promise.resolve(mySession);
+      })
+      .then(
+        function (session) {
+          res.status(200).json(session);
+        },
+        function (err) {
+          return next(err);
+        }
+      );
   }
 
   // Called after an account has been succesfully linked
@@ -149,12 +141,11 @@ module.exports = function (
   // Handles errors if authentication from access_token provider fails
   function tokenAuthErrorHandler(
     err: Error,
-    req: Request,
+    req: SlRequest,
     res: Response,
     next: NextFunction
   ) {
     let status;
-    // @ts-ignore
     if (req.user && req.user._id) {
       status = 403;
     } else {
@@ -284,10 +275,8 @@ module.exports = function (
   // This is called after a user has successfully authenticated with a provider
   // If a user is authenticated with a bearer token we will link an account, otherwise log in
   // auth is an object containing 'access_token' and optionally 'refresh_token'
-  function authHandler(req: Request, provider: string, auth, profile) {
-    //@ts-ignore
+  function authHandler(req: SlRequest, provider: string, auth, profile) {
     if (req.user && req.user._id && req.user.key) {
-      //@ts-ignore
       return user.linkSocial(req.user._id, provider, auth, profile, req);
     } else {
       return user.socialAuth(provider, auth, profile, req);

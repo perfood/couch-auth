@@ -4,6 +4,7 @@ import { ConfigHelper } from './config/configure';
 import { Authenticator } from 'passport';
 import { User } from './user';
 import { Request, Response, NextFunction, Router } from 'express';
+import { SlRequest } from 'typings';
 
 module.exports = function (
   config: ConfigHelper,
@@ -40,8 +41,7 @@ module.exports = function (
     function (req, res, next) {
       loginLocal(req, res, next);
     },
-    function (req, res, next) {
-      // @ts-ignore
+    function (req: SlRequest, res, next) {
       return user.createSession(req.user._id, 'local', req).then(
         function (mySession) {
           res.status(200).json(mySession);
@@ -56,8 +56,7 @@ module.exports = function (
   router.post(
     '/refresh',
     passport.authenticate('bearer', { session: false }),
-    function (req: Request, res: Response, next: NextFunction) {
-      // @ts-ignore
+    function (req: SlRequest, res: Response, next: NextFunction) {
       return user.refreshSession(req.user.key).then(
         function (mySession) {
           res.status(200).json(mySession);
@@ -95,8 +94,7 @@ module.exports = function (
   router.post(
     '/logout-others',
     passport.authenticate('bearer', { session: false }),
-    function (req: Request, res: Response, next: NextFunction) {
-      // @ts-ignore
+    function (req: SlRequest, res: Response, next: NextFunction) {
       user.logoutOthers(req.user.key).then(
         function () {
           res.status(200).json({ success: 'Other sessions logged out' });
@@ -203,8 +201,7 @@ module.exports = function (
   router.post(
     '/password-change',
     passport.authenticate('bearer', { session: false }),
-    function (req: Request, res: Response, next: NextFunction) {
-      // @ts-ignore
+    function (req: SlRequest, res: Response, next: NextFunction) {
       user.changePasswordSecure(req.user._id, req.body, req).then(
         function () {
           res.status(200).json({ success: 'password changed' });
@@ -219,9 +216,8 @@ module.exports = function (
   router.post(
     '/unlink/:provider',
     passport.authenticate('bearer', { session: false }),
-    function (req: Request, res: Response, next: NextFunction) {
+    function (req: SlRequest, res: Response, next: NextFunction) {
       const provider = req.params.provider;
-      // @ts-ignore
       user.unlink(req.user._id, provider).then(
         function () {
           res.status(200).json({
@@ -330,8 +326,7 @@ module.exports = function (
         next();
       }
     },
-    function (req: Request, res: Response, next: NextFunction) {
-      // @ts-ignore
+    function (req: SlRequest, res: Response, next: NextFunction) {
       user.changeEmail(req.user._id, req.body.newEmail, req).then(
         function () {
           const info = requireConf ? 'change requested' : 'changed';
@@ -348,30 +343,21 @@ module.exports = function (
   router.get(
     '/session',
     passport.authenticate('bearer', { session: false }),
-    function (req: Request, res: Response) {
+    function (req: SlRequest, res: Response) {
       const user = req.user;
-      // @ts-ignore
       user.user_id = user._id;
-      // @ts-ignore
       delete user._id;
-      // @ts-ignore
       delete user.key;
       res.status(200).json(user);
     }
   );
 
   // Error handling
-  router.use(function (
-    err: Error,
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) {
+  router.use(function (err, req: Request, res: Response, next: NextFunction) {
     console.error(err);
     if (err.stack) {
       console.error(err.stack);
     }
-    // @ts-ignore todo: HttpError
     res.status(err.status || 500);
     if (err.stack && env !== 'development') {
       delete err.stack;

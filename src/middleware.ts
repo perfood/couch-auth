@@ -3,6 +3,7 @@
 
 import { NextFunction, Request, Response } from 'express';
 import { Authenticator } from 'passport';
+import { SlRequest } from 'typings';
 
 export class Middleware {
   static forbiddenError = {
@@ -28,11 +29,10 @@ export class Middleware {
 
   // Requires that the user have the specified role
   requireRole(requiredRole: string) {
-    return (req: Request, res: Response, next: NextFunction) => {
+    return (req: SlRequest, res: Response, next: NextFunction) => {
       if (!req.user) {
         return next(Middleware.superloginError);
       }
-      // @ts-ignore
       const roles = req.user.roles;
       if (!roles || !roles.length || roles.indexOf(requiredRole) === -1) {
         res.status(Middleware.forbiddenError.status);
@@ -45,12 +45,11 @@ export class Middleware {
 
   /** Requires that the user have at least one of the specified roles */
   requireAnyRole(possibleRoles: string[]) {
-    return (req: Request, res: Response, next: NextFunction) => {
+    return (req: SlRequest, res: Response, next: NextFunction) => {
       if (!req.user) {
         return next(Middleware.superloginError);
       }
       let denied = true;
-      // @ts-ignore
       const roles = req.user.roles;
       if (roles && roles.length) {
         for (let i = 0; i < possibleRoles.length; i++) {

@@ -214,27 +214,6 @@ export interface ProviderConfig {
   stateRequired: boolean;
 }
 
-export interface SofaModelOptions {
-  /** If any of your passed custom validation functions make asynchronous calls, this must be set to true. */
-  async?: boolean;
-  /** Here you can specify additional validation functions that are not included in Validate.js */
-  customValidators?: Record<string, Function>;
-  /** Validation is handled by Validate.js. Specify your validation constraints in options.validate when you instantiate your model.  */
-  validate?: { [key: string]: Record<string, any> };
-  /** Sanitize is handled mostly by Validate.js. `options.sanitize` is an object where the keys correspond to the data fields you want to process. The value is either an array of operations you want to apply or an object where is key is an operation and the value represents the options for that operation. */
-  sanitize?: Record<string, string[] | Record<string, any>>;
-  /** A list of fields that are allowed to be present in your output data. If the Whitelist option is specified, any field not specifically whitelisted will be removed. */
-  whitelist?: string[];
-  /** A list of fields that are not allowed in your output data. Any field specified under blacklist will be removed if present. */
-  blacklist?: string[];
-  /** An object where the keys are the fields you want to rename, and the values are what you want to change them to. */
-  rename?: Record<string, string>;
-  /** A list of static fields and their values that will be merged on top of your data. */
-  static?: Record<string, any>;
-  /** An object that will be merged behind your data. */
-  merge?: any;
-}
-
 export interface Config {
   testMode: TestConfig;
   security: SecurityConfig;

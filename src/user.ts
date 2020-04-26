@@ -2,13 +2,11 @@
 
 import { DBAuth } from './dbauth';
 import { DocumentScope } from 'nano';
-//import { Config, SofaModelOptions } from 'config';
-
-const url = require('url');
-import Model from 'sofa-model';
-import extend from 'extend';
+import url from 'url';
+import Model, { Sofa } from '@sl-nx/sofa-model';
+import merge from 'deepmerge';
 import { Session } from './session';
-import { SlSession, SlUserDoc } from './types/typings';
+import { SlSession, SlUserDoc, SlRequest } from './types/typings';
 import { ConfigHelper } from './config/configure';
 import {
   arrayUnion,
@@ -21,6 +19,7 @@ import {
   verifyPassword
 } from './util';
 import { Request } from 'express';
+import { Mailer } from './mailer';
 
 // regexp from https://github.com/angular/angular.js/blob/master/src/ng/directive/input.js#L27
 const EMAIL_REGEXP = /^(?=.{1,254}$)(?=.{1,64}@)[-!#$%&'*+/0-9=?A-Z^_`a-z{|}~]+(\.[-!#$%&'*+/0-9=?A-Z^_`a-z{|}~]+)*@[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/;
@@ -48,17 +47,16 @@ export class User {
   validateEmail: Function;
   validateEmailUsername: Function;
 
-  // Models
-  userModel;
-  resetPasswordModel;
-  changePasswordModel;
+  userModel: Sofa.AsyncOptions;
+  resetPasswordModel: Sofa.AsyncOptions;
+  changePasswordModel: Sofa.AsyncOptions;
 
   constructor(
     config: ConfigHelper,
     userDB: DocumentScope<any>,
     couchAuthDB: DocumentScope<any>,
-    mailer,
-    emitter
+    mailer: Mailer,
+    emitter: EventEmitter
   ) {
     this.userDB = userDB;
     this.config = config;
@@ -90,11 +88,10 @@ export class User {
       },
       matches: 'confirmPassword'
     };
-    this.passwordConstraints = extend(
-      true,
-      {},
+    const additionalConstraints = config.getItem('local.passwordConstraints');
+    this.passwordConstraints = merge(
       this.passwordConstraints,
-      config.getItem('local.passwordConstraints')
+      additionalConstraints ? additionalConstraints : {}
     );
 
     // the validation functions are public
@@ -160,7 +157,7 @@ export class User {
     };
 
     // SofaModelOptions
-    const userModel: any = {
+    const userModel: Sofa.AsyncOptions = {
       async: true,
       whitelist: ['name', 'username', 'email', 'password', 'confirmPassword'],
       customValidators: {
@@ -326,12 +323,8 @@ export class User {
           newUserModel.whitelist
         );
       }
-      finalUserModel = extend(
-        true,
-        {},
-        this.userModel,
-        this.config.getItem('userModel')
-      );
+      const addUserModel = this.config.getItem('userModel');
+      finalUserModel = merge(this.userModel, addUserModel ? addUserModel : {});
       finalUserModel.whitelist = whitelist || finalUserModel.whitelist;
     }
     const UserModel = Model(finalUserModel);
@@ -1163,7 +1156,11 @@ export class User {
     return await this.logActivity(userDoc._id, logInfo, 'local', req, userDoc);
   }
 
-  async changeEmail(user_id: string, newEmail: string, req: Partial<Request>) {
+  async changeEmail(
+    user_id: string,
+    newEmail: string,
+    req: Partial<SlRequest>
+  ) {
     req = req || {};
     if (!req.user) {
       req.user = { provider: 'local' };
@@ -1192,7 +1189,6 @@ export class User {
     const finalUser = await this.logActivity(
       user._id,
       'changed email',
-      // @ts-ignore
       req.user.provider,
       req,
       user
@@ -1455,7 +1451,7 @@ export class User {
   generateSession(username, roles) {
     let getKey;
     if (this.config.getItem('dbServer.cloudant')) {
-      getKey = require('./dbauth/cloudant').getAPIKey(this.userDB);
+      getKey = require('./dbauth/cloudant').getAPIKey();
     } else {
       let token = URLSafeUUID();
       // Make sure our token doesn't start with illegal characters

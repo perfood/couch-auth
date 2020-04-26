@@ -1,12 +1,14 @@
 'use strict';
-import url from 'url';
-import request from 'superagent';
-import { DocumentScope } from 'nano';
-import { toArray } from './../util';
+import nano, { DocumentScope, ServerScope } from 'nano';
+import { toArray, getCloudantURL } from './../util';
 import { DBAdapter } from 'adapters';
 // todo: make work with nano...
 
 export class CloudantAdapter implements DBAdapter {
+  #couch: ServerScope;
+  constructor() {
+    this.#couch = nano(getCloudantURL());
+  }
   /** not needed/ implemented for Cloudant */
   storeKey() {
     return Promise.resolve();
@@ -87,47 +89,40 @@ export class CloudantAdapter implements DBAdapter {
     });
   }
 
-  getAPIKey(db) {
-    const parsedUrl = url.parse(db.getUrl());
-    parsedUrl.pathname = '/_api/v2/api_keys';
-    const finalUrl = url.format(parsedUrl);
-    return request
-      .post(finalUrl)
-      .set(db.getHeaders())
-      .then(res => {
-        const result = JSON.parse(res.text);
-        if (result.key && result.password && result.ok === true) {
-          return Promise.resolve(result);
-        } else {
-          return Promise.reject(result);
-        }
-      });
+  getAPIKey() {
+    return (
+      this.#couch
+        // @ts-ignore
+        .request({
+          method: 'POST',
+          path: '_api/v2/api_keys'
+        })
+        .then(result => {
+          if (result.key && result.password && result.ok === true) {
+            return Promise.resolve(result);
+          } else {
+            return Promise.reject(result);
+          }
+        })
+    );
   }
 
-  // todo: fix db, should be DocumentScope<any>, and then the headers...
-  getSecurityCloudant(db: any) {
-    const finalUrl = this.getSecurityUrl(db);
-    return request
-      .get(finalUrl)
-      .set(db.getHeaders())
-      .then(res => {
-        return Promise.resolve(JSON.parse(res.text));
-      });
-  }
-  putSecurityCloudant(db: any, doc) {
-    const finalUrl = this.getSecurityUrl(db);
-    return request
-      .put(finalUrl)
-      .set(db.getHeaders())
-      .send(doc)
-      .then(res => {
-        return Promise.resolve(JSON.parse(res.text));
-      });
+  private putSecurityCloudant(db: DocumentScope<any>, doc) {
+    // @ts-ignore
+    return this.#couch.request({
+      db: db.config.db,
+      method: 'PUT',
+      doc: '_security',
+      body: doc
+    });
   }
 
-  private getSecurityUrl(db: any) {
-    const parsedUrl = url.parse(db.getUrl());
-    parsedUrl.pathname = parsedUrl.pathname + '_security';
-    return url.format(parsedUrl);
+  getSecurityCloudant(db: DocumentScope<any>): Promise<any> {
+    // @ts-ignore
+    return this.#couch.request({
+      db: db.config.db,
+      method: 'GET',
+      doc: '_security'
+    });
   }
 }

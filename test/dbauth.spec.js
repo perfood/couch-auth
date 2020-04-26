@@ -68,7 +68,6 @@ describe('DBAuth', () => {
     previous = Promise.resolve();
     await seed(userDB, userDesign);
     await userDB.get('_design/auth');
-    console.log('got auth doc after seed');
     /**  @type {import('../types/typings').CouchDbAuthDoc}  */
     const newKey = await dbAuth.storeKey(
       testUser._id,
@@ -96,11 +95,11 @@ describe('DBAuth', () => {
         throw new Error('Failed to delete testkey');
       })
       .catch(function (err) {
-        if (
-          err.reason &&
-          (err.reason === 'deleted' || err.reason === 'missing')
-        )
-          return;
+        //if (
+        //  err.reason &&
+        //  (err.reason === 'deleted' || err.reason === 'missing')
+        //)
+        if (err.statusCode === 404) return;
         throw err;
       });
   });
@@ -110,10 +109,7 @@ describe('DBAuth', () => {
       .then(function () {
         return dbAuth.authorizeKeys('testuser', testDB, ['key1', 'key2']);
       })
-      .then(function (res) {
-        // TODO: need to put, but not via _id!
-
-        console.log('got insertion response: ', res);
+      .then(function () {
         return testDB.get('_security');
       })
       .then(function (secDoc) {

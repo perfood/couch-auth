@@ -1,4 +1,5 @@
 import { Document, IdentifiedDocument, MaybeRevisionedDocument } from 'nano';
+import { Request } from 'express';
 
 export interface IdentifiedObj {
   name: string;
@@ -89,4 +90,16 @@ export interface SlSession {
   profile?: string;
   user_uid?: string;
   name?: string;
+}
+
+interface SlUser {
+  provider?: string;
+  _id?: string;
+  key?: string;
+  roles?: string[];
+  user_id?: string;
+}
+
+export interface SlRequest extends Request {
+  user: SlUser;
 }
