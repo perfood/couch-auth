@@ -95,11 +95,12 @@ describe('DBAuth', () => {
         throw new Error('Failed to delete testkey');
       })
       .catch(function (err) {
-        //if (
-        //  err.reason &&
-        //  (err.reason === 'deleted' || err.reason === 'missing')
-        //)
-        if (err.statusCode === 404) return;
+        if (
+          err.reason &&
+          (err.reason === 'deleted' || err.reason === 'missing') &&
+          err.statusCode === 404
+        )
+          return;
         throw err;
       });
   });

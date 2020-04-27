@@ -46,7 +46,7 @@
     "ejs": "^3.0.1",
     "express": "^4.17.1",
     "fs-extra": "^8.1.0",
-    "nano": "github:apache/couchdb-nano#axios",
+    "nano": "^8.2.2",
     "nodemailer": "^6.4.3",
     "nodemailer-stub-transport": "^1.1.0",
     "object-keys-map": "^1.0.2",

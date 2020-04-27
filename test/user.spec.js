@@ -915,8 +915,7 @@ describe('User Model', async function () {
           throw 'User should have been deleted!';
         },
         function (err) {
-          //todo: change back at some point
-          //expect(err.error).to.equal('not_found');
+          expect(err.error).to.equal('not_found');
           expect(err.statusCode).to.equal(404);
           return checkDBExists('test_usertest$superuser');
         }

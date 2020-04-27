@@ -203,18 +203,18 @@ export class DBAuth {
         });
       }
     });
-    await this.removeKeys(expiredKeys);
-    // console.log('2.) deauthorize keys for each personal database of each user ')
-    for (const user of Object.keys(keysByUser)) {
-      await this.deauthorizeUser(userDocs[user], keysByUser[user]);
-    }
+    if (expiredKeys.length > 0) {
+      await this.removeKeys(expiredKeys);
+      for (const user of Object.keys(keysByUser)) {
+        await this.deauthorizeUser(userDocs[user], keysByUser[user]);
+      }
 
-    const userUpdates = [];
-    Object.keys(userDocs).forEach(user => {
-      userUpdates.push(userDocs[user]);
-    });
-    // console.log('3.) saving updates in superlogin db');
-    await this.#userDB.bulk({ docs: userUpdates });
+      const userUpdates = [];
+      Object.keys(userDocs).forEach(user => {
+        userUpdates.push(userDocs[user]);
+      });
+      await this.#userDB.bulk({ docs: userUpdates });
+    }
     return expiredKeys;
   }
 
