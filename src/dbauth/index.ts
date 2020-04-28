@@ -52,7 +52,10 @@ export class DBAuth {
     );
   }
 
-  /** Removes the keys of format org.couchdb.user:TOKEN from the `_users` - database, if they are present */
+  /**
+   * Step 1) During deauthorization: Removes the keys of format org.couchdb.user:TOKEN from the `_users` - database,
+   * if they are present. If this step fails, the user hasn't been deauthorized!
+   */
   removeKeys(keys) {
     return this.#adapter.removeKeys(keys);
   }
@@ -175,6 +178,7 @@ export class DBAuth {
    * 1. the CouchDB authentication-DB (`_users`)
    * 2. the security-doc of the user's personal DB
    * 3. the user's doc in the superlogin-DB
+   * This method might fail due to Connection/ CouchDB-Problems.
    */
   async removeExpiredKeys() {
     const keysByUser = {};
@@ -204,8 +208,10 @@ export class DBAuth {
       }
     });
     if (expiredKeys.length > 0) {
+      // 1. remove from `_users` s.t. access is blocked.
       await this.removeKeys(expiredKeys);
       for (const user of Object.keys(keysByUser)) {
+        // 2. deauthorize from the user's personal DB. Not necessary for Session Adapter.
         await this.deauthorizeUser(userDocs[user], keysByUser[user]);
       }
 
@@ -213,6 +219,7 @@ export class DBAuth {
       Object.keys(userDocs).forEach(user => {
         userUpdates.push(userDocs[user]);
       });
+      // 3. save the changes to the SL-doc
       await this.#userDB.bulk({ docs: userUpdates });
     }
     return expiredKeys;

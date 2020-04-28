@@ -21,19 +21,24 @@ import {
 import { Request } from 'express';
 import { Mailer } from './mailer';
 
-// regexp from https://github.com/angular/angular.js/blob/master/src/ng/directive/input.js#L27
-const EMAIL_REGEXP = /^(?=.{1,254}$)(?=.{1,64}@)[-!#$%&'*+/0-9=?A-Z^_`a-z{|}~]+(\.[-!#$%&'*+/0-9=?A-Z^_`a-z{|}~]+)*@[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/;
+// regexp from https://emailregex.com/
+const EMAIL_REGEXP = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 const USER_REGEXP = /^[a-z0-9_-]{3,16}$/;
+enum Cleanup {
+  'expired' = 'expired',
+  'other' = 'other',
+  'all' = 'all'
+}
 
 export class User {
   #dbAuth: DBAuth;
-  #session;
+  #session: Session;
   #onCreateActions;
   #onLinkActions;
   userDB: DocumentScope<any>;
   config: ConfigHelper;
-  mailer;
-  emitter;
+  mailer: Mailer;
+  emitter: EventEmitter;
 
   // config flags
   tokenLife: number;
@@ -755,7 +760,7 @@ export class User {
       user
     );
     // Clean out expired sessions on login
-    const finalUser = await this.logoutUserSessions(userDoc, 'expired');
+    const finalUser = await this.logoutUserSessions(userDoc, Cleanup.expired);
     user = finalUser;
     await this.userDB.insert(finalUser);
     newSession.token = newToken.key;
@@ -894,7 +899,7 @@ export class User {
         const userDoc = results[0];
         userDoc.session[key].expires = newSession.expires;
         // Clean out expired sessions on refresh
-        return this.logoutUserSessions(userDoc, 'expired');
+        return this.logoutUserSessions(userDoc, Cleanup.expired);
       })
       .then(finalUser => {
         return this.userDB.insert(finalUser);
@@ -958,7 +963,7 @@ export class User {
           user.providers.push('local');
         }
         // logout user completely
-        return this.logoutUserSessions(user, 'all');
+        return this.logoutUserSessions(user, Cleanup.all);
       })
       .then(async userDoc => {
         user = userDoc;
@@ -1238,7 +1243,12 @@ export class User {
       });
   }
 
-  async removeUserDB(user_id, dbName, deletePrivate, deleteShared) {
+  async removeUserDB(
+    user_id: string,
+    dbName: string,
+    deletePrivate,
+    deleteShared
+  ) {
     let update = false;
     const user = await this.userDB.get(user_id);
     if (user.personalDBs && typeof user.personalDBs === 'object') {
@@ -1290,7 +1300,7 @@ export class User {
       .then(record => {
         user = record;
         user_id = record._id;
-        return this.logoutUserSessions(user, 'all');
+        return this.logoutUserSessions(user, Cleanup.all);
       })
       .then(() => {
         this.emitter.emit('logout', user_id);
@@ -1320,25 +1330,44 @@ export class User {
         delete user.session[session_id];
       }
     }
-    const promises = [];
-    promises.push(this.#session.deleteTokens(session_id));
-    promises.push(this.#dbAuth.removeKeys(session_id));
-    if (user) {
-      promises.push(this.#dbAuth.deauthorizeUser(user, session_id));
+    // 1.) if this fails, the whole logout has failed! Else ok, can clean up later.
+    await this.#dbAuth.removeKeys(session_id);
+    let caughtError = {};
+    try {
+      const removals = [this.#session.deleteTokens(session_id)];
+      if (user) {
+        removals.push(this.#dbAuth.deauthorizeUser(user, session_id));
+      }
+      await Promise.all(removals);
+
+      // Clean out expired sessions
+      const finalUser = await this.logoutUserSessions(user, Cleanup.expired);
+      user = finalUser;
+      if (user.session) {
+        endSessions = Object.keys(user.session).length;
+      }
+      this.emitter.emit('logout', user._id);
+      if (startSessions !== endSessions) {
+        return this.userDB.insert(user);
+      } else {
+        return false;
+      }
+    } catch (error) {
+      caughtError = {
+        err: error.err,
+        reason: error.reason,
+        statusCode: error.statusCode
+      };
+      console.warn(
+        'Error during logoutSessions() - err: ' +
+          error.err +
+          ', reason: ' +
+          error.reason +
+          ', status: ' +
+          error.statusCode
+      );
     }
-    await Promise.all(promises);
-    // Clean out expired sessions
-    const finalUser = await this.logoutUserSessions(user, 'expired');
-    user = finalUser;
-    if (user.session) {
-      endSessions = Object.keys(user.session).length;
-    }
-    this.emitter.emit('logout', user._id);
-    if (startSessions !== endSessions) {
-      return this.userDB.insert(user);
-    } else {
-      return false;
-    }
+    return caughtError;
   }
 
   async logoutOthers(session_id) {
@@ -1352,7 +1381,7 @@ export class User {
       if (user.session && user.session[session_id]) {
         const finalUser = await this.logoutUserSessions(
           user,
-          'other',
+          Cleanup.other,
           session_id
         );
         return this.userDB.insert(finalUser);
@@ -1361,16 +1390,19 @@ export class User {
     return false;
   }
 
-  logoutUserSessions(userDoc, op, currentSession?) {
+  async logoutUserSessions(
+    userDoc: SlUserDoc,
+    op: Cleanup,
+    currentSession?: string
+  ) {
     // When op is 'other' it will logout all sessions except for the specified 'currentSession'
-    const promises = [];
     let sessions;
-    if (op === 'all' || op === 'other') {
+    if (op === Cleanup.all || op === Cleanup.other) {
       sessions = getSessions(userDoc);
-    } else if (op === 'expired') {
+    } else if (op === Cleanup.expired) {
       sessions = getExpiredSessions(userDoc, Date.now());
     }
-    if (op === 'other' && currentSession) {
+    if (op === Cleanup.other && currentSession) {
       // Remove the current session from the list of sessions we are going to delete
       const index = sessions.indexOf(currentSession);
       if (index > -1) {
@@ -1378,30 +1410,29 @@ export class User {
       }
     }
     if (sessions.length) {
-      // Delete the sessions from our session store
-      promises.push(this.#session.deleteTokens(sessions));
-      // Remove the keys from our couchDB auth database
-      promises.push(this.#dbAuth.removeKeys(sessions));
-      // Deauthorize keys from each personal database
-      promises.push(this.#dbAuth.deauthorizeUser(userDoc, sessions));
-      if (op === 'expired' || op === 'other') {
+      // 1.) Remove the keys from our couchDB auth database. Must happen first.
+      await this.#dbAuth.removeKeys(sessions);
+      // 2.) Deauthorize keys from each personal database and from session store
+      await Promise.all([
+        this.#dbAuth.deauthorizeUser(userDoc, sessions),
+        this.#session.deleteTokens(sessions)
+      ]);
+      if (op === Cleanup.expired || op === Cleanup.other) {
         sessions.forEach(session => {
           delete userDoc.session[session];
         });
       }
     }
-    if (op === 'all') {
+    if (op === Cleanup.all) {
       delete userDoc.session;
     }
-    return Promise.all(promises).then(() => {
-      return Promise.resolve(userDoc);
-    });
+    return userDoc;
   }
 
-  async removeUser(user_id, destroyDBs) {
+  async removeUser(user_id: string, destroyDBs) {
     const promises = [];
     const userDoc = await this.userDB.get(user_id);
-    const user = await this.logoutUserSessions(userDoc, 'all');
+    const user = await this.logoutUserSessions(userDoc, Cleanup.all);
     if (destroyDBs !== true || !user.personalDBs) {
       return Promise.resolve();
     }
@@ -1411,7 +1442,7 @@ export class User {
       }
     });
     await Promise.all(promises);
-    return this.userDB.destroy(user, user._rev);
+    return this.userDB.destroy(user._id, user._rev);
   }
 
   async confirmSession(key: string, password: string) {
