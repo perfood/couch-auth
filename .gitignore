@@ -5,5 +5,4 @@
 node_modules/
 npm-debug.log
 env.sh
-config.js
 lib/
