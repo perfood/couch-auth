@@ -12,7 +12,7 @@
   },
   "scripts": {
     "test": "gulp",
-    "build": "node_modules/typescript/bin/tsc",
+    "build": "node_modules/typescript/bin/tsc --declaration",
     "lint": "node_modules/typescript/bin/tsc --noEmit && eslint \"**/*.{js,ts}\" --quiet --fix"
   },
   "keywords": [

@@ -1,0 +1,52 @@
+name: Main workflows
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - release
+      - dev
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12
+      - uses: 'cobot/couchdb-action@master'
+        with:
+          couchdb version: '2.3.1'
+      - uses: zhulik/redis-action@1.1.0
+        with:
+          redis version: '5'
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+        env:
+          CLOUDANT_USER: ${{ secrets.CLOUDANT_USER}}
+          CLOUDANT_PASS: ${{ secrets.CLOUDANT_PASS}}
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/release'
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm build
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN}}
+      - uses: actions/setup-node@v1
+        with:
+          registry-url: 'https://npm.pkg.github.com'
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
