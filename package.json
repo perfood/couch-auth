@@ -1,11 +1,11 @@
 {
-  "name": "superlogin",
+  "name": "@sl-nx/superlogin-next",
   "version": "0.10.1",
-  "description": "Powerful authentication for APIs and single page apps using the CouchDB ecosystem which supports a variety of providers.",
+  "description": "The next generation SuperLogin-Fork, rewritten in Typescript and compatible with current versions of Node and CouchDB.",
   "main": "./lib/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/LyteFM/superlogin.git"
+    "url": "https://github.com/sl-nx/superlogin-next.git"
   },
   "engines": {
     "node": ">=12.0.0"
@@ -34,9 +34,9 @@
   ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/LyteFM/superlogin/issues"
+    "url": "https://github.com/sl-nx/superlogin-next/issues"
   },
-  "homepage": "https://github.com/LyteFM/superlogin",
+  "homepage": "https://github.com/sl-nx/superlogin-next",
   "dependencies": {
     "@types/express": "^4.17.6",
     "@types/nodemailer": "^6.4.0",

@@ -17,7 +17,7 @@ Replaced PouchDB with Nano. A PouchDB can no longer be passed to SuperLogin. a N
   - `email.confirmEmailChange`: If set, this template is used when requesting an email change and `local.confirmEmail` is active.
   - `/change-email` now responds with `"email change requested"` if the email needs to be confirmed
 
-#### Refactoring, notify on password change, CouchDB as Fallback
+#### Refactoring, notify on password change, CouchDB as Fallback (0.8.0)
 
 - eslint/prettier for code linting/formatting
 - refactored Mailer and User into classes
@@ -25,7 +25,7 @@ Replaced PouchDB with Nano. A PouchDB can no longer be passed to SuperLogin. a N
 - new config options:
   - `local.sendPasswordChangedEmail`: if true, send a notification email when password is changed
   - `session.dbFallback`: if true, CouchDB will be checked as a fallback if the adapter does not have that session stored
-- Travis CI to Node 12, Node 10 no longer supported
+- Travis CI to Node 12, Node 10 no longer supported due to private fields
 
 #### Updates and Adjustments: SuperloginX (0.7.1)
 

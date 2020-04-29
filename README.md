@@ -1,20 +1,24 @@
-# SuperLoginX
+# SuperLogin-Next
 
-[![Build Status](https://travis-ci.org/LyteFM/superlogin.png?branch=master)](https://travis-ci.org/LyteFM/superlogin)
+[![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)](https://dev.snyk.io/test/github/sl-nx/superlogin)
 
-[![Known Vulnerabilities](https://dev.snyk.io/test/github/LyteFM/superlogin/badge.svg)](https://dev.snyk.io/test/github/LyteFM/superlogin)
+This is an updated fork of SuperLogin, re-written in TypeScript and developed against Node 12 & CouchDB 3.
 
-This is a fork of superlogin with all security-relevant packages updated and partially re-written in ES6 for NodeJS 10.
+If you've just plugged SuperLogin into your Express Server, it should be backwards compatible - unless you've been
+passing a PouchDB (in now uses [nano](https://github.com/apache/couchdb-nano) instead). There are a few new
+configuration options and some changes under the hood, for details see the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md).
 
-For issues and feature requests visit the [issue tracker](https://github.com/LyteFM/superlogin/issues).
+A few changes will still happen, but mainly related to logging, additional features, reducing dependencies and
+upgrading to Nano 9.0.0 once it's released.
+
+For issues and feature requests visit the [issue tracker](https://github.com/sl-nx/superlogin/issues).
 
 ## Overview
 
-SuperLogin is a full-featured NodeJS/Express user authentication solution for APIs and Single Page Apps (SPA) using CouchDB or Cloudant.
+SuperLogin is a full-featured NodeJS/Express user authentication solution for APIs and Single Page Apps (SPA) using
+CouchDB or Cloudant.
 
 User authentication is often the hardest part of building any web app, especially if you want to integrate multiple providers. Now all the tough work has been done for you so you can relax and create with less boilerplate!
-
-**([Live Demo](https://superlogin-demo.herokuapp.com))**
 
 ## Contents
 
@@ -47,6 +51,8 @@ User authentication is often the hardest part of building any web app, especiall
 - Manages permissions on an unlimited number of private or shared user databases and seeds them with the correct design documents
 
 ## Client Tools and Demo
+
+Todo: also fork & host the demos :)
 
 - [NG-SuperLogin](https://github.com/colinskow/ng-superlogin)
   Helps you easily integrate a SuperLogin backend into your single page AngularJS applications.
@@ -200,9 +206,10 @@ Middleware that makes sure the user possesses ALL of the specified `requiredRole
 
 If you are using [Cloudant](https://cloudant.com), then your databases are secure by default and all you have to do is ensure the correct permissions are specified under `userDBs.model` in your config.
 
-If, however, you are using regular CouchDB, then Admin Party is default and all your databases are readable and writable by the public until you implement the correct security measures. It is your responsibility to study up on [best security practices](http://blog.mattwoodward.com/2012/03/definitive-guide-to-couchdb.html) and apply them. To block anonymous reads across all databases you can set `require_valid_user` to `true` under `[couch_httpd_auth]` in your CouchDB config.
+If, however, you are using regular CouchDB, you should block anonymous reads across all databases you can set `require_valid_user` to `true` under `[couch_httpd_auth]` in your CouchDB config.
+Note that for CouchDB versions `< 3`, Admin Party is default and all your databases are readable and writable by the public until you implement the correct security measures. It is your responsibility to study up on [best security practices](http://blog.mattwoodward.com/2012/03/definitive-guide-to-couchdb.html) and apply them.
 
-SuperLogin also allows you to specify default `_security` roles for members and admins in the `userDBs` section of your config file. See [`config.example.js`](https://github.com/colinskow/superlogin/blob/master/config.example.js) for details.
+SuperLogin also allows you to specify default `_security` roles for members and admins in the `userDBs` section of your config file. See [`config.example.js`](https://github.com/sl-nx/superlogin-next/blob/master/config.example.js) for details.
 
 ## CouchDB Document Update Validation
 
@@ -269,7 +276,7 @@ Note that this uses the exact settings in your config as the popup window workfl
 
 It's easy to add custom fields to user documents. When added to a `profile` field it will automatically be included with the session information (in a profile object).
 
-1. First whitelist the fields in the [config](https://github.com/colinskow/superlogin/blob/master/config.example.js), for example:
+1. First whitelist the fields in the [config](https://github.com/sl-nx/superlogin-next/blob/master/config.example.js), for example:
 
    ```js
    userModel: {
@@ -297,7 +304,7 @@ It's easy to add custom fields to user documents. When added to a `profile` fiel
 
 ## Advanced Configuration
 
-Take a look at [`config.example.js`](https://github.com/colinskow/superlogin/blob/master/config.example.js) for a complete tour of all available configuration options. You'll find a lot of cool hidden features there that aren't documented here.
+Take a look at [`config.example.js`](https://github.com/sl-nx/superlogin-next/blob/master/config.example.js) for a complete tour of all available configuration options. You'll find a lot of cool hidden features there that aren't documented here.
 
 `/config/default.config.js` contains a list of default settings that will be assumed if you don't specify anything.
 
@@ -305,7 +312,7 @@ Take a look at [`config.example.js`](https://github.com/colinskow/superlogin/blo
 
 ##### `POST /register`
 
-Creates a new account with a username and password. Required fields are: `username`, `email`, `password` and `confirmPassword`. `name` is optional. Any additional fields you want to include need to be white listed under `userModel` in your config. See [`config.example.js`](https://github.com/colinskow/superlogin/blob/master/config.example.js) for details.
+Creates a new account with a username and password. Required fields are: `username`, `email`, `password` and `confirmPassword`. `name` is optional. Any additional fields you want to include need to be white listed under `userModel` in your config. See [`config.example.js`](https://github.com/sl-nx/superlogin-next/blob/master/config.example.js) for details.
 
 If `local.sendConfirmEmail` is true, a confirmation email will be sent with a verify link. If `local.requireEmailConfirm` is true, the user will not be able to login until the confirmation is complete. If `security.loginOnRegistration` is true a session will be automatically created and sent as the response.
 
@@ -574,7 +581,7 @@ Deauthorizes every single expired session found in the user database.
 
 Renders an email and sends it out. Server settings are specified under `mailer` in your config.
 
-- `templateName`: the name of a template object specified under `emails` in your config. See [`config.example.js`](https://github.com/colinskow/superlogin/blob/master/config.example.js) for details.
+- `templateName`: the name of a template object specified under `emails` in your config. See [`config.example.js`](https://github.com/sl-nx/superlogin-next/blob/master/config.example.js) for details.
 - `email`: the email address that the email
 - `locals`: local variables that will be passed into the ejs template to be rendered
 
@@ -584,4 +591,4 @@ Quits Redis if that is the session adapter you are using. This is useful for cle
 
 ## Releases
 
-Moved to [CHANGELOG.md](https://github.com/colinskow/superlogin/blob/master/CHANGELOG.md)
+Moved to [CHANGELOG.md](https://github.com/sl-nx/superlogin-next/blob/master/CHANGELOG.md)
