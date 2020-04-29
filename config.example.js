@@ -70,7 +70,7 @@ module.exports = {
     // If the public uses a separate URL from your Node.js server to access the database specify it here.
     // This will be the access URL for all your user's personalDBs
     publicURL: 'https://mydb.example.com',
-    // Set this to true if you are using Cloudant
+    /** Set this to `true` if you are using Cloudant and provide `CLOUDANT_USER` and `CLOUDANT_PASS` as environment variables */
     cloudant: false,
     // The name for the database that stores all your user information. This is distinct from CouchDB's _user database.
     // Alternatively you can pass in a PouchDB object to the SuperLogin constructor and leave this blank

@@ -1,4 +1,4 @@
-import { DocumentScope, ServerScope } from 'nano';
+import { DocumentScope } from 'nano';
 
 export interface DBAdapter {
   storeKey: Function;

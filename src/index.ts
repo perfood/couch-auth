@@ -21,7 +21,7 @@ import { Config } from 'config';
 import { Authenticator } from 'passport';
 //import { PassportStatic } from 'passport';
 
-class SuperLogin extends User {
+export class SuperLogin extends User {
   router: Router;
   mailer: Mailer;
   passport: any;

@@ -92,7 +92,7 @@ export interface SlSession {
   name?: string;
 }
 
-interface SlUser {
+export interface SlUser {
   provider?: string;
   _id?: string;
   key?: string;
