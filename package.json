@@ -18,7 +18,8 @@
   "scripts": {
     "test": "gulp",
     "build": "node_modules/typescript/bin/tsc",
-    "lint": "node_modules/typescript/bin/tsc --noEmit && eslint \"**/*.{js,ts}\" --quiet --fix"
+    "lint": "node_modules/typescript/bin/tsc --noEmit && eslint \"**/*.{js,ts}\" --quiet --fix",
+    "prepare": "npm run build"
   },
   "keywords": [
     "authentication",
