@@ -74,7 +74,7 @@ export interface DBServerConfig {
   // Set this to true if you are using Cloudant
   cloudant?: boolean;
   // The name for the database that stores all your user information. This is distinct from CouchDB's _user database.
-  // Alternatively you can pass in a PouchDB object to the SuperLogin constructor and leave this blank
+  // Alternatively you can pass in a `nano` instance to the SuperLogin constructor and leave this blank
 
   userDB: string;
   // CouchDB's _users database. Each session generates the user a unique login and password. This is not used with Cloudant.

@@ -1,10 +1,11 @@
 'use strict';
-import { getSessionToken, capitalizeFirstLetter } from './util';
-import { ConfigHelper } from './config/configure';
+import { capitalizeFirstLetter, getSessionToken } from './util';
+import { NextFunction, Request, Response, Router } from 'express';
+
 import { Authenticator } from 'passport';
+import { ConfigHelper } from './config/configure';
+import { SlRequest } from './types/typings';
 import { User } from './user';
-import { Request, Response, NextFunction, Router } from 'express';
-import { SlRequest } from 'typings';
 
 module.exports = function (
   config: ConfigHelper,

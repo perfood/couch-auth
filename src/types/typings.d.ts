@@ -18,8 +18,8 @@ export interface CouchDbAuthDoc
 }
 
 export interface HashResult {
-  salt: string;
-  derived_key: string;
+  salt?: string;
+  derived_key?: string;
 }
 
 export interface LocalHashObj extends HashResult {
@@ -67,14 +67,15 @@ export interface SlUserDoc extends Document, IdentifiedObj {
   user_uid: string;
   roles: string[];
   providers: string[];
-  local: Partial<LocalHashObj>;
+  local: LocalHashObj;
   activity?: UserActivity[];
   forgotPassword?: PasswortResetEntry;
-  unverifiedEmail?: { email: string };
+  unverifiedEmail?: { email: string; token: string };
   signUp: SignUpObj;
   personalDBs: PersonalDBCollection;
   email: string;
   session: SessionCollection;
+  profile: any;
 }
 
 export interface SlSession {

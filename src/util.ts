@@ -1,13 +1,14 @@
 'use strict';
-import { SlUserDoc, LocalHashObj, HashResult } from './types/typings';
-import { Request } from 'express';
+import { HashResult, LocalHashObj, SlUserDoc } from './types/typings';
+import { ConfigHelper } from './config/configure';
+import crypto from 'crypto';
 import { DBServerConfig } from './types/config';
+import { promisify } from 'util';
+import pwd from '@sensu/couch-pwd';
+import { Request } from 'express';
 import URLSafeBase64 from 'urlsafe-base64';
 import { v4 as uuidv4 } from 'uuid';
-import pwd from '@sensu/couch-pwd';
-import crypto from 'crypto';
-import { promisify } from 'util';
-import { ConfigHelper } from './config/configure';
+
 const getHash = promisify(pwd.hash);
 
 export function URLSafeUUID() {
@@ -32,7 +33,10 @@ export function hashPassword(password: string): Promise<HashResult> {
   });
 }
 
-export function verifyPassword(hashObj: LocalHashObj, password: string) {
+export function verifyPassword(
+  hashObj: LocalHashObj,
+  password: string
+): Promise<true> {
   const iterations = hashObj.iterations;
   const salt = hashObj.salt;
   const derived_key = hashObj.derived_key;

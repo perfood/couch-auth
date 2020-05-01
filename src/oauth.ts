@@ -1,31 +1,32 @@
 'use strict';
+import { NextFunction, Request, Response, Router } from 'express';
 
-import { capitalizeFirstLetter } from './util';
-import { Request, Response, Router, NextFunction } from 'express';
 import { Authenticator } from 'passport';
-import { User } from './user';
-import { ConfigHelper } from './config/configure';
 import { callbackify } from 'util';
-import { SlRequest } from 'typings';
+import { capitalizeFirstLetter } from './util';
+import { ConfigHelper } from './config/configure';
+import { join } from 'path';
+import { readFileSync } from 'fs';
+import { render } from 'ejs';
+import { SlRequest } from './types/typings';
+import { User } from './user';
 
-const fs = require('fs');
-const path = require('path');
-const ejs = require('ejs');
-const extend = require('util')._extend;
-const stateRequired = ['google', 'linkedin'];
+export class OAuth {
+  static stateRequired = ['google', 'linkedin'];
 
-module.exports = function (
-  router: Router,
-  passport: Authenticator,
-  user: User,
-  config: ConfigHelper
-) {
+  constructor(
+    private router: Router,
+    private passport: Authenticator,
+    private user: User,
+    private config: ConfigHelper
+  ) {}
+
   // Function to initialize a session following authentication from a socialAuth provider
-  function initSession(req: SlRequest, res: Response, next: NextFunction) {
-    const provider = getProvider(req.path);
-    return user
+  private initSession(req: SlRequest, res: Response, next: NextFunction) {
+    const provider = this.getProvider(req.path);
+    return this.user
       .createSession(req.user._id, provider, req)
-      .then(function (mySession) {
+      .then(mySession => {
         return Promise.resolve({
           error: null,
           session: mySession,
@@ -33,73 +34,73 @@ module.exports = function (
         });
       })
       .then(
-        function (results) {
+        results => {
           let template;
-          if (config.getItem('testMode.oauthTest')) {
-            template = fs.readFileSync(
-              path.join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
+          if (this.config.getItem('testMode.oauthTest')) {
+            template = readFileSync(
+              join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
               'utf8'
             );
           } else {
-            template = fs.readFileSync(
-              path.join(__dirname, '../templates/oauth/auth-callback.ejs'),
+            template = readFileSync(
+              join(__dirname, '../templates/oauth/auth-callback.ejs'),
               'utf8'
             );
           }
-          const html = ejs.render(template, results);
+          const html = render(template, results);
           res.status(200).send(html);
         },
-        function (err) {
+        err => {
           return next(err);
         }
       );
   }
 
   // Function to initialize a session following authentication from a socialAuth provider
-  function initTokenSession(req: SlRequest, res: Response, next: NextFunction) {
-    const provider = getProviderToken(req.path);
-    return user
+  private initTokenSession(req: SlRequest, res: Response, next: NextFunction) {
+    const provider = this.getProviderToken(req.path);
+    return this.user
       .createSession(req.user._id, provider, req)
-      .then(function (mySession) {
+      .then(mySession => {
         return Promise.resolve(mySession);
       })
       .then(
-        function (session) {
+        session => {
           res.status(200).json(session);
         },
-        function (err) {
+        err => {
           return next(err);
         }
       );
   }
 
   // Called after an account has been succesfully linked
-  function linkSuccess(req: Request, res: Response, next: NextFunction) {
-    const provider = getProvider(req.path);
+  private linkSuccess(req: Request, res: Response, next: NextFunction) {
+    const provider = this.getProvider(req.path);
     const result = {
       error: null,
       session: null,
       link: provider
     };
     let template;
-    if (config.getItem('testMode.oauthTest')) {
-      template = fs.readFileSync(
-        path.join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
+    if (this.config.getItem('testMode.oauthTest')) {
+      template = readFileSync(
+        join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
         'utf8'
       );
     } else {
-      template = fs.readFileSync(
-        path.join(__dirname, '../templates/oauth/auth-callback.ejs'),
+      template = readFileSync(
+        join(__dirname, '../templates/oauth/auth-callback.ejs'),
         'utf8'
       );
     }
-    const html = ejs.render(template, result);
+    const html = render(template, result);
     res.status(200).send(html);
   }
 
   // Called after an account has been succesfully linked using access_token provider
-  function linkTokenSuccess(req: Request, res: Response, next: NextFunction) {
-    const provider = getProviderToken(req.path);
+  private linkTokenSuccess(req: Request, res: Response, next: NextFunction) {
+    const provider = this.getProviderToken(req.path);
     res.status(200).json({
       ok: true,
       success: capitalizeFirstLetter(provider) + ' successfully linked',
@@ -108,25 +109,25 @@ module.exports = function (
   }
 
   // Handles errors if authentication fails
-  function oauthErrorHandler(
+  private oauthErrorHandler(
     err: Error,
     req: Request,
     res: Response,
     next: NextFunction
   ) {
     let template;
-    if (config.getItem('testMode.oauthTest')) {
-      template = fs.readFileSync(
-        path.join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
+    if (this.config.getItem('testMode.oauthTest')) {
+      template = readFileSync(
+        join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
         'utf8'
       );
     } else {
-      template = fs.readFileSync(
-        path.join(__dirname, '../templates/oauth/auth-callback.ejs'),
+      template = readFileSync(
+        join(__dirname, '../templates/oauth/auth-callback.ejs'),
         'utf8'
       );
     }
-    const html = ejs.render(template, {
+    const html = render(template, {
       error: err.message,
       session: null,
       link: null
@@ -139,7 +140,7 @@ module.exports = function (
   }
 
   // Handles errors if authentication from access_token provider fails
-  function tokenAuthErrorHandler(
+  private tokenAuthErrorHandler(
     err: Error,
     req: SlRequest,
     res: Response,
@@ -160,33 +161,41 @@ module.exports = function (
   }
 
   // Framework to register OAuth providers with passport
-  function registerProvider(provider: string, configFunction: Function) {
+  public registerProvider(provider: string, configFunction: Function) {
     provider = provider.toLowerCase();
     const configRef = 'providers.' + provider;
-    if (config.getItem(configRef + '.credentials')) {
-      const credentials = config.getItem(configRef + '.credentials');
+    if (this.config.getItem(configRef + '.credentials')) {
+      const credentials = this.config.getItem(configRef + '.credentials');
       credentials.passReqToCallback = true;
-      const options = config.getItem(configRef + '.options') || {};
-      configFunction.call(null, credentials, passport, authHandler);
-      router.get('/' + provider, passportCallback(provider, options, 'login'));
-      router.get(
-        '/' + provider + '/callback',
-        passportCallback(provider, options, 'login'),
-        initSession,
-        oauthErrorHandler
+      const options = this.config.getItem(configRef + '.options') || {};
+      configFunction.call(
+        null,
+        credentials,
+        this.passport,
+        this.authHandler.bind(this)
       );
-      if (!config.getItem('security.disableLinkAccounts')) {
-        router.get(
+      this.router.get(
+        '/' + provider,
+        this.passportCallback(provider, options, 'login')
+      );
+      this.router.get(
+        '/' + provider + '/callback',
+        this.passportCallback(provider, options, 'login'),
+        this.initSession.bind(this),
+        this.oauthErrorHandler.bind(this)
+      );
+      if (!this.config.getItem('security.disableLinkAccounts')) {
+        this.router.get(
           '/link/' + provider,
-          passport.authenticate('bearer', { session: false }),
-          passportCallback(provider, options, 'link')
+          this.passport.authenticate('bearer', { session: false }),
+          this.passportCallback(provider, options, 'link')
         );
-        router.get(
+        this.router.get(
           '/link/' + provider + '/callback',
-          passport.authenticate('bearer', { session: false }),
-          passportCallback(provider, options, 'link'),
-          linkSuccess,
-          oauthErrorHandler
+          this.passport.authenticate('bearer', { session: false }),
+          this.passportCallback(provider, options, 'link'),
+          this.linkSuccess.bind(this),
+          this.oauthErrorHandler.bind(this)
         );
       }
       console.log(provider + ' loaded.');
@@ -194,78 +203,75 @@ module.exports = function (
   }
 
   // A shortcut to register OAuth2 providers that follow the exact accessToken, refreshToken pattern.
-  function registerOAuth2(providerName: string, Strategy: any) {
-    registerProvider(providerName, function (
-      credentials,
-      passport: Authenticator,
-      authHandler: (
-        req: Request,
-        provider: string,
-        auth,
-        profile
-      ) => Promise<any>
-    ) {
-      passport.use(
-        new Strategy(credentials, function (
-          req,
-          accessToken,
-          refreshToken,
-          profile,
-          done
-        ) {
-          callbackify(authHandler)(
-            req,
-            providerName,
-            { accessToken: accessToken, refreshToken: refreshToken },
-            profile,
-            done
-          );
-        })
-      );
-    });
+  public registerOAuth2(providerName: string, Strategy: any) {
+    this.registerProvider(
+      providerName,
+      (
+        credentials,
+        passport: Authenticator,
+        authHandler: (
+          req: Request,
+          provider: string,
+          auth,
+          profile
+        ) => Promise<any>
+      ) => {
+        passport.use(
+          new Strategy(
+            credentials,
+            (req, accessToken, refreshToken, profile, done) => {
+              callbackify(authHandler)(
+                req,
+                providerName,
+                { accessToken: accessToken, refreshToken: refreshToken },
+                profile,
+                done
+              );
+            }
+          )
+        );
+      }
+    );
   }
 
   // Registers a provider that accepts an access_token directly from the client, skipping the popup window and callback
   // This is for supporting Cordova, native IOS and Android apps, as well as other devices
-  function registerTokenProvider(providerName: string, Strategy) {
+  public registerTokenProvider(providerName: string, Strategy) {
     providerName = providerName.toLowerCase();
     const configRef = 'providers.' + providerName;
-    if (config.getItem(configRef + '.credentials')) {
-      const credentials = config.getItem(configRef + '.credentials');
+    if (this.config.getItem(configRef + '.credentials')) {
+      const credentials = this.config.getItem(configRef + '.credentials');
       credentials.passReqToCallback = true;
-      const options = config.getItem(configRef + '.options') || {};
+      const options = this.config.getItem(configRef + '.options') || {};
       // Configure the Passport Strategy
-      passport.use(
+      this.passport.use(
         providerName + '-token',
-        new Strategy(credentials, function (
-          req,
-          accessToken,
-          refreshToken,
-          profile,
-          done
-        ) {
-          callbackify(authHandler)(
-            req,
-            providerName,
-            { accessToken: accessToken, refreshToken: refreshToken },
-            profile,
-            done
-          );
-        })
+        new Strategy(
+          credentials,
+          (req, accessToken, refreshToken, profile, done) => {
+            callbackify(this.authHandler)(
+              req,
+              providerName,
+              { accessToken: accessToken, refreshToken: refreshToken },
+              profile,
+              done
+            );
+          }
+        )
       );
-      router.post(
+      this.router.post(
         '/' + providerName + '/token',
-        passportTokenCallback(providerName, options),
-        initTokenSession,
-        tokenAuthErrorHandler
+        this.passportTokenCallback(providerName, options),
+        this.initTokenSession.bind(this),
+        this.tokenAuthErrorHandler
       );
-      if (!config.getItem('security.disableLinkAccounts')) {
-        router.post(
+      if (!this.config.getItem('security.disableLinkAccounts')) {
+        this.router.post(
           '/link/' + providerName + '/token',
-          passport.authenticate('bearer', { session: false }),
-          passportTokenCallback(providerName, options),
-          linkTokenSuccess,
-          tokenAuthErrorHandler
+          this.passport.authenticate('bearer', { session: false }),
+          this.passportTokenCallback(providerName, options),
+          this.linkTokenSuccess.bind(this),
+          this.tokenAuthErrorHandler
         );
       }
       console.log(providerName + '-token loaded.');
@@ -275,51 +281,56 @@ module.exports = function (
   // This is called after a user has successfully authenticated with a provider
   // If a user is authenticated with a bearer token we will link an account, otherwise log in
   // auth is an object containing 'access_token' and optionally 'refresh_token'
-  function authHandler(req: SlRequest, provider: string, auth, profile) {
+  private authHandler(req: SlRequest, provider: string, auth, profile) {
     if (req.user && req.user._id && req.user.key) {
-      return user.linkSocial(req.user._id, provider, auth, profile, req);
+      return this.user.linkSocial(req.user._id, provider, auth, profile, req);
     } else {
-      return user.socialAuth(provider, auth, profile, req);
+      return this.user.socialAuth(provider, auth, profile, req);
     }
   }
 
   // Configures the passport.authenticate for the given provider, passing in options
   // Operation is 'login' or 'link'
-  function passportCallback(provider: string, options, operation) {
-    return function (req: Request, res: Response, next: NextFunction) {
-      const theOptions = extend({}, options);
+  private passportCallback(provider: string, options, operation) {
+    return (req: Request, res: Response, next: NextFunction) => {
+      const theOptions = { ...options };
       if (provider === 'linkedin') {
         theOptions.state = true;
       }
       const accessToken = req.query.bearer_token || req.query.state;
       if (
         accessToken &&
-        (stateRequired.indexOf(provider) > -1 ||
-          config.getItem('providers.' + provider + '.stateRequired') === true)
+        (OAuth.stateRequired.indexOf(provider) > -1 ||
+          this.config.getItem('providers.' + provider + '.stateRequired') ===
+            true)
       ) {
         theOptions.state = accessToken;
       }
-      theOptions.callbackURL = getLinkCallbackURLs(
+      theOptions.callbackURL = this.getLinkCallbackURLs(
         provider,
         req,
         operation,
         accessToken
       );
       theOptions.session = false;
-      passport.authenticate(provider, theOptions)(req, res, next);
+      this.passport.authenticate(provider, theOptions)(req, res, next);
     };
   }
 
   // Configures the passport.authenticate for the given access_token provider, passing in options
-  function passportTokenCallback(provider: string, options) {
-    return function (req: Request, res: Response, next: NextFunction) {
-      const theOptions = extend({}, options);
+  private passportTokenCallback(provider: string, options) {
+    return (req: Request, res: Response, next: NextFunction) => {
+      const theOptions = { ...options };
       theOptions.session = false;
-      passport.authenticate(provider + '-token', theOptions)(req, res, next);
+      this.passport.authenticate(provider + '-token', theOptions)(
+        req,
+        res,
+        next
+      );
     };
   }
 
-  function getLinkCallbackURLs(
+  private getLinkCallbackURLs(
     provider: string,
     req: Request,
     operation,
@@ -338,8 +349,9 @@ module.exports = function (
       let reqUrl;
       if (
         accessToken &&
-        (stateRequired.indexOf(provider) > -1 ||
-          config.getItem('providers.' + provider + '.stateRequired') === true)
+        (OAuth.stateRequired.indexOf(provider) > -1 ||
+          this.config.getItem('providers.' + provider + '.stateRequired') ===
+            true)
       ) {
         reqUrl =
           protocol +
@@ -363,7 +375,7 @@ module.exports = function (
   }
 
   /** Gets the provider name from a callback path */
-  function getProvider(pathname: string) {
+  private getProvider(pathname: string) {
     const items = pathname.split('/');
     const index = items.indexOf('callback');
     if (index > 0) {
@@ -372,17 +384,11 @@ module.exports = function (
   }
 
   /** Gets the provider name from a callback path for access_token strategy */
-  function getProviderToken(pathname: string) {
+  private getProviderToken(pathname: string) {
     const items = pathname.split('/');
     const index = items.indexOf('token');
     if (index > 0) {
       return items[index - 1];
     }
   }
-
-  return {
-    registerProvider: registerProvider,
-    registerOAuth2: registerOAuth2,
-    registerTokenProvider: registerTokenProvider
-  };
-};
+}

@@ -1,47 +1,46 @@
 'use strict';
-import events from 'events';
-import express, { Router } from 'express';
-import seed from './design/seed';
-import nano, { DocumentScope } from 'nano';
-
-import { ConfigHelper } from './config/configure';
-import { User } from './user';
-const Oauth = require('./oauth');
-const loadRoutes = require('./routes');
-const localConfig = require('./local');
-import { Middleware } from './middleware';
-import { Mailer } from './mailer';
 import {
+  addProvidersToDesignDoc,
   getDBURL,
   hashPassword,
-  verifyPassword,
-  addProvidersToDesignDoc
+  verifyPassword
 } from './util';
-import { Config } from 'config';
+import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
+import express, { Router } from 'express';
+import nano, { DocumentScope } from 'nano';
 import { Authenticator } from 'passport';
-//import { PassportStatic } from 'passport';
+import { Config } from './types/config';
+import { ConfigHelper } from './config/configure';
+import events from 'events';
+import { Mailer } from './mailer';
+import { Middleware } from './middleware';
+import { OAuth } from './oauth';
+import seed from './design/seed';
+import { User } from './user';
+
+const loadRoutes = require('./routes');
+const localConfig = require('./local');
 
 export class SuperLogin extends User {
   router: Router;
-  mailer: Mailer;
-  passport: any;
-  couchAuthDB: DocumentScope<any>;
-  registerProvider: Function;
-  registerOAuth2: Function;
-  registerTokenProvider: Function;
-  hashPassword: Function;
-  verifyPassword: Function;
-  sendEmail: Function;
-  requireAuth: Function;
-  requireRole: Function;
-  requireAnyRole: Function;
-  requireAllRoles: Function;
+  passport: Authenticator;
+  couchAuthDB: DocumentScope<CouchDbAuthDoc>;
+  registerProvider: OAuth['registerProvider'];
+  registerOAuth2: OAuth['registerOAuth2'];
+  registerTokenProvider: OAuth['registerTokenProvider'];
+  hashPassword: typeof hashPassword;
+  verifyPassword: typeof verifyPassword;
+  sendEmail: Mailer['sendEmail'];
+  requireAuth: Middleware['requireAuth'];
+  requireRole: Middleware['requireRole'];
+  requireAnyRole: Middleware['requireAnyRole'];
+  requireAllRoles: Middleware['requireAllRoles'];
 
   constructor(
     configData: Partial<Config>,
-    passport: Authenticator,
-    userDB: DocumentScope<any>,
-    couchAuthDB: DocumentScope<any>
+    passport?: Authenticator,
+    userDB?: DocumentScope<SlUserDoc>,
+    couchAuthDB?: DocumentScope<CouchDbAuthDoc>
   ) {
     const config = new ConfigHelper(
       configData,
@@ -86,7 +85,7 @@ export class SuperLogin extends User {
 
     const mailer = new Mailer(config);
     super(config, userDB, couchAuthDB, mailer, emitter);
-    const oauth = Oauth(router, passport, this, config);
+    const oauth = new OAuth(router, passport, this, config);
 
     // Seed design docs for the user database
     let userDesign = require('./design/user-design');
@@ -97,11 +96,8 @@ export class SuperLogin extends User {
     // Load the routes
     loadRoutes(config, router, passport, this);
 
-    this.config = config;
     this.router = router;
-    this.mailer = mailer;
     this.passport = passport;
-    this.userDB = userDB;
     this.couchAuthDB = couchAuthDB;
 
     this.registerProvider = oauth.registerProvider.bind(oauth);

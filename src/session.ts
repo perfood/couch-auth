@@ -1,9 +1,9 @@
 'use strict';
 
 import { hashPassword, verifyPassword } from './util';
-import { RedisAdapter } from './sessionAdapters/RedisAdapter';
 import { FileAdapter } from './sessionAdapters/FileAdapter';
 import { MemoryAdapter } from './sessionAdapters/MemoryAdapter';
+import { RedisAdapter } from './sessionAdapters/RedisAdapter';
 
 const extend = require('util')._extend;
 

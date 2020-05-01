@@ -1,4 +1,4 @@
-import { SessionAdapter } from 'adapters';
+import { SessionAdapter } from '../types/adapters';
 
 export class MemoryAdapter implements SessionAdapter {
   #keys: Record<string, string>;

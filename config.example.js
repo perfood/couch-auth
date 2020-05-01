@@ -73,7 +73,7 @@ module.exports = {
     /** Set this to `true` if you are using Cloudant and provide `CLOUDANT_USER` and `CLOUDANT_PASS` as environment variables */
     cloudant: false,
     // The name for the database that stores all your user information. This is distinct from CouchDB's _user database.
-    // Alternatively you can pass in a PouchDB object to the SuperLogin constructor and leave this blank
+    // Alternatively you can pass in a `nano` instance to the SuperLogin constructor and leave this blank
     userDB: 'sl_users',
     // CouchDB's _users database. Each session generates the user a unique login and password. This is not used with Cloudant.
     couchAuthDB: '_users'

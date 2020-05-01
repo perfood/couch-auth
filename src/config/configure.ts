@@ -1,7 +1,6 @@
 'use strict';
-
+import { delObjectRef, getObjectRef, setObjectRef } from '../util';
 import { Config } from '../types/config';
-import { getObjectRef, setObjectRef, delObjectRef } from '../util';
 
 export class ConfigHelper {
   config: Partial<Config>;

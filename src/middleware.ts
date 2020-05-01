@@ -3,7 +3,7 @@
 
 import { NextFunction, Request, Response } from 'express';
 import { Authenticator } from 'passport';
-import { SlRequest } from 'typings';
+import { SlRequest } from './types/typings';
 
 export class Middleware {
   static forbiddenError = {
@@ -17,14 +17,14 @@ export class Middleware {
     message: 'requireAuth must be used before checking roles',
     status: 500
   };
-  #passport: Authenticator;
+  passport: Authenticator;
   constructor(passport: Authenticator) {
-    this.#passport = passport;
+    this.passport = passport;
   }
 
   /** Requires that the user be authenticated with a bearer token */
   requireAuth(req: Request, res: Response, next: NextFunction) {
-    this.#passport.authenticate('bearer', { session: false })(req, res, next);
+    this.passport.authenticate('bearer', { session: false })(req, res, next);
   }
 
   // Requires that the user have the specified role

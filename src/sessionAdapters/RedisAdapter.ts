@@ -1,7 +1,7 @@
 import { ConfigHelper } from '../config/configure';
 
 import BPromise = require('bluebird');
-import { SessionAdapter } from 'adapters';
+import { SessionAdapter } from '../types/adapters';
 const redis = BPromise.promisifyAll(require('redis'));
 
 export class RedisAdapter implements SessionAdapter {

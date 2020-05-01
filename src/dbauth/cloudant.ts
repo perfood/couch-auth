@@ -1,7 +1,8 @@
 'use strict';
+import { getCloudantURL, toArray } from './../util';
 import nano, { DocumentScope, ServerScope } from 'nano';
-import { toArray, getCloudantURL } from './../util';
-import { DBAdapter } from 'adapters';
+import { DBAdapter } from '../types/adapters';
+
 // todo: make work with nano...
 
 export class CloudantAdapter implements DBAdapter {

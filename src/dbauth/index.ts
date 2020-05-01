@@ -1,13 +1,15 @@
 'use strict';
-import { getDBURL, toArray, getSessions } from '../util';
-import seed from '../design/seed';
-import request from 'superagent';
-import { CouchAdapter } from './couchdb';
-import { CloudantAdapter } from './cloudant';
+import { CouchDbAuthDoc, IdentifiedObj, SlUserDoc } from '../types/typings';
+import { getDBURL, getSessions, toArray } from '../util';
 import nano, { DocumentScope, ServerScope } from 'nano';
-import { SlUserDoc, CouchDbAuthDoc, IdentifiedObj } from '../types/typings';
+
+import { CloudantAdapter } from './cloudant';
 import { ConfigHelper } from '../config/configure';
-import { PersonalDBSettings } from 'config';
+import { CouchAdapter } from './couchdb';
+import { PersonalDBSettings } from '../types/config';
+
+import request from 'superagent'; // todo: just to this with nano...
+import seed from '../design/seed';
 
 export class DBAuth {
   #adapter: CouchAdapter | CloudantAdapter;
@@ -18,7 +20,7 @@ export class DBAuth {
   constructor(
     config: ConfigHelper,
     userDB: DocumentScope<SlUserDoc>,
-    couchAuthDB: DocumentScope<CouchDbAuthDoc>
+    couchAuthDB?: DocumentScope<CouchDbAuthDoc>
   ) {
     this.#config = config;
     this.#userDB = userDB;
@@ -209,9 +211,10 @@ export class DBAuth {
     });
     if (expiredKeys.length > 0) {
       // 1. remove from `_users` s.t. access is blocked.
+      // TODO: clean up properly if not in `_users` but in roles
       await this.removeKeys(expiredKeys);
       for (const user of Object.keys(keysByUser)) {
-        // 2. deauthorize from the user's personal DB. Not necessary for Session Adapter.
+        // 2. deauthorize from the user's personal DB. Not necessary for Session Adapter here.
         await this.deauthorizeUser(userDocs[user], keysByUser[user]);
       }
 
@@ -313,23 +316,16 @@ export class DBAuth {
     return dbConfig;
   }
 
-  createDB(dbName: string): Promise<any> {
-    const finalUrl = getDBURL(this.#config.getItem('dbServer')) + '/' + dbName;
-    return request
-      .put(finalUrl)
-      .send({})
-      .then(
-        res => {
-          return Promise.resolve(JSON.parse(res.text));
-        },
-        err => {
-          if (err.status === 412) {
-            return Promise.resolve(false);
-          } else {
-            return Promise.reject(err.text);
-          }
-        }
-      );
+  async createDB(dbName: string) {
+    try {
+      await this.#couch.db.create(dbName);
+    } catch (err) {
+      if (err.statusCode === 412) {
+        return false; // already exists
+      }
+      throw err;
+    }
+    return true;
   }
 
   removeDB(dbName: string) {

@@ -1,6 +1,6 @@
 import {
-  DocumentScope,
   DocumentBulkResponse,
+  DocumentScope,
   IdentifiedDocument,
   RevisionedDocument
 } from 'nano';

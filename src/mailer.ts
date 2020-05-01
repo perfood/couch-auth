@@ -1,13 +1,13 @@
 'use strict';
 import { ConfigHelper } from './config/configure';
-import nodemailer from 'nodemailer';
 import Mail from 'nodemailer/lib/mailer';
-import fs from 'fs';
-import ejs from 'ejs';
+import nodemailer from 'nodemailer';
+import { readFileSync } from 'fs';
+import { render } from 'ejs';
 
 export class Mailer {
-  config: ConfigHelper;
-  transporter: Mail;
+  private config: ConfigHelper;
+  private transporter: Mail;
   constructor(config: ConfigHelper) {
     // Initialize the transport mechanism with nodermailer
     this.config = config;
@@ -40,7 +40,7 @@ export class Mailer {
       templateFiles = [templateFile];
     }
 
-    const readTemplates = templateFiles.map(t => fs.readFileSync(t, 'utf8'));
+    const readTemplates = templateFiles.map(t => readFileSync(t, 'utf8'));
     for (let i = 0; i < templateFiles.length; i++) {
       if (!readTemplates[i]) {
         return Promise.reject(
@@ -48,7 +48,7 @@ export class Mailer {
         );
       }
     }
-    const renderedTemplates = readTemplates.map(t => ejs.render(t, locals));
+    const renderedTemplates = readTemplates.map(t => render(t, locals));
 
     // form the email
     const subject = this.config.getItem('emails.' + templateName + '.subject');

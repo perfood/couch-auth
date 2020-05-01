@@ -1,5 +1,4 @@
 'use strict';
-const BPromise = require('bluebird');
 const seed = require('./../lib/design/seed').default;
 const request = require('superagent');
 const expect = require('chai').expect;
@@ -239,6 +238,7 @@ describe('DBAuth', () => {
             'oldkey1',
             'password',
             user1.session.oldkey1.expires,
+            ['user'],
             'local'
           )
         );
@@ -248,6 +248,7 @@ describe('DBAuth', () => {
             'goodkey1',
             'password',
             user1.session.goodkey1.expires,
+            ['user'],
             'local'
           )
         );
@@ -257,6 +258,7 @@ describe('DBAuth', () => {
             'oldkey2',
             'password',
             user2.session.oldkey2.expires,
+            ['user'],
             'local'
           )
         );
@@ -266,6 +268,7 @@ describe('DBAuth', () => {
             'goodkey2',
             'password',
             user2.session.goodkey2.expires,
+            ['user'],
             'local'
           )
         );
@@ -318,11 +321,11 @@ describe('DBAuth', () => {
         const promises = [];
         promises.push(keysDB.get('org.couchdb.user:oldkey1'));
         promises.push(keysDB.get('org.couchdb.user:oldkey2'));
-        return BPromise.settle(promises);
+        return Promise.allSettled(promises);
       })
       .then(function (results) {
-        expect(results[0].isRejected()).to.be.true;
-        expect(results[1].isRejected()).to.be.true;
+        expect(results[0].status).to.equal('rejected');
+        expect(results[1].status).to.equal('rejected');
       })
       .finally(() =>
         // Finally clean up

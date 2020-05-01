@@ -1,11 +1,12 @@
 'use strict';
-import { verifyPassword } from './util';
-import { Strategy as LocalStrategy } from 'passport-local';
-import { ConfigHelper } from './config/configure';
 import { Authenticator } from 'passport';
-import { User } from './user';
+import { ConfigHelper } from './config/configure';
+import { Strategy as LocalStrategy } from 'passport-local';
 import { Request } from 'express';
-import { SlUserDoc } from 'typings';
+import { SlUserDoc } from './types/typings';
+import { User } from './user';
+import { verifyPassword } from './util';
+
 const BearerStrategy = require('passport-http-bearer-sl').Strategy;
 
 module.exports = function (

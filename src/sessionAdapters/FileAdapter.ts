@@ -1,5 +1,5 @@
-import { SessionAdapter } from 'adapters';
 import { ConfigHelper } from '../config/configure';
+import { SessionAdapter } from '../types/adapters';
 
 const fs = require('fs-extra');
 const path = require('path');

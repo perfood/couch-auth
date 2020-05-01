@@ -1,25 +1,32 @@
 'use strict';
-
-import { DBAuth } from './dbauth';
-import { DocumentScope } from 'nano';
-import url from 'url';
-import Model, { Sofa } from '@sl-nx/sofa-model';
-import merge from 'deepmerge';
-import { Session } from './session';
-import { SlSession, SlUserDoc, SlRequest } from './types/typings';
-import { ConfigHelper } from './config/configure';
 import {
   arrayUnion,
-  URLSafeUUID,
-  hashPassword,
   capitalizeFirstLetter,
-  hashToken,
-  getSessions,
   getExpiredSessions,
+  getSessions,
+  hashPassword,
+  hashToken,
+  URLSafeUUID,
   verifyPassword
 } from './util';
-import { Request } from 'express';
+import {
+  CouchDbAuthDoc,
+  SessionObj,
+  SlRequest,
+  SlSession,
+  SlUserDoc
+} from './types/typings';
+import Model, { Sofa } from '@sl-nx/sofa-model';
+
+import { ConfigHelper } from './config/configure';
+import { DBAuth } from './dbauth';
+import { DocumentScope } from 'nano';
+import { EventEmitter } from 'events';
 import { Mailer } from './mailer';
+import merge from 'deepmerge';
+import { Request } from 'express';
+import { Session } from './session';
+import url from 'url';
 
 // regexp from https://emailregex.com/
 const EMAIL_REGEXP = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
@@ -35,10 +42,6 @@ export class User {
   #session: Session;
   #onCreateActions;
   #onLinkActions;
-  userDB: DocumentScope<any>;
-  config: ConfigHelper;
-  mailer: Mailer;
-  emitter: EventEmitter;
 
   // config flags
   tokenLife: number;
@@ -57,17 +60,12 @@ export class User {
   changePasswordModel: Sofa.AsyncOptions;
 
   constructor(
-    config: ConfigHelper,
-    userDB: DocumentScope<any>,
-    couchAuthDB: DocumentScope<any>,
-    mailer: Mailer,
-    emitter: EventEmitter
+    protected config: ConfigHelper,
+    protected userDB: DocumentScope<SlUserDoc>,
+    couchAuthDB: DocumentScope<CouchDbAuthDoc>,
+    protected mailer: Mailer,
+    protected emitter: EventEmitter
   ) {
-    this.userDB = userDB;
-    this.config = config;
-    this.mailer = mailer;
-    this.emitter = emitter;
-
     const dbAuth = new DBAuth(config, userDB, couchAuthDB);
     this.#dbAuth = dbAuth;
     this.#session = new Session(config);
@@ -300,6 +298,7 @@ export class User {
 
   getUser(login) {
     let query;
+    // todo: here I'd need to make adjustments if I want to be backwards compatible
     if (this.emailUsername) {
       query = 'emailUsername';
     } else {
@@ -417,7 +416,7 @@ export class User {
     let baseUsername;
     req = req || {};
     const ip = req.ip;
-    // It is important that we return a Bluebird promise so oauth.js can call .nodeify()
+    // This used to be consumped by `.nodeify` from Bluebird. I hope `callbackify` works just as well...
     return Promise.resolve()
       .then(() => {
         return this.userDB.view('auth', provider, {
@@ -745,7 +744,7 @@ export class User {
       provider: provider,
       ip: ip
     };
-    user.session[newToken.key] = newSession;
+    user.session[newToken.key] = newSession as SessionObj;
     // Clear any failed login attempts
     if (provider === 'local') {
       if (!user.local) user.local = {};

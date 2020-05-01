@@ -1,6 +1,6 @@
 # SuperLogin-Next
 
-[![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)](https://dev.snyk.io/test/github/sl-nx/superlogin)
+![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)](https://dev.snyk.io/test/github/sl-nx/superlogin) ![Build Status](https://github.com/sl-nx/superlogin-next/workflows/.github/workflows/.github/workflows/ci-workflow.yml/badge.svg?branch=master)
 
 This is an updated fork of SuperLogin, re-written in TypeScript and developed against Node 12 & CouchDB 3.
 
@@ -428,8 +428,8 @@ Constructs a new instance of SuperLogin. All arguments are optional. If you don'
 
 - `config`: Your full configuration object.
 - `passport`: You can pass in your own instance of Passport or SuperLogin will generate one if you do not.
-- `userDB`: This is the database that SuperLogin uses to keep track of users, distinct from CouchDB's `_users` database. You can pass in a [PouchDB](http://pouchdb.com) instance here or otherwise specify your database name in the config under `dbServer.userDB`.
-- `couchAuthDB`: This should point to your CouchDB `_users` database or something else if you just want to test. Specify in config or pass in a PouchDB object here.
+- `userDB`: This is the database that SuperLogin uses to keep track of users, distinct from CouchDB's `_users` database. You can pass in a [nano](https://www.npmjs.com/package/nano) instance here or otherwise specify your database name in the config under `dbServer.userDB`.
+- `couchAuthDB`: This should point to your CouchDB `_users` database or something else if you just want to test. Specify in config or pass in a `nano` instance here.
 
 **Returns:** the complete SuperLogin API.
 
@@ -451,11 +451,11 @@ A reference to Passport
 
 ##### `superlogin.userDB`
 
-A PouchDB instance that gives direct access to the SuperLogin users database
+A `nano` instance that gives direct access to the SuperLogin users database
 
 ##### `superlogin.couchAuthDB`
 
-A PouchDB instance that gives direct access to the CouchDB authentication (`_users`) database. (Not used with Cloudant.)
+A `nano` instance that gives direct access to the CouchDB authentication (`_users`) database. (Not used with Cloudant.)
 
 ##### `superlogin.registerProvider(provider, configFunction)`
 

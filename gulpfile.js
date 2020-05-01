@@ -1,13 +1,11 @@
-const { src, series } = require('gulp'),
-  eslint = require('gulp-eslint'),
-  mocha = require('gulp-mocha'),
-  babel = require('gulp-babel');
+const { src, series } = require('gulp');
+const eslint = require('gulp-eslint');
+const mocha = require('gulp-mocha');
 
 console.log('running tests from working directory: ', __dirname);
 
 function lint() {
   return src(['./lib/**/*.js', './test/*.js'])
-    .pipe(babel({ plugins: ['@babel/plugin-proposal-class-properties'] }))
     .pipe(eslint({ node: true, mocha: true }))
     .pipe(eslint.format())
     .pipe(eslint.failAfterError());

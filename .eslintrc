@@ -10,6 +10,12 @@
     "quotes": ["error", "single", { "avoidEscape": true }],
     "no-var": "warn",
     "prefer-const": "warn",
+    "sort-imports": [
+      "error",
+      {
+        "ignoreCase": true
+      }
+    ],
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/camelcase": "off",
     "@typescript-eslint/ban-ts-ignore": "off",

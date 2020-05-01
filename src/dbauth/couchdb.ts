@@ -1,9 +1,9 @@
 'use strict';
-
 import { DocumentScope, ServerScope } from 'nano';
 import { CouchDbAuthDoc } from '../types/typings';
+import { DBAdapter } from '../types/adapters';
 import { toArray } from '../util';
-import { DBAdapter } from 'adapters';
+
 const userPrefix = 'org.couchdb.user:';
 
 export class CouchAdapter implements DBAdapter {
