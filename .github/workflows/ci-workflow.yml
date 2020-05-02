@@ -1,4 +1,4 @@
-name: Main workflows
+name: Build
 
 on:
   pull_request:

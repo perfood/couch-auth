@@ -1,15 +1,16 @@
 # SuperLogin-Next
 
-![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)](https://dev.snyk.io/test/github/sl-nx/superlogin) ![Build Status](https://github.com/sl-nx/superlogin-next/workflows/.github/workflows/.github/workflows/ci-workflow.yml/badge.svg?branch=master)
+![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)
+![Build Status](https://github.com/sl-nx/superlogin-next/workflows/Build/badge.svg?branch=master)
 
 This is an updated fork of SuperLogin, re-written in TypeScript and developed against Node 12 & CouchDB 3.
 
 If you've just plugged SuperLogin into your Express Server, it should be backwards compatible - unless you've been
-passing a PouchDB (in now uses [nano](https://github.com/apache/couchdb-nano) instead). There are a few new
+passing a PouchDB (it now uses [nano](https://github.com/apache/couchdb-nano) instead). There are a few new
 configuration options and some changes under the hood, for details see the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md).
 
 A few changes will still happen, but mainly related to logging, additional features, reducing dependencies and
-upgrading to Nano 9.0.0 once it's released.
+upgrading to Nano 9.0.0 once it's released. ETA for a 1.0.0 with more secure default settings is in June/July.
 
 For issues and feature requests visit the [issue tracker](https://github.com/sl-nx/superlogin/issues).
 
