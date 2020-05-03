@@ -2,31 +2,34 @@ import {
   DocumentBulkResponse,
   DocumentScope,
   IdentifiedDocument,
-  RevisionedDocument
+  MaybeIdentifiedDocument,
+  MaybeRevisionedDocument
 } from 'nano';
-
-const objmap = require('object-map');
-const objkeysmap = require('object-keys-map');
-const deepEqual = require('deep-equal');
+import deepEqual from 'deep-equal';
 
 function addDesign(s) {
   return '_design/' + s;
 }
 
+/**
+ * normalizes the document into the JSON format it has
+ * in the CouchDB, converting functions into strings and
+ * specify
+ */
 function normalizeDoc(
-  doc: IdentifiedDocument & RevisionedDocument,
+  doc: MaybeIdentifiedDocument & MaybeRevisionedDocument,
   id: string
-) {
+): IdentifiedDocument {
   function normalize(doc) {
     doc = Object.assign({}, doc);
-    Object.keys(doc).forEach(function (prop) {
-      const type = typeof doc[prop];
+    for (const [prop, entry] of Object.entries(doc)) {
+      const type = typeof entry;
       if (type === 'object') {
-        doc[prop] = normalize(doc[prop]);
+        doc[prop] = normalize(entry);
       } else if (type === 'function') {
-        doc[prop] = doc[prop].toString();
+        doc[prop] = entry.toString();
       }
-    });
+    }
     return doc;
   }
 
@@ -41,15 +44,15 @@ function docEqual(local, remote) {
   return deepEqual(local, remote, { strict: true });
 }
 
-export default async function seed(
-  db: DocumentScope<any>,
-  design: any,
-  cb?: Function
-) {
+export default async function seed(db: DocumentScope<any>, design: any) {
   if (!db || !design) {
     throw new TypeError('`db` and `design` are required');
   }
-  const local = objmap(objkeysmap(design, addDesign), normalizeDoc);
+  const local = {};
+  for (const [id, data] of Object.entries(design)) {
+    const ddocId = addDesign(id);
+    local[ddocId] = normalizeDoc(data, ddocId);
+  }
   try {
     const docs = await db.list({
       include_docs: true,
@@ -77,15 +80,8 @@ export default async function seed(
     if (update.length > 0) {
       result = await db.bulk({ docs: update });
     }
-    if (typeof cb === 'function') {
-      cb(null, result);
-    }
     return result;
   } catch (err) {
-    if (typeof cb === 'function') {
-      cb(err, null);
-    }
-    console.log(err);
     return Promise.reject(err);
   }
 }

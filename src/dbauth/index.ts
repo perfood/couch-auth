@@ -2,13 +2,10 @@
 import { CouchDbAuthDoc, IdentifiedObj, SlUserDoc } from '../types/typings';
 import { getDBURL, getSessions, toArray } from '../util';
 import nano, { DocumentScope, ServerScope } from 'nano';
-
 import { CloudantAdapter } from './cloudant';
 import { ConfigHelper } from '../config/configure';
 import { CouchAdapter } from './couchdb';
 import { PersonalDBSettings } from '../types/config';
-
-import request from 'superagent'; // todo: just to this with nano...
 import seed from '../design/seed';
 
 export class DBAuth {

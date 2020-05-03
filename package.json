@@ -58,8 +58,6 @@
     "nano": "^8.2.2",
     "nodemailer": "^6.4.6",
     "nodemailer-stub-transport": "^1.1.0",
-    "object-keys-map": "^1.0.2",
-    "object-map": "^1.0.2",
     "passport": "^0.4.1",
     "passport-http-bearer-sl": "^1.0.1",
     "passport-local": "^1.0.0",
