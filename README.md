@@ -9,8 +9,7 @@ If you've just plugged SuperLogin into your Express Server, it should be backwar
 passing a PouchDB (it now uses [nano](https://github.com/apache/couchdb-nano) instead). There are a few new
 configuration options and some changes under the hood, for details see the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md).
 
-A few changes will still happen, but mainly related to logging, additional features, reducing dependencies and
-upgrading to Nano 9.0.0 once it's released. ETA for a 1.0.0 with more secure default settings is in June/July.
+Future changes will mainly affect logging, additional features, improved security (_including modified/ new configuration defaults_), reducing dependencies and upgrading to Nano 9.0.0 once it's released. Be sure to always check the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md) also on minor releases before this reaches 1.0.0! Minor breaking changes and necessary config adjustments can and will happen.
 
 For issues and feature requests visit the [issue tracker](https://github.com/sl-nx/superlogin/issues).
 

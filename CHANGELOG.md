@@ -1,5 +1,12 @@
 ## Change Log
 
+#### Error Handling (0.12.0)
+
+Only send errors as response that are meant to be user-facing
+
+- Otherwise, just send a generic error
+- Adjusted the logging accordingly (warn/error level)
+
 #### TypeScript improvements, Dependency cleanup (0.11.0)
 
 **Breaking**
