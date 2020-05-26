@@ -1,5 +1,9 @@
 'use strict';
-import { capitalizeFirstLetter, getSessionToken } from './util';
+import {
+  capitalizeFirstLetter,
+  getSessionToken,
+  isUserFacingError
+} from './util';
 import { NextFunction, Request, Response, Router } from 'express';
 
 import { Authenticator } from 'passport';
@@ -353,16 +357,28 @@ module.exports = function (
     }
   );
 
-  // Error handling
+  /**
+   * If the error is expected, it's sent as response. Otherwise, a generic
+   * server error without detailed information is returned when in production.
+   */
   router.use(function (err, req: Request, res: Response, next: NextFunction) {
-    console.error(err);
-    if (err.stack) {
-      console.error(err.stack);
+    const isExpected = isUserFacingError(err);
+    if (isExpected) {
+      console.warn(JSON.stringify(err));
+    } else {
+      const errLog =
+        typeof err === 'string' ? err : err.reason ? err.reason : err.message;
+      console.error(errLog);
+      if (err.stack) {
+        console.error(err.stack);
+      }
     }
-    res.status(err.status || 500);
-    if (err.stack && env !== 'development') {
-      delete err.stack;
+    if (env !== 'development') {
+      isExpected
+        ? res.status(err.status).json(err)
+        : res.status(500).json({ status: 500, error: 'Internal Server Error' });
+    } else {
+      res.status(err.status || 500).json(err);
     }
-    res.json(err);
   });
 };

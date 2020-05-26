@@ -244,3 +244,31 @@ export function arrayUnion<T>(a: Array<T>, b: Array<T>) {
   }
   return result;
 }
+
+/**
+ * return `true` if the passed object has the format
+ * of errors thrown by SuperLogin itself, i.e. it has
+ * `status`, `error` and optionally one of
+ * `validationErrors` or `message`.
+ */
+export function isUserFacingError(errObj: any) {
+  if (!errObj || typeof errObj !== 'object') {
+    return false;
+  }
+  const requiredProps = new Set(['status', 'error']);
+  const legalProps = ['status', 'error', 'validationErrors', 'message'];
+  for (const [key, value] of Object.entries(errObj)) {
+    if (
+      !value ||
+      !legalProps.includes(key) ||
+      (key === 'status' && typeof value !== 'number') ||
+      (['error', 'message'].includes(key) && typeof value !== 'string')
+    ) {
+      return false;
+    }
+    if (requiredProps.has(key)) {
+      requiredProps.delete(key);
+    }
+  }
+  return requiredProps.size === 0;
+}
