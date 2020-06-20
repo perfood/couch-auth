@@ -1,3 +1,26 @@
+/**
+Copyright (C) 2013 by Maciej Małecki, portions (C) 2014-2016 by Colin Skow
+and (C) 2020 by Fynn Leitow
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+
 import {
   DocumentBulkResponse,
   DocumentScope,
@@ -5,7 +28,6 @@ import {
   MaybeIdentifiedDocument,
   MaybeRevisionedDocument
 } from 'nano';
-import deepEqual from 'deep-equal';
 
 function addDesign(s) {
   return '_design/' + s;
@@ -41,7 +63,7 @@ function normalizeDoc(
 
 function docEqual(local, remote) {
   if (!remote) return false;
-  return deepEqual(local, remote, { strict: true });
+  return JSON.stringify(local) === JSON.stringify(remote);
 }
 
 export default async function seed(db: DocumentScope<any>, design: any) {
