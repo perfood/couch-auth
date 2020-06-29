@@ -1,5 +1,9 @@
 ## Change Log
 
+#### Bugfix forgot-password (0.12.1)
+
+Reject early if no valid email was provided with the request
+
 #### Error Handling (0.12.0)
 
 Only send errors as response that are meant to be user-facing
