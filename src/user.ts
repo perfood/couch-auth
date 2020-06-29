@@ -1087,6 +1087,9 @@ export class User {
   }
 
   forgotPassword(email: string, req: Partial<Request>) {
+    if (!email || !email.match(EMAIL_REGEXP)) {
+      return Promise.reject({ error: 'invalid email', status: 400 });
+    }
     req = req || {};
     let user: SlUserDoc, token, tokenHash;
     return this.userDB
