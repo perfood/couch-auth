@@ -1,6 +1,6 @@
 'use strict';
 import { CouchDbAuthDoc, IdentifiedObj, SlUserDoc } from '../types/typings';
-import { getDBURL, getSessions, toArray } from '../util';
+import { getDBURL, getSessions, toArray, URLSafeUUID } from '../util';
 import nano, { DocumentScope, ServerScope } from 'nano';
 import { CloudantAdapter } from './cloudant';
 import { ConfigHelper } from '../config/configure';
@@ -61,6 +61,23 @@ export class DBAuth {
 
   retrieveKey(key: string) {
     return this.#adapter.retrieveKey(key);
+  }
+
+  /** generates a random token and password (CouchDB) or retrieves from Cloudant */
+  getApiKey() {
+    if (this.#config.getItem('dbServer.cloudant')) {
+      return (this.#adapter as CloudantAdapter).getAPIKey();
+    } else {
+      let token = URLSafeUUID();
+      // Make sure our token doesn't start with illegal characters
+      while (token[0] === '_' || token[0] === '-') {
+        token = URLSafeUUID();
+      }
+      return Promise.resolve({
+        key: token,
+        password: URLSafeUUID()
+      });
+    }
   }
 
   authorizeKeys(

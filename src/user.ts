@@ -1482,21 +1482,7 @@ export class User {
   }
 
   generateSession(username, roles) {
-    let getKey;
-    if (this.config.getItem('dbServer.cloudant')) {
-      getKey = require('./dbauth/cloudant').getAPIKey();
-    } else {
-      let token = URLSafeUUID();
-      // Make sure our token doesn't start with illegal characters
-      while (token[0] === '_' || token[0] === '-') {
-        token = URLSafeUUID();
-      }
-      getKey = Promise.resolve({
-        key: token,
-        password: URLSafeUUID()
-      });
-    }
-    return getKey.then(key => {
+    return this.#dbAuth.getApiKey().then(key => {
       const now = Date.now();
       return Promise.resolve({
         _id: username,
