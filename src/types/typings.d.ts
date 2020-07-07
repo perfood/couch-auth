@@ -11,10 +11,14 @@ export interface CouchDbAuthDoc
     MaybeRevisionedDocument,
     IdentifiedObj {
   user_id: string;
-  password: string;
+  password?: string;
   expires: number;
   roles: string[];
   provider: string;
+  password_scheme?: string;
+  iterations?: number;
+  derived_key?: string;
+  salt?: string;
 }
 
 export interface HashResult {

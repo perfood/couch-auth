@@ -1,15 +1,19 @@
 'use strict';
 import { DocumentScope, ServerScope } from 'nano';
+import { hashPassword, toArray } from '../util';
 import { CouchDbAuthDoc } from '../types/typings';
 import { DBAdapter } from '../types/adapters';
-import { toArray } from '../util';
 
 const userPrefix = 'org.couchdb.user:';
 
 export class CouchAdapter implements DBAdapter {
   #couchAuthDB: DocumentScope<CouchDbAuthDoc>;
   #couch: ServerScope;
-  constructor(couchAuthDB: DocumentScope<CouchDbAuthDoc>, couch: ServerScope) {
+  constructor(
+    couchAuthDB: DocumentScope<CouchDbAuthDoc>,
+    couch: ServerScope,
+    private couchAuthOnCloudant: boolean
+  ) {
     this.#couchAuthDB = couchAuthDB;
     this.#couch = couch;
   }
@@ -32,16 +36,23 @@ export class CouchAdapter implements DBAdapter {
       roles = [];
     }
     roles.unshift('user:' + username);
-    const newKey: CouchDbAuthDoc = {
+    let newKey: CouchDbAuthDoc = {
       _id: userPrefix + key,
       type: 'user',
       name: key,
       user_id: username,
-      password: password,
       expires: expires,
       roles: roles,
       provider: provider
     };
+    if (this.couchAuthOnCloudant) {
+      // PWs need to be hashed manually when using pbkdf2
+      newKey.password_scheme = 'pbkdf2';
+      newKey.iterations = 10;
+      newKey = { ...newKey, ...(await hashPassword(password)) };
+    } else {
+      newKey.password = password;
+    }
     await this.#couchAuthDB.insert(newKey);
     newKey._id = key;
     return newKey;
@@ -123,6 +134,10 @@ export class CouchAdapter implements DBAdapter {
         secDoc.members.roles.push(role);
       }
     });
+    if (this.couchAuthOnCloudant && !secDoc.couchdb_auth_only) {
+      changes = true;
+      secDoc.couchdb_auth_only = true;
+    }
     if (changes) {
       return this.putSecurity(db, secDoc);
     } else {

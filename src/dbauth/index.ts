@@ -29,7 +29,11 @@ export class DBAuth {
     if (cloudant) {
       this.#adapter = new CloudantAdapter();
     } else {
-      this.#adapter = new CouchAdapter(couchAuthDB, this.#couch);
+      this.#adapter = new CouchAdapter(
+        couchAuthDB,
+        this.#couch,
+        !!this.#config.getItem('dbServer.couchAuthOnCloudant')
+      );
     }
   }
 
