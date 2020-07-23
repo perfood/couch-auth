@@ -78,9 +78,6 @@ export class User {
     // Session token life
     this.sessionLife = config.getItem('security.sessionLife') || 86400;
     this.useDbFallback = config.getItem('session.dbFallback');
-    if (config.getItem('dbServer.cloudant') && this.useDbFallback) {
-      throw 'dbFallback is only implemented for CouchDB.';
-    }
 
     const emailUsername = config.getItem('local.emailUsername');
     this.passwordConstraints = {

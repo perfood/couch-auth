@@ -1,13 +1,15 @@
 'use strict';
 import {
   addProvidersToDesignDoc,
+  getCloudantURL,
   getDBURL,
   hashPassword,
   verifyPassword
 } from './util';
+import cloudant, { ServerScope as CloudantServer } from '@cloudant/cloudant';
 import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
 import express, { Router } from 'express';
-import nano, { DocumentScope } from 'nano';
+import nano, { DocumentScope, ServerScope as NanoServer } from 'nano';
 import { Authenticator } from 'passport';
 import { Config } from './types/config';
 import { ConfigHelper } from './config/configure';
@@ -61,21 +63,39 @@ export class SuperLogin extends User {
     }
 
     // Create the DBs if they weren't passed in
+    let server: CloudantServer | NanoServer;
+    if (
+      (!userDB && config.getItem('dbServer.userDB')) ||
+      (!couchAuthDB &&
+        config.getItem('dbServer.couchAuthDB') &&
+        !config.getItem('dbServer.cloudant'))
+    ) {
+      if (config.config.dbServer?.iamApiKey) {
+        server = cloudant({
+          url: getCloudantURL(),
+          plugins: [
+            { iamauth: { iamApiKey: config.config.dbServer.iamApiKey } },
+            { retry: { retryInitialDelayMsecs: 750 } }
+          ],
+          maxAttempt: 2
+        });
+      } else {
+        server = nano({
+          url: getDBURL(config.getItem('dbServer')),
+          parseUrl: false
+        });
+      }
+    }
+
     if (!userDB && config.getItem('dbServer.userDB')) {
-      userDB = nano({
-        url: getDBURL(config.getItem('dbServer')),
-        parseUrl: false
-      }).use(config.getItem('dbServer.userDB'));
+      userDB = server.use(config.getItem('dbServer.userDB'));
     }
     if (
       !couchAuthDB &&
       config.getItem('dbServer.couchAuthDB') &&
       !config.getItem('dbServer.cloudant')
     ) {
-      couchAuthDB = nano({
-        url: getDBURL(config.getItem('dbServer')),
-        parseUrl: false
-      }).use(config.getItem('dbServer.couchAuthDB'));
+      couchAuthDB = server.use(config.getItem('dbServer.couchAuthDB'));
     }
     if (!userDB || typeof userDB !== 'object') {
       throw new Error(

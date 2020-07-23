@@ -1,14 +1,33 @@
 'use strict';
+import { DocumentScope, ServerScope } from 'nano';
 import { getCloudantURL, toArray } from './../util';
-import nano, { DocumentScope, ServerScope } from 'nano';
+import cloudant from '@cloudant/cloudant';
+import { Config } from '../types/config';
 import { DBAdapter } from '../types/adapters';
 
-// todo: make work with nano...
-
+/**
+ * Adapter for Cloudant, using APIv2-Keys for access management.
+ * Works with Legacy Auth Credentials (user:password) or IAM.
+ */
 export class CloudantAdapter implements DBAdapter {
   #couch: ServerScope;
-  constructor() {
-    this.#couch = nano(getCloudantURL());
+  constructor(config?: Partial<Config>) {
+    if (config?.dbServer?.iamApiKey) {
+      this.#couch = cloudant({
+        url: getCloudantURL(),
+        plugins: [
+          { iamauth: { iamApiKey: config.dbServer.iamApiKey } },
+          { retry: { retryInitialDelayMsecs: 750 } }
+        ],
+        maxAttempt: 2
+      });
+    } else {
+      this.#couch = cloudant({
+        url: getCloudantURL(),
+        plugins: ['cookieauth', { retry: { retryInitialDelayMsecs: 750 } }],
+        maxAttempt: 2
+      });
+    }
   }
   /** not needed/ implemented for Cloudant */
   storeKey() {

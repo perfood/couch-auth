@@ -70,13 +70,23 @@ module.exports = {
     // If the public uses a separate URL from your Node.js server to access the database specify it here.
     // This will be the access URL for all your user's personalDBs
     publicURL: 'https://mydb.example.com',
-    /** Set this to `true` if you are using Cloudant and provide `CLOUDANT_USER` and `CLOUDANT_PASS` as environment variables */
+    /**
+     * Set this to `true` if you are using Cloudant with API-v2-keys and Cloudant's role system.
+     * Provide `CLOUDANT_USER` and - unless you're using IAM for authentication - `CLOUDANT_PASS` as environment variables
+     */
     cloudant: false,
+    /**
+     * If specified together with `cloudant` or `couchAuthOnCloudant`, this IAM api key will be used for authentication
+     * instead of legacy basic auth via `user:password`. Do not provide `password` or `CLOUDANT_PASS` if using IAM!
+     */
+    iamApiKey: '',
     // The name for the database that stores all your user information. This is distinct from CouchDB's _user database.
     // Alternatively you can pass in a `nano` instance to the SuperLogin constructor and leave this blank
     userDB: 'sl_users',
     // CouchDB's _users database. Each session generates the user a unique login and password. This is not used with Cloudant.
-    couchAuthDB: '_users'
+    couchAuthDB: '_users',
+    // Use this flag instead if you use Cloudant, but with the `_users` - DB and CouchDB's permission system instead
+    couchAuthOnCloudant: false
   },
   session: {
     // 'redis' or 'memory'

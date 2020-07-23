@@ -6,10 +6,9 @@
 This is an updated fork of SuperLogin, re-written in TypeScript and developed against Node 12 & CouchDB 3.
 
 If you've just plugged SuperLogin into your Express Server, it should be backwards compatible - unless you've been
-passing a PouchDB (it now uses [nano](https://github.com/apache/couchdb-nano) instead). There are a few new
-configuration options and some changes under the hood, for details see the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md).
+passing a PouchDB (it now uses [nano](https://github.com/apache/couchdb-nano) or [cloudant](https://www.npmjs.com/package/@cloudant/cloudant) for IAM compatibility instead). There are a few new configuration options and some changes under the hood, for details see the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md).
 
-[Future changes](https://github.com/sl-nx/superlogin-next/projects/1) will mainly affect logging, additional features, improved security (_including modified/ new configuration defaults_), reducing dependencies and upgrading to Nano 9.0.0 once it's released. Be sure to always check the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md) also on minor releases before this reaches 1.0.0! Minor breaking changes and necessary config adjustments can and will happen.
+[Future changes](https://github.com/sl-nx/superlogin-next/projects/1) will mainly affect improved security (_including modified/ new configuration defaults_) and compatibility with Cloudant. Be sure to always check the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md) also on minor releases before this reaches 1.0.0! Minor breaking changes and necessary config adjustments can and will happen.
 
 For issues and feature requests visit the [issue tracker](https://github.com/sl-nx/superlogin/issues).
 

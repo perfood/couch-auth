@@ -1,5 +1,12 @@
 ## Change Log
 
+#### Cloudant IAM (0.13)
+
+Use Cloudant Library for compatibility with IAM auth instead of `user:password` (downgraded nano)
+
+- Added 2x retry when working with cloudant
+- Using CookieAuth if `cloudant` is true and not IAM
+
 #### Bugfix forgot-password (0.12.1)
 
 Reject early if no valid email was provided with the request

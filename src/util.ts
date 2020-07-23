@@ -55,16 +55,14 @@ export function verifyPassword(
   });
 }
 
+/** returns the Cloudant url - including credentials, if `CLOUDANT_PASS` is provided. */
 export function getCloudantURL() {
-  return (
-    'https://' +
-    process.env.CLOUDANT_USER +
-    ':' +
-    process.env.CLOUDANT_PASS +
-    '@' +
-    process.env.CLOUDANT_USER +
-    '.cloudantnosqldb.appdomain.cloud'
-  );
+  let url = 'https://';
+  if (process.env.CLOUDANT_PASS) {
+    url += process.env.CLOUDANT_USER + ':' + process.env.CLOUDANT_PASS + '@';
+  }
+  url += process.env.CLOUDANT_USER + '.cloudantnosqldb.appdomain.cloud';
+  return url;
 }
 
 export function getDBURL(db: DBServerConfig) {

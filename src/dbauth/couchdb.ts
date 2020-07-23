@@ -1,6 +1,7 @@
 'use strict';
 import { DocumentScope, ServerScope } from 'nano';
 import { hashPassword, toArray } from '../util';
+import { Config } from '../types/config';
 import { CouchDbAuthDoc } from '../types/typings';
 import { DBAdapter } from '../types/adapters';
 
@@ -9,13 +10,19 @@ const userPrefix = 'org.couchdb.user:';
 export class CouchAdapter implements DBAdapter {
   #couchAuthDB: DocumentScope<CouchDbAuthDoc>;
   #couch: ServerScope;
+  #config: Partial<Config>;
+  couchAuthOnCloudant = false;
   constructor(
     couchAuthDB: DocumentScope<CouchDbAuthDoc>,
     couch: ServerScope,
-    private couchAuthOnCloudant: boolean
+    config: Partial<Config>
   ) {
     this.#couchAuthDB = couchAuthDB;
     this.#couch = couch;
+    this.#config = config;
+    if (this.#config?.dbServer.couchAuthOnCloudant) {
+      this.couchAuthOnCloudant = true;
+    }
   }
 
   /**
