@@ -1,6 +1,11 @@
 'use strict';
 import { DocumentScope, ServerScope } from 'nano';
-import { getCloudantURL, toArray } from './../util';
+import {
+  getCloudantURL,
+  getSecurityDoc,
+  putSecurityDoc,
+  toArray
+} from './../util';
 import cloudant from '@cloudant/cloudant';
 import { Config } from '../types/config';
 import { DBAdapter } from '../types/adapters';
@@ -73,7 +78,7 @@ export class CloudantAdapter implements DBAdapter {
       keysObj = keys;
     }
     // Pull the current _security doc
-    return this.getSecurityCloudant(db).then(secDoc => {
+    return getSecurityDoc(this.#couch, db).then(secDoc => {
       if (!secDoc._id) {
         secDoc._id = '_security';
       }
@@ -83,14 +88,14 @@ export class CloudantAdapter implements DBAdapter {
       Object.keys(keysObj).forEach(function (key) {
         secDoc.cloudant[key] = keysObj[key];
       });
-      return this.putSecurityCloudant(db, secDoc);
+      return putSecurityDoc(this.#couch, db, secDoc);
     });
   }
 
   deauthorizeKeys(db, keys) {
     // cast keys to an Array
     keys = toArray(keys);
-    return this.getSecurityCloudant(db).then(secDoc => {
+    return getSecurityDoc(this.#couch, db).then(secDoc => {
       let changes = false;
       if (!secDoc.cloudant) {
         return Promise.resolve(false);
@@ -102,11 +107,15 @@ export class CloudantAdapter implements DBAdapter {
         }
       });
       if (changes) {
-        return this.putSecurityCloudant(db, secDoc);
+        return putSecurityDoc(this.#couch, db, secDoc);
       } else {
         return Promise.resolve(false);
       }
     });
+  }
+
+  getSecurityCloudant(db) {
+    return getSecurityDoc(this.#couch, db);
   }
 
   getAPIKey() {
@@ -125,24 +134,5 @@ export class CloudantAdapter implements DBAdapter {
           }
         })
     );
-  }
-
-  private putSecurityCloudant(db: DocumentScope<any>, doc) {
-    // @ts-ignore
-    return this.#couch.request({
-      db: db.config.db,
-      method: 'PUT',
-      doc: '_security',
-      body: doc
-    });
-  }
-
-  getSecurityCloudant(db: DocumentScope<any>): Promise<any> {
-    // @ts-ignore
-    return this.#couch.request({
-      db: db.config.db,
-      method: 'GET',
-      doc: '_security'
-    });
   }
 }

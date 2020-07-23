@@ -1,6 +1,6 @@
 'use strict';
 import { DocumentScope, ServerScope } from 'nano';
-import { hashPassword, toArray } from '../util';
+import { getSecurityDoc, hashPassword, putSecurityDoc, toArray } from '../util';
 import { Config } from '../types/config';
 import { CouchDbAuthDoc } from '../types/typings';
 import { DBAdapter } from '../types/adapters';
@@ -116,7 +116,7 @@ export class CouchAdapter implements DBAdapter {
     memberRoles: string[]
   ) {
     let changes = false;
-    const secDoc = await db.get('_security');
+    const secDoc = await getSecurityDoc(this.#couch, db);
     if (!secDoc.admins) {
       secDoc.admins = { names: [], roles: [] };
     }
@@ -146,7 +146,7 @@ export class CouchAdapter implements DBAdapter {
       secDoc.couchdb_auth_only = true;
     }
     if (changes) {
-      return this.putSecurity(db, secDoc);
+      return putSecurityDoc(this.#couch, db, secDoc);
     } else {
       return false;
     }
@@ -172,7 +172,7 @@ export class CouchAdapter implements DBAdapter {
     }
     // Convert keys to an array if it is just a string
     keys = toArray(keys);
-    const secDoc = await db.get('_security');
+    const secDoc = await getSecurityDoc(this.#couch, db);
     if (!secDoc.members) {
       secDoc.members = { names: [], roles: [] };
     }
@@ -188,7 +188,7 @@ export class CouchAdapter implements DBAdapter {
       }
     });
     if (changes) {
-      return await this.putSecurity(db, secDoc);
+      return await putSecurityDoc(this.#couch, db, secDoc);
     } else {
       return false;
     }
@@ -199,7 +199,7 @@ export class CouchAdapter implements DBAdapter {
    */
   async deauthorizeKeys(db: DocumentScope<any>, keys: string[] | string) {
     const keysArr = toArray(keys);
-    const secDoc = await db.get('_security');
+    const secDoc = await getSecurityDoc(this.#couch, db);
     if (!secDoc.members || !secDoc.members.names) {
       return false;
     }
@@ -212,19 +212,9 @@ export class CouchAdapter implements DBAdapter {
       }
     });
     if (changes) {
-      return await this.putSecurity(db, secDoc);
+      return await putSecurityDoc(this.#couch, db, secDoc);
     } else {
       return false;
     }
-  }
-
-  private putSecurity(db: DocumentScope<any>, secDoc) {
-    // @ts-ignore
-    return this.#couch.request({
-      db: db.config.db,
-      method: 'put',
-      doc: '_security',
-      body: secDoc
-    });
   }
 }

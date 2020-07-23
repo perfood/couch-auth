@@ -1,7 +1,12 @@
 'use strict';
-import { CouchDbAuthDoc, IdentifiedObj, SlUserDoc } from '../types/typings';
-import { getDBURL, getSessions, toArray, URLSafeUUID } from '../util';
-import nano, { DocumentScope, ServerScope } from 'nano';
+import {
+  CouchDbAuthDoc,
+  DocumentScope,
+  IdentifiedObj,
+  ServerScope,
+  SlUserDoc
+} from '../types/typings';
+import { getSessions, loadCouchServer, toArray, URLSafeUUID } from '../util';
 import { CloudantAdapter } from './cloudant';
 import { ConfigHelper } from '../config/configure';
 import { CouchAdapter } from './couchdb';
@@ -12,7 +17,7 @@ export class DBAuth {
   #adapter: CouchAdapter | CloudantAdapter;
   #config: ConfigHelper;
   #userDB: DocumentScope<SlUserDoc>;
-  #couch: ServerScope;
+  #server: ServerScope;
 
   constructor(
     config: ConfigHelper,
@@ -21,17 +26,15 @@ export class DBAuth {
   ) {
     this.#config = config;
     this.#userDB = userDB;
-    this.#couch = nano({
-      url: getDBURL(config.getItem('dbServer')),
-      parseUrl: false
-    });
+    this.#server = loadCouchServer(config.config);
+
     const cloudant = this.#config.getItem('dbServer.cloudant');
     if (cloudant) {
       this.#adapter = new CloudantAdapter(this.#config.config);
     } else {
       this.#adapter = new CouchAdapter(
         couchAuthDB,
-        this.#couch,
+        this.#server,
         this.#config.config
       );
     }
@@ -116,7 +119,7 @@ export class DBAuth {
           this.#config.getItem('userDBs.model._default.permissions') ||
           [];
       }
-      const db = this.#couch.use(personalDB);
+      const db = this.#server.use(personalDB);
       promises.push(
         this.authorizeKeys(
           user_id,
@@ -153,7 +156,7 @@ export class DBAuth {
     const finalDBName =
       type === 'shared' ? dbName : prefix + dbName + '$' + username;
     await this.createDB(finalDBName);
-    const newDB = this.#couch.db.use(finalDBName);
+    const newDB = this.#server.db.use(finalDBName);
     await this.#adapter.initSecurity(newDB, adminRoles, memberRoles);
     // Seed the design docs
     if (designDocs && designDocs instanceof Array) {
@@ -256,7 +259,7 @@ export class DBAuth {
     keys = toArray(keys);
     if (userDoc.personalDBs && typeof userDoc.personalDBs === 'object') {
       Object.keys(userDoc.personalDBs).forEach(personalDB => {
-        const db = this.#couch.use(personalDB);
+        const db = this.#server.use(personalDB);
         promises.push(this.deauthorizeKeys(db, keys));
       });
       return Promise.all(promises);
@@ -336,7 +339,7 @@ export class DBAuth {
 
   async createDB(dbName: string) {
     try {
-      await this.#couch.db.create(dbName);
+      await this.#server.db.create(dbName);
     } catch (err) {
       if (err.statusCode === 412) {
         return false; // already exists
@@ -347,7 +350,7 @@ export class DBAuth {
   }
 
   removeDB(dbName: string) {
-    return this.#couch.db.destroy(dbName);
+    return this.#server.db.destroy(dbName);
   }
 
   private getLegalDBName(input: string) {

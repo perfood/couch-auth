@@ -1,8 +1,16 @@
 'use strict';
-import { HashResult, LocalHashObj, SlUserDoc } from './types/typings';
+import { Config, DBServerConfig } from './types/config';
+import {
+  DocumentScope,
+  HashResult,
+  LocalHashObj,
+  ServerScope,
+  SlUserDoc
+} from './types/typings';
+import cloudant from '@cloudant/cloudant';
 import { ConfigHelper } from './config/configure';
 import crypto from 'crypto';
-import { DBServerConfig } from './types/config';
+import nano from 'nano';
 import { promisify } from 'util';
 import pwd from '@sensu/couch-pwd';
 import { Request } from 'express';
@@ -52,6 +60,51 @@ export function verifyPassword(
     } else {
       return Promise.reject(false);
     }
+  });
+}
+
+/** Loads the server for CouchDB-style auth - via IAM on cloudant or simply via nano */
+export function loadCouchServer(config: Partial<Config>) {
+  if (config.dbServer?.iamApiKey) {
+    return cloudant({
+      url: getCloudantURL(),
+      plugins: [
+        { iamauth: { iamApiKey: config.dbServer.iamApiKey } },
+        { retry: { retryInitialDelayMsecs: 750 } }
+      ],
+      maxAttempt: 2
+    });
+  } else {
+    return nano({
+      url: getDBURL(config.dbServer),
+      parseUrl: false
+    });
+  }
+}
+
+export function putSecurityDoc(
+  server: ServerScope,
+  db: DocumentScope<any>,
+  doc
+) {
+  // @ts-ignore
+  return server.request({
+    db: db.config.db,
+    method: 'PUT',
+    doc: '_security',
+    body: doc
+  });
+}
+
+export function getSecurityDoc(
+  server: ServerScope,
+  db: DocumentScope<any>
+): Promise<any> {
+  // @ts-ignore
+  return server.request({
+    db: db.config.db,
+    method: 'GET',
+    doc: '_security'
   });
 }
 

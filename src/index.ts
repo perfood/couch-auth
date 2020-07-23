@@ -4,6 +4,7 @@ import {
   getCloudantURL,
   getDBURL,
   hashPassword,
+  loadCouchServer,
   verifyPassword
 } from './util';
 import cloudant, { ServerScope as CloudantServer } from '@cloudant/cloudant';
@@ -70,21 +71,7 @@ export class SuperLogin extends User {
         config.getItem('dbServer.couchAuthDB') &&
         !config.getItem('dbServer.cloudant'))
     ) {
-      if (config.config.dbServer?.iamApiKey) {
-        server = cloudant({
-          url: getCloudantURL(),
-          plugins: [
-            { iamauth: { iamApiKey: config.config.dbServer.iamApiKey } },
-            { retry: { retryInitialDelayMsecs: 750 } }
-          ],
-          maxAttempt: 2
-        });
-      } else {
-        server = nano({
-          url: getDBURL(config.getItem('dbServer')),
-          parseUrl: false
-        });
-      }
+      server = loadCouchServer(config.config);
     }
 
     if (!userDB && config.getItem('dbServer.userDB')) {
