@@ -350,11 +350,8 @@ describe('User Model', async function () {
       });
   });
 
-  it('should restore a valid session', function (done) {
+  it('should confirm a session', function (done) {
     previous
-      .then(() => {
-        return user.removeFromSessionCache(sessionKey);
-      })
       .then(() => {
         return user.confirmSession(sessionKey, sessionPass);
       })
@@ -369,7 +366,8 @@ describe('User Model', async function () {
         }
         console.log('confirmed with db fallback');
         done();
-      });
+      })
+      .catch(err => done(err));
   });
 
   it('should log out of a session', function () {

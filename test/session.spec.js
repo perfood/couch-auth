@@ -1,129 +1,62 @@
 'use strict';
-const util = require('util');
 const expect = require('chai').expect;
 const Session = require('../lib/session').Session;
-const Configure = require('../lib/config/configure').ConfigHelper;
-const rimraf = util.promisify(require('rimraf'));
 
+let previous;
+const session = new Session();
 const testToken = {
   _id: 'colinskow',
   roles: ['admin', 'user'],
   key: 'test123',
-  password: 'pass123',
   issued: Date.now(),
-  expires: Date.now() + 50000
+  expires: Date.now() + 50000,
+  password_scheme: 'pbkdf2',
+  iterations: 10,
+  salt: '991bc3c09ff7322f7f1361e383a9d9f8',
+  derived_key: 'e04e30ee0ef31d541f1fb731c9631a9f48fa5196'
 };
+const badToken = {
+  ...testToken,
+  salt: 'salt',
+  derived_key: 'key'
+};
+describe('Session', async function () {
+  previous = Promise.resolve();
 
-const config = new Configure({
-  session: {
-    adapter: 'memory'
-  }
-});
-
-const fileConfig = new Configure({
-  session: {
-    adapter: 'file',
-    file: {
-      sessionsRoot: '.session'
-    }
-  }
-});
-
-describe('Session', function () {
-  return runTest(config, 'Memory adapter')
-    .finally(function () {
-      return runTest(fileConfig, 'File adapter');
-    })
-    .finally(function () {
-      config.setItem('session.adapter', 'redis');
-      return runTest(config, 'Redis adapter');
-    })
-    .finally(function () {
-      return rimraf('./.session');
+  it('should confirm a token and return it if valid', function (done) {
+    previous.then(function () {
+      return session
+        .confirmToken(testToken, 'pass123')
+        .then(function (result) {
+          console.log('confirmed valid token.');
+          expect(result._id).to.equal('colinskow');
+          done();
+        })
+        .catch(function (err) {
+          done(err);
+        });
     });
-});
+  });
 
-function runTest(config, adapter) {
-  const session = new Session(config);
-  let previous;
-
-  return new Promise(function (resolve, reject) {
-    describe(adapter, function () {
-      it('should store a token', function (done) {
-        previous = session
-          .storeToken(testToken)
-          .then(function () {
-            return session.confirmToken(testToken.key, testToken.password);
-          })
-          .then(function (result) {
-            console.log('stored token');
-            expect(result.key).to.equal(testToken.key);
-            done();
-          })
-          .catch(function (err) {
-            done(err);
-          });
-      });
-
-      it('should confirm a key and return the full token if valid', function (done) {
-        previous.then(function () {
-          return session
-            .confirmToken(testToken.key, testToken.password)
-            .then(function (result) {
-              console.log('confirmed token');
-              expect(result._id).to.equal('colinskow');
-              done();
-            })
-            .catch(function (err) {
-              done(err);
-            });
+  it('should reject a bad token', function (done) {
+    previous.then(function () {
+      return session
+        .confirmToken(badToken, testToken.password)
+        .catch(function (err) {
+          console.log('rejected invalid token');
+          expect(err).to.equal('invalid token');
+          done();
         });
-      });
+    });
+  });
 
-      it('should reject an invalid token', function (done) {
-        previous.then(function () {
-          return session
-            .confirmToken('faketoken', testToken.password)
-            .catch(function (err) {
-              console.log('rejected invalid token');
-              expect(err).to.equal('invalid token');
-              done();
-            });
-        });
-      });
-
-      it('should reject a wrong password', function (done) {
-        previous.then(function () {
-          return session
-            .confirmToken(testToken.key, 'wrongpass')
-            .catch(function (err) {
-              console.log('rejected invalid token');
-              expect(err).to.equal('invalid token');
-              done();
-            });
-        });
-      });
-
-      it('should delete a token', function (done) {
-        previous.then(function () {
-          return session
-            .deleteTokens(testToken.key)
-            .then(function (result) {
-              expect(result).to.equal(1);
-              return session.confirmToken(testToken.key);
-            })
-            .then(function () {
-              throw new Error('failed to delete token');
-            })
-            .catch(function (err) {
-              console.log('deleted token');
-              expect(err).to.equal('invalid token');
-              session.quit();
-              done();
-              resolve();
-            });
-        });
+  it('should reject a wrong password', function (done) {
+    previous.then(function () {
+      return session.confirmToken(testToken, 'wrongpass').catch(function (err) {
+        console.log('rejected invalid token');
+        expect(err).to.equal('invalid token');
+        done();
       });
     });
   });
-}
+});

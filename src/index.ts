@@ -1,17 +1,15 @@
 'use strict';
 import {
   addProvidersToDesignDoc,
-  getCloudantURL,
-  getDBURL,
   hashPassword,
   loadCouchServer,
   verifyPassword
 } from './util';
-import cloudant, { ServerScope as CloudantServer } from '@cloudant/cloudant';
 import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
+import { DocumentScope, ServerScope as NanoServer } from 'nano';
 import express, { Router } from 'express';
-import nano, { DocumentScope, ServerScope as NanoServer } from 'nano';
 import { Authenticator } from 'passport';
+import { ServerScope as CloudantServer } from '@cloudant/cloudant';
 import { Config } from './types/config';
 import { ConfigHelper } from './config/configure';
 import events from 'events';

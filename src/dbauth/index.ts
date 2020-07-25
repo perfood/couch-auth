@@ -67,7 +67,7 @@ export class DBAuth {
   }
 
   retrieveKey(key: string) {
-    return this.#adapter.retrieveKey(key);
+    return this.#adapter.retrieveKey(key) as Promise<CouchDbAuthDoc>;
   }
 
   /** generates a random token and password (CouchDB) or retrieves from Cloudant */

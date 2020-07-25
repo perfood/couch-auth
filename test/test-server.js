@@ -45,7 +45,6 @@ function start(config) {
   const server = http.createServer(app).listen(app.get('port'));
 
   app.shutdown = function () {
-    superlogin.quitRedis();
     server.close();
   };
 

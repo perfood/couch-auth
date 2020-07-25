@@ -95,15 +95,16 @@ export interface SlUserDoc extends Document, IdentifiedObj {
   profile: any;
 }
 
-export interface SlSession {
-  expires: number;
-  issued: number;
-  password: string;
+export interface SlRefreshSession extends TimeRestricted {
   provider: string;
   roles: string[];
   token: string;
-  userDBs: { [db: string]: string };
   user_id: string;
+}
+
+export interface SlLoginSession extends SlRefreshSession {
+  password: string;
+  userDBs: { [db: string]: string };
   ip?: string;
   profile?: string;
   user_uid?: string;

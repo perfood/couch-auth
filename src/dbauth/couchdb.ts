@@ -52,14 +52,11 @@ export class CouchAdapter implements DBAdapter {
       roles: roles,
       provider: provider
     };
-    if (this.couchAuthOnCloudant) {
-      // PWs need to be hashed manually when using pbkdf2
-      newKey.password_scheme = 'pbkdf2';
-      newKey.iterations = 10;
-      newKey = { ...newKey, ...(await hashPassword(password)) };
-    } else {
-      newKey.password = password;
-    }
+    // required when using Cloudant or other db than `_users`
+    newKey.password_scheme = 'pbkdf2';
+    newKey.iterations = 10;
+    newKey = { ...newKey, ...(await hashPassword(password)) };
+
     await this.#couchAuthDB.insert(newKey);
     newKey._id = key;
     return newKey;

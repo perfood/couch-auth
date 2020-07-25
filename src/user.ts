@@ -12,8 +12,9 @@ import {
 import {
   CouchDbAuthDoc,
   SessionObj,
+  SlLoginSession,
+  SlRefreshSession,
   SlRequest,
-  SlSession,
   SlUserDoc
 } from './types/typings';
 import Model, { Sofa } from '@sl-nx/sofa-model';
@@ -714,7 +715,7 @@ export class User {
     const password = token.password;
     const newToken = token;
     newToken.provider = provider;
-    await this.#session.storeToken(newToken);
+    //await this.#session.storeToken(newToken);
     await this.#dbAuth.storeKey(
       user_id,
       newToken.key,
@@ -735,7 +736,7 @@ export class User {
     if (!user.session) {
       user.session = {};
     }
-    const newSession: Partial<SlSession> = {
+    const newSession: Partial<SlLoginSession> = {
       issued: newToken.issued,
       expires: newToken.expires,
       provider: provider,
@@ -799,7 +800,7 @@ export class User {
       }
     }
     this.emitter.emit('login', newSession, provider);
-    return newSession;
+    return newSession as SlLoginSession;
   }
 
   handleFailedLogin(user: SlUserDoc, req: Partial<Request>) {
@@ -878,39 +879,27 @@ export class User {
   /**
    * Extends the life of your current token and returns updated token information.
    * The only field that will change is expires. Expired sessions are removed.
+   * todo:
+   * - handle error if invalid state occurs that doc is not present.
+   * - I'd need to store salts & derived keys within sl-users as well for staying
+   *   compatible with legacy auth on cloudant
+   * - ensure that ip is removed/ not sent
    */
-  refreshSession(key: string): Promise<SlSession> {
-    let newSession;
-    return this.#session
-      .fetchToken(key)
-      .then(oldToken => {
-        newSession = oldToken;
-        newSession.expires = Date.now() + this.sessionLife * 1000;
-        return Promise.all([
-          this.userDB.get(newSession._id),
-          this.#session.storeToken(newSession)
-        ]);
-      })
-      .then(results => {
-        const userDoc = results[0];
-        userDoc.session[key].expires = newSession.expires;
-        // Clean out expired sessions on refresh
-        return this.logoutUserSessions(userDoc, Cleanup.expired);
-      })
-      .then(finalUser => {
-        return this.userDB.insert(finalUser);
-      })
-      .then(() => {
-        delete newSession.password;
-        newSession.token = newSession.key;
-        delete newSession.key;
-        newSession.user_id = newSession._id;
-        delete newSession._id;
-        delete newSession.salt;
-        delete newSession.derived_key;
-        this.emitter.emit('refresh', newSession);
-        return Promise.resolve(newSession);
-      });
+  async refreshSession(key: string): Promise<SlRefreshSession> {
+    const userDoc = await this.findUserDocBySession(key);
+    userDoc.session[key].expires = Date.now() + this.sessionLife * 1000;
+    // Clean out expired sessions on refresh
+    const finalUser = await this.logoutUserSessions(userDoc, Cleanup.expired);
+    await this.userDB.insert(finalUser);
+    const newSession: SlRefreshSession = {
+      ...userDoc.session[key],
+      token: key,
+      user_id: userDoc._id,
+      roles: userDoc.roles
+    };
+    delete newSession['ip'];
+    this.emitter.emit('refresh', newSession);
+    return newSession;
   }
 
   /**
@@ -1200,6 +1189,18 @@ export class User {
     return this.userDB.insert(finalUser);
   }
 
+  async findUserDocBySession(key: string): Promise<SlUserDoc | undefined> {
+    const results = await this.userDB.view('auth', 'session', {
+      key,
+      include_docs: true
+    });
+    if (results.rows.length > 0) {
+      return results.rows[0].doc as SlUserDoc;
+    } else {
+      return undefined;
+    }
+  }
+
   addUserDB(
     user_id: string,
     dbName: string,
@@ -1283,17 +1284,15 @@ export class User {
           status: 401
         });
       }
-      promise = this.userDB
-        .view('auth', 'session', { key: session_id, include_docs: true })
-        .then(results => {
-          if (!results.rows.length) {
-            return Promise.reject({
-              error: 'unauthorized',
-              status: 401
-            });
-          }
-          return Promise.resolve(results.rows[0].doc);
-        });
+      promise = this.findUserDocBySession(session_id).then(userDoc => {
+        if (!userDoc) {
+          return Promise.reject({
+            error: 'unauthorized',
+            status: 401
+          });
+        }
+        return Promise.resolve(userDoc);
+      });
     }
     return promise
       .then(record => {
@@ -1308,45 +1307,41 @@ export class User {
       });
   }
 
+  /**
+   * todo: Should I really allow to fail after `removeKeys`?
+   * -> I'd like my `sl-users` to be single source of truth, don't I?
+   */
   async logoutSession(session_id: string) {
-    let user;
     let startSessions = 0;
     let endSessions = 0;
-    const results = await this.userDB.view('auth', 'session', {
-      key: session_id,
-      include_docs: true
-    });
-    if (!results.rows.length) {
+    let user = await this.findUserDocBySession(session_id);
+    if (!user) {
       throw {
         error: 'unauthorized',
         status: 401
       };
     }
-    user = results.rows[0].doc;
     if (user.session) {
       startSessions = Object.keys(user.session).length;
       if (user.session[session_id]) {
         delete user.session[session_id];
       }
     }
-    // 1.) if this fails, the whole logout has failed! Else ok, can clean up later.
+    // 1.) if this fails, the whole logout has failed! Else ok, will be cleaned up later.
     await this.#dbAuth.removeKeys(session_id);
     let caughtError = {};
     try {
-      const removals = [this.#session.deleteTokens(session_id)];
-      if (user) {
-        removals.push(this.#dbAuth.deauthorizeUser(user, session_id));
-      }
-      await Promise.all(removals);
+      // 2) deauthorize from user's dbs
+      await this.#dbAuth.deauthorizeUser(user, session_id);
 
       // Clean out expired sessions
-      const finalUser = await this.logoutUserSessions(user, Cleanup.expired);
-      user = finalUser;
+      user = await this.logoutUserSessions(user, Cleanup.expired);
       if (user.session) {
         endSessions = Object.keys(user.session).length;
       }
       this.emitter.emit('logout', user._id);
       if (startSessions !== endSessions) {
+        // 3) update the sl-doc
         return this.userDB.insert(user);
       } else {
         return false;
@@ -1370,13 +1365,8 @@ export class User {
   }
 
   async logoutOthers(session_id) {
-    let user;
-    const results = await this.userDB.view('auth', 'session', {
-      key: session_id,
-      include_docs: true
-    });
-    if (results.rows.length) {
-      user = results.rows[0].doc;
+    const user = await this.findUserDocBySession(session_id);
+    if (user) {
       if (user.session && user.session[session_id]) {
         const finalUser = await this.logoutUserSessions(
           user,
@@ -1412,10 +1402,7 @@ export class User {
       // 1.) Remove the keys from our couchDB auth database. Must happen first.
       await this.#dbAuth.removeKeys(sessions);
       // 2.) Deauthorize keys from each personal database and from session store
-      await Promise.all([
-        this.#dbAuth.deauthorizeUser(userDoc, sessions),
-        this.#session.deleteTokens(sessions)
-      ]);
+      await this.#dbAuth.deauthorizeUser(userDoc, sessions);
       if (op === Cleanup.expired || op === Cleanup.other) {
         sessions.forEach(session => {
           delete userDoc.session[session];
@@ -1444,38 +1431,28 @@ export class User {
     return this.userDB.destroy(user._id, user._rev);
   }
 
+  /**
+   * Confirms the user:password that has been passed as Bearer Token
+   * Todo: maybe just look in superlogin-users or try to access DB?
+   */
   async confirmSession(key: string, password: string) {
     try {
-      return await this.#session.confirmToken(key, password);
-    } catch (error) {
-      if (this.useDbFallback) {
-        try {
-          const doc = await this.#dbAuth.retrieveKey(key);
-          if (doc.expires > Date.now()) {
-            const token: any = doc;
-            token._id = token.user_id;
-            token.key = key;
-            delete token.user_id;
-            delete token.name;
-            delete token.type;
-            delete token._rev;
-            delete token.password_scheme;
-            delete token.iterations;
-            await this.#session.storeToken(token);
-            return this.#session.confirmToken(key, password);
-          }
-        } catch {}
+      const doc = await this.#dbAuth.retrieveKey(key);
+      if (doc.expires > Date.now()) {
+        const token: any = doc;
+        token._id = token.user_id;
+        token.key = key;
+        delete token.user_id;
+        delete token.name;
+        delete token.type;
+        delete token._rev;
+        delete token.password_scheme;
+        return this.#session.confirmToken(token, password);
+      } else {
+        this.#dbAuth.removeKeys(key);
       }
-    }
+    } catch {}
     throw Session.invalidMsg;
-  }
-
-  removeFromSessionCache(keys) {
-    return this.#session.deleteTokens(keys);
-  }
-
-  quitRedis() {
-    return this.#session.quit();
   }
 
   generateSession(username, roles) {
