@@ -146,7 +146,7 @@ describe('DBAuth', () => {
 
   it('should create a new user database', function () {
     const userDoc = {
-      _id: 'TEST.user-31@cool.com',
+      _id: '006a2325759840edb2710adc3670b80f',
       session: {
         key1: { expires: Date.now() + 50000 },
         key2: { expires: Date.now() + 50000 }
@@ -167,7 +167,7 @@ describe('DBAuth', () => {
       })
       .then(async function (finalDBName) {
         expect(finalDBName).to.equal(
-          'test_personal$test(2e)user(2d)31(40)cool(2e)com'
+          'test_personal$006a2325759840edb2710adc3670b80f'
         );
         newDB = couch.db.use(finalDBName);
         // console.log('DB created, retrieving security doc.');
@@ -188,7 +188,7 @@ describe('DBAuth', () => {
         expect(design.views.mytest.map).to.be.a('string');
       })
       .finally(() =>
-        couch.db.destroy('test_personal$test(2e)user(2d)31(40)cool(2e)com')
+        couch.db.destroy('test_personal$006a2325759840edb2710adc3670b80f')
       );
   });
 

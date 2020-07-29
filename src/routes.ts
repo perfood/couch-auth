@@ -153,7 +153,7 @@ module.exports = function (
             }
           );
         } else {
-          res.status(201).json({ success: 'User created.' });
+          res.status(200).json({ success: 'Signup processed.' });
         }
       },
       function (err) {
@@ -298,16 +298,10 @@ module.exports = function (
     res: Response,
     next: NextFunction
   ) {
-    let promise;
     if (!req.params.email) {
       return next({ error: 'Email required', status: 400 });
     }
-    if (config.getItem('local.emailUsername')) {
-      promise = user.validateEmailUsername(req.params.email);
-    } else {
-      promise = user.validateEmail(req.params.email);
-    }
-    promise.then(
+    user.validateEmail(req.params.email).then(
       function (err) {
         if (!err) {
           res.status(200).json({ ok: true });

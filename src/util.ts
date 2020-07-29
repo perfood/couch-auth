@@ -23,6 +23,20 @@ export function URLSafeUUID() {
   return URLSafeBase64.encode(uuidv4(null, Buffer.alloc(16)));
 }
 
+export function hyphenizeUUID(uuid: string) {
+  return (
+    uuid.substring(0, 8) +
+    '-' +
+    uuid.substring(8, 12) +
+    '-' +
+    uuid.substring(12, 16) +
+    '-' +
+    uuid.substring(16, 20) +
+    '-' +
+    uuid.substring(20)
+  );
+}
+
 export function hashToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }

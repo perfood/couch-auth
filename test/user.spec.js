@@ -9,6 +9,7 @@ const seed = require('../lib/design/seed').default;
 const request = require('superagent');
 const config = require('./test.config.js');
 const nano = require('nano');
+const uuid = require('uuid');
 
 const chai = require('chai');
 const sinon = require('sinon');
@@ -130,8 +131,7 @@ const req = {
   headers: {
     host: 'example.com'
   },
-  protocol: 'http',
-  ip: '1.1.1.1'
+  protocol: 'http'
 };
 
 describe('User Model', async function () {
@@ -186,7 +186,7 @@ describe('User Model', async function () {
   it('should save a new user', function () {
     const emitterPromise = new Promise(function (resolve) {
       emitter.once('signup', function (user) {
-        expect(user._id).to.equal('superuser');
+        expect(user._id).to.equal('superuser'); // todo: to be a uuid
         resolve();
       });
     });

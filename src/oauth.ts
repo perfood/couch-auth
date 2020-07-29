@@ -282,6 +282,7 @@ export class OAuth {
   // If a user is authenticated with a bearer token we will link an account, otherwise log in
   // auth is an object containing 'access_token' and optionally 'refresh_token'
   private authHandler(req: SlRequest, provider: string, auth, profile) {
+    // todo: need to provide the UUID here
     if (req.user && req.user._id && req.user.key) {
       return this.user.linkSocial(req.user._id, provider, auth, profile, req);
     } else {

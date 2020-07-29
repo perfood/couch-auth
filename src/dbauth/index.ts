@@ -41,7 +41,7 @@ export class DBAuth {
   }
 
   storeKey(
-    username: string,
+    user_uid: string,
     key: string,
     password: string,
     expires: number,
@@ -49,7 +49,7 @@ export class DBAuth {
     provider: string
   ) {
     return this.#adapter.storeKey(
-      username,
+      user_uid,
       key,
       password,
       expires,
@@ -141,7 +141,7 @@ export class DBAuth {
     permissions?: any,
     adminRoles?: string[],
     memberRoles?: string[]
-  ) {
+  ): Promise<string> {
     const promises = [];
     adminRoles = adminRoles || [];
     memberRoles = memberRoles || [];
@@ -150,11 +150,9 @@ export class DBAuth {
       ? this.#config.getItem('userDBs.privatePrefix') + '_'
       : '';
 
-    // Make sure we have a legal database name
-    let username = userDoc._id;
-    username = this.getLegalDBName(username);
+    // new in 2.0: use uuid instead of username
     const finalDBName =
-      type === 'shared' ? dbName : prefix + dbName + '$' + username;
+      type === 'shared' ? dbName : prefix + dbName + '$' + userDoc._id;
     await this.createDB(finalDBName);
     const newDB = this.#server.db.use(finalDBName);
     await this.#adapter.initSecurity(newDB, adminRoles, memberRoles);

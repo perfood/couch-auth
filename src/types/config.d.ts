@@ -26,6 +26,8 @@ export interface SecurityConfig {
   loginOnRegistration: boolean;
   // If set to true, the user will be logged in automatically after resetting the password
   loginOnPasswordReset: boolean;
+  /** Disable unused routes for better security, default: ['validate-username', 'validate-email', 'session'] */
+  disabledRoutes: string[];
 }
 
 export interface LengthConstraint {
@@ -50,7 +52,7 @@ export interface LocalConfig {
   // If this is set, the user will be redirected to this location after confirming email instead of JSON response
   confirmEmailRedirectURL: string;
   // Set this to true to disable usernames and use emails instead
-  emailUsername: boolean;
+  //emailUsername: boolean;
   // Also return the username and UUID when creating a session
   sendNameAndUUID: boolean;
   // If a number is set here, the token for password reset will be shortened to that length (e.g. 8)

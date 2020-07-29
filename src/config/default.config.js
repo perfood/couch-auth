@@ -9,7 +9,8 @@ module.exports = {
     sessionLife: 86400,
     tokenLife: 86400,
     loginOnRegistration: false,
-    loginOnPasswordReset: false
+    loginOnPasswordReset: false,
+    disabledRoutes: ['validate-username', 'validate-email', 'session']
   },
   local: {
     usernameField: 'username',

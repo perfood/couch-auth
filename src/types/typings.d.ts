@@ -48,7 +48,6 @@ export interface LocalHashObj extends HashResult {
 export interface SignUpObj {
   provider: string;
   timestamp: string;
-  ip: string;
 }
 
 export interface PersonalDBCollection {
@@ -62,7 +61,6 @@ export interface TimeRestricted {
 
 export interface SessionObj extends TimeRestricted {
   provider: string;
-  ip: string;
 }
 
 export interface SessionCollection {
@@ -73,7 +71,6 @@ export interface UserActivity {
   timestamp: string;
   action: string;
   provider: string;
-  ip: string;
 }
 
 export interface PasswortResetEntry extends TimeRestricted {
@@ -95,6 +92,11 @@ export interface SlUserDoc extends Document, IdentifiedObj {
   profile: any;
 }
 
+export interface SlUserNew extends SlUserDoc {
+  password?: string;
+  confirmPassword?: string;
+}
+
 export interface SlRefreshSession extends TimeRestricted {
   provider: string;
   roles: string[];
@@ -105,7 +107,6 @@ export interface SlRefreshSession extends TimeRestricted {
 export interface SlLoginSession extends SlRefreshSession {
   password: string;
   userDBs: { [db: string]: string };
-  ip?: string;
   profile?: string;
   user_uid?: string;
   name?: string;
