@@ -3,12 +3,22 @@
 ![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)
 ![Build Status](https://github.com/sl-nx/superlogin-next/workflows/Build/badge.svg?branch=master)
 
-This is an updated fork of SuperLogin, re-written in TypeScript and developed against Node 12 & CouchDB 3.
+This is an updated fork of SuperLogin, re-written in TypeScript and developed with Node 12 & CouchDB 3 / Cloudant.
 
 If you've just plugged SuperLogin into your Express Server, it should be backwards compatible - unless you've been
 passing a PouchDB (it now uses [nano](https://github.com/apache/couchdb-nano) or [cloudant](https://www.npmjs.com/package/@cloudant/cloudant) for IAM compatibility instead). There are a few new configuration options and some changes under the hood, for details see the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md).
 
 [Future changes](https://github.com/sl-nx/superlogin-next/projects/1) will mainly affect improved security (_including modified/ new configuration defaults_) and compatibility with Cloudant. Be sure to always check the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md) also on minor releases before this reaches 1.0.0! Minor breaking changes and necessary config adjustments can and will happen.
+
+The current status will become the 1.0 branch soon and be maintenance only. A new, more OWASP-compliant and [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry)-ready version is developed in the `minimal` branch:
+
+- The adapters will no longer be used and the `session` route becomes deprecated
+- db and doc ids will no longer include PII, but be UUIDs instead. Will require manual migration via replication.
+- `validate-x` routes and cloudant legacy auth become deprecated
+- new users can only signup with e-mail and not with username
+- no more account-guessing via forgotpass, login or signup
+- no more IP logging
+- EventEmmitter functionality might be removed
 
 For issues and feature requests visit the [issue tracker](https://github.com/sl-nx/superlogin/issues).
 
