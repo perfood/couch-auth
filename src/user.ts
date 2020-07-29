@@ -1169,7 +1169,7 @@ export class User {
     if (!req.user) {
       req.user = { provider: 'local' };
     }
-    const emailError = await this.validateEmail();
+    const emailError = await this.validateEmail(newEmail);
     if (emailError) {
       throw emailError;
     }
