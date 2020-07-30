@@ -50,7 +50,8 @@ const userConfig = new Configure({
   },
   security: {
     defaultRoles: ['user'],
-    userActivityLogSize: 3
+    userActivityLogSize: 3,
+    disabledRoutes: []
   },
   local: {
     sendConfirmEmail: true,

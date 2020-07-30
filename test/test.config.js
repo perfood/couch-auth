@@ -15,7 +15,8 @@ module.exports = {
   },
   security: {
     maxFailedLogins: 2,
-    lockoutTime: 600
+    lockoutTime: 600,
+    disabledRoutes: []
   },
   local: {
     sendConfirmEmail: true,
