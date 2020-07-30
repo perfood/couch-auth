@@ -11,9 +11,9 @@ module.exports = {
           }
         }
       },
-      username: {
+      key: {
         map: function (doc) {
-          emit(doc._id, null);
+          emit(doc.key, null);
         }
       },
       verifyEmail: {

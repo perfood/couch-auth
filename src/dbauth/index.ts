@@ -41,7 +41,7 @@ export class DBAuth {
   }
 
   storeKey(
-    user_uid: string,
+    username: string,
     key: string,
     password: string,
     expires: number,
@@ -49,7 +49,7 @@ export class DBAuth {
     provider: string
   ) {
     return this.#adapter.storeKey(
-      user_uid,
+      username,
       key,
       password,
       expires,

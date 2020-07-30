@@ -251,7 +251,7 @@ module.exports = function (
       }
       return res.status(400).send(err);
     }
-    user.verifyEmail(req.params.token, req).then(
+    user.verifyEmail(req.params.token).then(
       function () {
         if (redirectURL) {
           return res.status(201).redirect(redirectURL + '?success=true');

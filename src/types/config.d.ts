@@ -43,9 +43,9 @@ export interface PasswordConstraints {
 }
 
 export interface LocalConfig {
-  // Send out a confirm email after each user signs up with local login
+  /** Send out a confirm email after each user signs up with local login */
   sendConfirmEmail: boolean;
-  // Require the email be confirmed before the user can login  or before his changed email is updated
+  /** Require the email be confirmed before the user can login or before his changed email is updated */
   requireEmailConfirm: boolean;
   // Requires the correct `password` to be sent in the body in order to change the email
   requirePasswordOnEmailChange: boolean;

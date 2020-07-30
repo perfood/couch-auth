@@ -54,6 +54,7 @@ export class CloudantAdapter implements DBAdapter {
     return Promise.reject();
   }
 
+  /** todo: does this need the username or the uuid?? */
   authorizeKeys(
     user_id: string,
     db: DocumentScope<any>,

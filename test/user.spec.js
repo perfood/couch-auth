@@ -9,7 +9,7 @@ const seed = require('../lib/design/seed').default;
 const request = require('superagent');
 const config = require('./test.config.js');
 const nano = require('nano');
-const uuid = require('uuid');
+const { v4: uuidv4, validate: isUUID } = require('uuid');
 
 const chai = require('chai');
 const sinon = require('sinon');
@@ -33,6 +33,9 @@ const testUserForm = {
   age: '32',
   zipcode: 'ABC123'
 };
+let superuserUUID;
+let testUserUUID;
+let misterxUUID;
 
 const emailUserForm = {
   name: 'Awesome',
@@ -59,7 +62,10 @@ const userConfig = new Configure({
         message: 'must be at least 8 characters'
       },
       matches: 'confirmPassword'
-    }
+    },
+    // todo: adjust once the old default behaviour works.
+    usernameLogin: true,
+    emailUsername: false
   },
   mailer: {
     fromEmail: 'noreply@example.com'
@@ -134,6 +140,8 @@ const req = {
   protocol: 'http'
 };
 
+const createdDBs = ['superlogin_test_users', 'superlogin_test_keys'];
+
 describe('User Model', async function () {
   const mailer = new Mailer(userConfig);
   let user = new User(userConfig, userDB, keysDB, mailer, emitter);
@@ -161,15 +169,7 @@ describe('User Model', async function () {
     // 'should destroy all the test databases'
     return previous.finally(async () => {
       console.log('Destroying databases');
-      const testDbs = [
-        'superlogin_test_users',
-        'superlogin_test_keys',
-        'test_usertest$superuser',
-        'test_usertest$misterx',
-        'test_usertest$misterx3',
-        'test_superdb'
-      ];
-      for (const testDb of testDbs) {
+      for (const testDb of createdDBs) {
         try {
           await couch.db.destroy(testDb);
         } catch (err) {
@@ -186,13 +186,14 @@ describe('User Model', async function () {
   it('should save a new user', function () {
     const emitterPromise = new Promise(function (resolve) {
       emitter.once('signup', function (user) {
-        expect(user._id).to.equal('superuser'); // todo: to be a uuid
+        expect(isUUID(util.hyphenizeUUID(user._id))).to.be.true;
+        expect(user.key).to.equal('superuser');
         resolve();
       });
     });
 
     return previous
-      .then(function () {
+      .then(() => {
         user.onCreate(userDoc => {
           userDoc.onCreate1 = true;
           return Promise.resolve(userDoc);
@@ -203,13 +204,16 @@ describe('User Model', async function () {
         });
         return user.createUser(testUserForm, req);
       })
-      .then(function () {
+      .then(newUser => {
         console.log('User created');
-        return userDB.get(testUserForm.username);
+        superuserUUID = newUser._id;
+        createdDBs.push('test_usertest$' + superuserUUID);
+        return userDB.get(superuserUUID);
       })
       .then(function (newUser) {
         verifyEmailToken = newUser.unverifiedEmail.token;
-        expect(newUser._id).to.equal('superuser');
+        expect(isUUID(util.hyphenizeUUID(newUser._id))).to.be.true;
+        expect(newUser.key).to.equal('superuser');
         expect(newUser.roles[0]).to.equal('user');
         expect(newUser.local.salt).to.be.a('string');
         expect(newUser.local.derived_key).to.be.a('string');
@@ -226,7 +230,7 @@ describe('User Model', async function () {
 
   it('should have created a user db with design doc and _security', function () {
     console.log('Checking user db and design doc');
-    userTestDB = couch.db.use('test_usertest$superuser');
+    userTestDB = couch.db.use('test_usertest$' + superuserUUID);
     return previous
       .then(function () {
         return userTestDB.get('_design/test');
@@ -250,7 +254,7 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Fetching created user');
-        return userDB.get(testUserForm.username);
+        return userDB.get(superuserUUID);
       })
       .then(function (newUser) {
         return util.verifyPassword(newUser.local, 'superlogin');
@@ -288,17 +292,18 @@ describe('User Model', async function () {
   it('should generate a new session for the user', function () {
     const emitterPromise = new Promise(function (resolve) {
       emitter.once('login', function (session) {
+        console.log('new session - got: ', JSON.stringify(session));
         expect(session.user_id).to.equal('superuser');
         resolve();
       });
     });
 
     return previous
-      .then(function () {
+      .then(() => {
         console.log('Creating session');
         return user.createSession(testUserForm.username, 'local', req);
       })
-      .then(function (result) {
+      .then(result => {
         sessionKey = result.token;
         sessionPass = result.password;
         firstExpires = result.expires;
@@ -309,12 +314,12 @@ describe('User Model', async function () {
             ':' +
             sessionPass +
             '@' +
-            'mydb.example.com/test_usertest$superuser'
+            'mydb.example.com/test_usertest$' +
+            superuserUUID
         );
-        return userDB.get(testUserForm.username);
+        return userDB.get(superuserUUID);
       })
       .then(function (user) {
-        expect(user.session[sessionKey].ip).to.equal('1.1.1.1');
         expect(user.activity[0].action).to.equal('login');
         return emitterPromise;
       });
@@ -341,7 +346,7 @@ describe('User Model', async function () {
 
     return previous
       .then(function () {
-        console.log('Refreshing session');
+        console.log('Refreshing session for key: ', sessionKey);
         return user.refreshSession(sessionKey);
       })
       .then(function (result) {
@@ -392,7 +397,7 @@ describe('User Model', async function () {
         },
         function (err) {
           expect(err).to.equal('invalid token');
-          return userDB.get(testUserForm.username);
+          return userDB.get(superuserUUID);
         }
       )
       .then(function (user) {
@@ -449,7 +454,7 @@ describe('User Model', async function () {
         },
         function (error) {
           expect(error).to.equal('invalid token');
-          return userDB.get(testUserForm.username);
+          return userDB.get(superuserUUID);
         }
       )
       .then(function (user) {
@@ -466,7 +471,7 @@ describe('User Model', async function () {
   it('should verify the email', function () {
     const emitterPromise = new Promise(function (resolve) {
       emitter.once('email-verified', function (user) {
-        expect(user._id).to.equal('superuser');
+        expect(user.key).to.equal('superuser');
         resolve();
       });
     });
@@ -477,7 +482,7 @@ describe('User Model', async function () {
         return user.verifyEmail(verifyEmailToken);
       })
       .then(function () {
-        return userDB.get(testUserForm.username);
+        return userDB.get(superuserUUID);
       })
       .then(function (verifiedUser) {
         expect(verifiedUser.email).to.equal(testUserForm.email);
@@ -493,7 +498,7 @@ describe('User Model', async function () {
   it('should generate a password reset token', function () {
     const emitterPromise = new Promise(function (resolve) {
       emitter.once('forgot-password', function (user) {
-        expect(user._id).to.equal('superuser');
+        expect(user.key).to.equal('superuser');
         resolve();
       });
     });
@@ -506,7 +511,7 @@ describe('User Model', async function () {
         return user.forgotPassword(testUserForm.email, req);
       })
       .then(function () {
-        return userDB.get(testUserForm.username);
+        return userDB.get(superuserUUID);
       })
       .then(function (result) {
         resetTokenHashed = result.forgotPassword.token; // hashed token stored in db
@@ -520,7 +525,8 @@ describe('User Model', async function () {
         const args = spySendMail.getCall(0).args;
         expect(args[0]).to.equal('forgotPassword');
         expect(args[1]).to.equal(testUserForm.email);
-        expect(args[2].user._id).to.equal(testUserForm.username);
+        console.log('got args user._id');
+        expect(args[2].user.key).to.equal(testUserForm.username);
         expect(args[2].token).to.be.a('string');
 
         resetToken = args[2].token; // keep unhashed token emailed to user.
@@ -532,7 +538,7 @@ describe('User Model', async function () {
   it('should not reset the password', function () {
     const emitterPromise = new Promise(function (resolve) {
       emitter.once('email-changed', function (user) {
-        expect(user._id).to.equal('superuser');
+        expect(user.key).to.equal('superuser');
         resolve();
       });
     });
@@ -564,7 +570,7 @@ describe('User Model', async function () {
   it('should reset the password', function () {
     const emitterPromise = new Promise(function (resolve) {
       emitter.once('password-reset', function (user) {
-        expect(user._id).to.equal('superuser');
+        expect(user.key).to.equal('superuser');
         resolve();
       });
     });
@@ -580,7 +586,7 @@ describe('User Model', async function () {
         return user.resetPassword(form);
       })
       .then(function () {
-        return userDB.get(testUserForm.username);
+        return userDB.get(superuserUUID);
       })
       .then(function (userAfterReset) {
         // It should delete the password reset token completely
@@ -591,7 +597,8 @@ describe('User Model', async function () {
         const args = spySendMail.getCall(1).args;
         expect(args[0]).to.equal('modifiedPassword');
         expect(args[1]).to.equal(testUserForm.email);
-        expect(args[2].user._id).to.equal(testUserForm.username);
+        expect(args[2].user._id).to.equal(superuserUUID);
+        expect(args[2].user.key).to.equal(testUserForm.username);
 
         return util.verifyPassword(userAfterReset.local, 'newSecret');
       })
@@ -603,7 +610,7 @@ describe('User Model', async function () {
   it('should change the password', function () {
     const emitterPromise = new Promise(function (resolve) {
       emitter.once('password-change', function (user) {
-        expect(user._id).to.equal('superuser');
+        expect(user.key).to.equal('superuser');
         resolve();
       });
     });
@@ -619,7 +626,7 @@ describe('User Model', async function () {
         return user.changePasswordSecure(testUserForm.username, form);
       })
       .then(function () {
-        return userDB.get(testUserForm.username);
+        return userDB.get(superuserUUID);
       })
       .then(function (userAfterChange) {
         expect(userAfterChange.activity[0].action).to.equal('changed password');
@@ -628,7 +635,8 @@ describe('User Model', async function () {
         const args = spySendMail.getCall(2).args;
         expect(args[0]).to.equal('modifiedPassword');
         expect(args[1]).to.equal(testUserForm.email);
-        expect(args[2].user._id).to.equal(testUserForm.username);
+        expect(args[2].user.key).to.equal(testUserForm.username);
+        expect(args[2].user._id).to.equal(superuserUUID);
 
         return util.verifyPassword(userAfterChange.local, 'superpassword2');
       })
@@ -640,7 +648,7 @@ describe('User Model', async function () {
   it('should change the email', function () {
     const emitterPromise = new Promise(function (resolve) {
       emitter.once('email-changed', function (user) {
-        expect(user._id).to.equal('superuser');
+        expect(user.key).to.equal('superuser');
         resolve();
       });
     });
@@ -655,7 +663,7 @@ describe('User Model', async function () {
         );
       })
       .then(function () {
-        return userDB.get(testUserForm.username);
+        return userDB.get(superuserUUID);
       })
       .then(function (userAfterChange) {
         expect(userAfterChange.activity[0].action).to.equal('changed email');
@@ -669,7 +677,7 @@ describe('User Model', async function () {
   it('should create a new account from facebook auth', function () {
     const emitterPromise = new Promise(function (resolve) {
       emitter.once('signup', function (user) {
-        expect(user._id).to.equal('misterx');
+        expect(user.key).to.equal('misterx');
         resolve();
       });
     });
@@ -682,14 +690,16 @@ describe('User Model', async function () {
     };
 
     return previous
-      .then(function () {
+      .then(() => {
         console.log('Authenticating new facebook user');
         return user.socialAuth('facebook', auth, profile, req);
       })
-      .then(function () {
-        return userDB.get('misterx');
+      .then(newUser => {
+        misterxUUID = newUser._id;
+        createdDBs.push('test_usertest$' + misterxUUID);
+        return userDB.get(misterxUUID);
       })
-      .then(function (result) {
+      .then(result => {
         expect(result.facebook.auth.token).to.equal('x');
         expect(result.email).to.equal('misterx@example.com');
         expect(result.providers[0]).to.equal('facebook');
@@ -711,12 +721,13 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Authenticating existing facebook user');
-        return user.socialAuth('facebook', auth, profile, req);
+        return user.socialAuth('facebook', auth, profile);
       })
       .then(function () {
-        return userDB.get('misterx');
+        return userDB.get(misterxUUID);
       })
       .then(function (result) {
+        console.log('existing - fb: ', JSON.stringify(result.facebook.auth));
         expect(result.facebook.auth.token).to.equal('y');
       });
   });
@@ -732,7 +743,7 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Making sure an existing email is rejected');
-        return user.socialAuth('facebook', auth, profile, req);
+        return user.socialAuth('facebook', auth, profile);
       })
       .then(
         function () {
@@ -752,9 +763,9 @@ describe('User Model', async function () {
       emails: [{ value: 'misterx99@example.com' }]
     };
     const docs = [
-      { _id: 'misterx1' },
-      { _id: 'misterx2' },
-      { _id: 'misterx4' }
+      { _id: uuidv4(), key: 'misterx1' },
+      { _id: uuidv4(), key: 'misterx2' },
+      { _id: uuidv4(), key: 'misterx4' }
     ];
 
     return previous
@@ -762,10 +773,11 @@ describe('User Model', async function () {
         return userDB.bulk({ docs: docs });
       })
       .then(function () {
-        return user.socialAuth('facebook', auth, profile, req);
+        return user.socialAuth('facebook', auth, profile);
       })
       .then(function (result) {
-        expect(result._id).to.equal('misterx3');
+        createdDBs.push('test_usertest$' + result._id);
+        expect(result.key).to.equal('misterx3');
       });
   });
 
@@ -780,7 +792,7 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Linking social profile to existing user');
-        return user.linkSocial('superuser', 'facebook', auth, profile, {});
+        return user.linkSocial('superuser', 'facebook', auth, profile);
       })
       .then(function (theUser) {
         expect(theUser.facebook.profile.username).to.equal('superuser');
@@ -806,8 +818,10 @@ describe('User Model', async function () {
 
   it('should clean all expired sessions', function () {
     const now = Date.now();
+    testUserUUID = uuidv4();
     const testUser = {
-      _id: 'testuser',
+      _id: testUserUUID,
+      key: 'testuser',
       session: {
         good1: {
           expires: now + 100000
@@ -834,7 +848,8 @@ describe('User Model', async function () {
 
   it('should log out of all other sessions', function () {
     const testUser = {
-      _id: 'testuser',
+      _id: testUserUUID,
+      key: 'testuser',
       session: {
         this1: {},
         other1: {},
@@ -851,7 +866,7 @@ describe('User Model', async function () {
         return user.logoutOthers('this1');
       })
       .then(function () {
-        return userDB.get('testuser');
+        return userDB.get(testUserUUID);
       })
       .then(function (finalDoc) {
         expect(Object.keys(finalDoc.session).length).to.equal(1);
@@ -866,7 +881,7 @@ describe('User Model', async function () {
         return user.addUserDB('superuser', 'test_superdb', 'shared');
       })
       .then(function () {
-        return userDB.get('superuser');
+        return userDB.get(superuserUUID);
       })
       .then(function (userDoc) {
         expect(userDoc.personalDBs.test_superdb.type).to.equal('shared');
@@ -884,7 +899,7 @@ describe('User Model', async function () {
         return user.removeUserDB('superuser', 'test_superdb', false, true);
       })
       .then(function () {
-        return userDB.get('superuser');
+        return userDB.get(superuserUUID);
       })
       .then(function (userDoc) {
         expect(typeof userDoc.personalDBs.test_superdb).to.equal('undefined');
@@ -899,14 +914,14 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Deleting user');
-        return checkDBExists('test_usertest$superuser');
+        return checkDBExists('test_usertest$' + superuserUUID);
       })
       .then(function (result) {
         expect(result).to.equal(true);
         return user.removeUser('superuser', true);
       })
       .then(function () {
-        return userDB.get('superuser');
+        return userDB.get(superuserUUID);
       })
       .then(
         function (result) {
@@ -915,7 +930,7 @@ describe('User Model', async function () {
         function (err) {
           expect(err.error).to.equal('not_found');
           expect(err.statusCode).to.equal(404);
-          return checkDBExists('test_usertest$superuser');
+          return checkDBExists('test_usertest$' + superuserUUID);
         }
       )
       .then(function (result) {
@@ -935,7 +950,7 @@ describe('User Model', async function () {
       })
       .then(function (newUser) {
         expect(newUser.unverifiedEmail.email).to.equal(emailUserForm.email);
-        expect(newUser._id).to.equal(emailUserForm.email);
+        expect(newUser.key).to.equal('awesome');
       });
   });
 
