@@ -4,9 +4,11 @@ import {
   capitalizeFirstLetter,
   getExpiredSessions,
   getSessions,
+  getSuitableBaseName,
   hashPassword,
   hashToken,
   hyphenizeUUID,
+  removeHyphens,
   URLSafeUUID,
   verifyPassword
 } from './util';
@@ -19,6 +21,7 @@ import {
   SlUserDoc,
   SlUserNew
 } from './types/typings';
+import { validate as isUUID, v4 as uuidv4 } from 'uuid';
 import Model, { Sofa } from '@sl-nx/sofa-model';
 
 import { ConfigHelper } from './config/configure';
@@ -30,7 +33,6 @@ import merge from 'deepmerge';
 import { Request } from 'express';
 import { Session } from './session';
 import url from 'url';
-import { v4 as uuidv4 } from 'uuid';
 
 // regexp from https://emailregex.com/
 const EMAIL_REGEXP = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
@@ -51,6 +53,7 @@ export class User {
   tokenLife: number;
   sessionLife: number;
   useDbFallback: boolean;
+  emailUsername: boolean;
 
   passwordConstraints;
   // validation funs. todo: implement via bind...
@@ -80,7 +83,7 @@ export class User {
     // Session token life
     this.sessionLife = config.getItem('security.sessionLife') || 86400;
     this.useDbFallback = config.getItem('session.dbFallback');
-
+    this.emailUsername = config.getItem('local.emailUsername');
     this.passwordConstraints = {
       presence: true,
       length: {
@@ -142,6 +145,7 @@ export class User {
       whitelist: ['name', 'username', 'email', 'password', 'confirmPassword'],
       customValidators: {
         validateEmail: this.validateEmail,
+        validateUsername: this.validateUsername,
         matches: this.matches
       },
       sanitize: {
@@ -153,6 +157,10 @@ export class User {
         email: {
           presence: true,
           validateEmail: true
+        },
+        username: {
+          presence: true,
+          validateUsername: true
         },
         password: this.passwordConstraints,
         confirmPassword: {
@@ -167,6 +175,9 @@ export class User {
       rename: {}
     };
 
+    if (this.emailUsername) {
+      delete userModel.validate.username;
+    }
     this.userModel = userModel;
 
     this.resetPasswordModel = {
@@ -254,11 +265,38 @@ export class User {
     return promise;
   }
 
-  /** retrieves by email or username */
+  /**
+   * retrieves by email (default) or username or uuid if the config options are
+   * set. Rejects if no valid format.
+   */
   getUser(login: string): Promise<SlUserDoc | null> {
-    const query = EMAIL_REGEXP.test(login) ? 'email' : 'username';
+    if (
+      this.config.config.local.uuidLogin &&
+      [32, 36].includes(login.length) &&
+      !login.includes('@')
+    ) {
+      const testStr = login.length === 32 ? hyphenizeUUID(login) : login;
+      if (isUUID(testStr)) {
+        return this.userDB.get(removeHyphens(login)).catch(err => {
+          if (err.status === 404) {
+            return null;
+          } else {
+            return Promise.reject(err);
+          }
+        });
+      }
+    }
+
+    let view;
+    if (this.config.config.local.usernameLogin && USER_REGEXP.test(login)) {
+      view = 'username';
+    } else if (EMAIL_REGEXP.test(login)) {
+      view = 'email';
+    } else {
+      return Promise.reject({ error: 'Bad request', status: 400 });
+    }
     return this.userDB
-      .view('auth', query, { key: login, include_docs: true })
+      .view('auth', view, { key: login, include_docs: true })
       .then(results => {
         if (results.rows.length > 0) {
           return Promise.resolve(results.rows[0].doc);
@@ -292,11 +330,11 @@ export class User {
       .then(result => {
         newUser = result;
         const uid = uuidv4();
-        // todo: remove, this is just for backwards compat
+        // todo: remove, this is just for backwards compat...
         if (this.config.getItem('local.sendNameAndUUID')) {
           newUser.user_uid = uid;
         }
-        newUser._id = uid.split('-').join('');
+        newUser._id = removeHyphens(uid);
         if (this.config.getItem('local.sendConfirmEmail')) {
           newUser.unverifiedEmail = {
             email: newUser.email,
@@ -304,7 +342,10 @@ export class User {
           };
           delete newUser.email;
         }
-        return hashPassword(newUser.password);
+        return hashPassword(
+          newUser.password,
+          this.config.getItem('security.iterations')
+        );
       })
       .catch(err => {
         console.log('validation failed.');
@@ -368,6 +409,7 @@ export class User {
     let user: Partial<SlUserDoc>;
     let newAccount = false;
     let action;
+    let baseUsername;
     req = req || {};
     // This used to be consumped by `.nodeify` from Bluebird. I hope `callbackify` works just as well...
     return Promise.resolve()
@@ -383,15 +425,8 @@ export class User {
           return Promise.resolve();
         } else {
           newAccount = true;
-          if (!profile.emails) {
-            return Promise.reject({
-              error: 'No email provided',
-              message: `An email is required for registration, but ${provider} didn't supply one.`,
-              status: 400
-            });
-          }
           user = {
-            email: profile.emails[0].value,
+            email: profile.emails ? profile.emails[0].value : undefined,
             providers: [provider],
             type: 'user',
             roles: this.config.getItem('security.defaultRoles'),
@@ -401,20 +436,41 @@ export class User {
             }
           };
           user[provider] = {};
+
+          const emailFail = () => {
+            return Promise.reject({
+              error: 'Email already in use',
+              message:
+                'Your email is already in use. Try signing in first and then linking this account.',
+              status: 409
+            });
+          };
+          // Now we need to generate a username
+          if (!user.email) {
+            return Promise.reject({
+              error: 'No email provided',
+              message: `An email is required for registration, but ${provider} didn't supply one.`,
+              status: 400
+            });
+          }
+          if (profile.username) {
+            baseUsername = profile.username.toLowerCase();
+          } else {
+            const parseEmail = user.email.split('@');
+            baseUsername = parseEmail[0].toLowerCase();
+          }
           return this.validateEmail(user.email).then(err => {
             if (err) {
-              return Promise.reject({
-                error: 'Email already in use',
-                message:
-                  'Your email is already in use. Try signing in first and then linking this account.',
-                status: 409
-              });
+              return emailFail();
             }
-            return Promise.resolve();
+            return Promise.resolve(this.generateUsername(baseUsername));
           });
         }
       })
-      .then(() => {
+      .then(finalUsername => {
+        if (finalUsername) {
+          user.key = finalUsername;
+        }
         user[provider].auth = auth;
         user[provider].profile = profile;
         if (!user.name) {
@@ -422,7 +478,7 @@ export class User {
         }
         delete user[provider].profile._raw;
         if (newAccount) {
-          user._id = uuidv4().split('-').join('');
+          user._id = removeHyphens(uuidv4());
           return this.addUserDBs(user as SlUserDoc);
         } else {
           return Promise.resolve(user as SlUserDoc);
@@ -571,9 +627,14 @@ export class User {
    */
   unlink(user_id, provider) {
     let user;
-    return this.userDB
-      .get(user_id)
+    return this.getUser(user_id)
       .then(theUser => {
+        if (!theUser) {
+          return Promise.reject({
+            error: 'Bad Request',
+            message: 400
+          });
+        }
         user = theUser;
         if (!provider) {
           return Promise.reject({
@@ -671,7 +732,7 @@ export class User {
     await this.userDB.insert(finalUser);
     newSession.token = newToken.key;
     newSession.password = password;
-    newSession.user_id = user._id;
+    newSession.user_id = user.key;
     newSession.roles = user.roles;
     // Inject the list of userDBs
     if (typeof user.personalDBs === 'object') {
@@ -699,7 +760,7 @@ export class User {
     if (user.profile) {
       newSession.profile = user.profile;
     }
-    // New config option: also send name and user_uid
+    // New config option: also send user_uid, and name if present
     if (this.config.getItem('local.sendNameAndUUID')) {
       if (user.name) {
         newSession.name = user.name;
@@ -799,7 +860,8 @@ export class User {
     const newSession: SlRefreshSession = {
       ...userDoc.session[key],
       token: key,
-      user_id: userDoc._id,
+      user_uid: hyphenizeUUID(userDoc._id),
+      user_id: userDoc.key,
       roles: userDoc.roles
     };
     delete newSession['ip'];
@@ -841,7 +903,10 @@ export class User {
         if (user.forgotPassword.expires < Date.now()) {
           return Promise.reject({ status: 400, error: 'Token expired' });
         }
-        return hashPassword(form.password);
+        return hashPassword(
+          form.password,
+          this.config.getItem('security.iterations')
+        );
       })
       .then(hash => {
         if (!user.local) {
@@ -875,7 +940,7 @@ export class User {
       });
   }
 
-  async changePasswordSecure(user_id: string, form, req) {
+  async changePasswordSecure(login: string, form, req) {
     req = req || {};
     const ChangePasswordModel = Model(this.changePasswordModel);
     const changePasswordForm = new ChangePasswordModel(form);
@@ -890,7 +955,10 @@ export class User {
     }
 
     try {
-      const user = await this.userDB.get(user_id);
+      const user = await this.getUser(login);
+      if (!user) {
+        throw { error: 'Bad Request', status: 400 }; // should exist.
+      }
       if (user.local && user.local.salt && user.local.derived_key) {
         // Password is required
         if (!form.currentPassword) {
@@ -932,7 +1000,10 @@ export class User {
       .then(
         doc => {
           user = doc;
-          return hashPassword(newPassword);
+          return hashPassword(
+            newPassword,
+            this.config.getItem('security.iterations')
+          );
         },
         err => {
           return Promise.reject({
@@ -1042,11 +1113,7 @@ export class User {
     return await this.logActivity(userDoc._id, logInfo, 'local', req, userDoc);
   }
 
-  async changeEmail(
-    user_id: string,
-    newEmail: string,
-    req: Partial<SlRequest>
-  ) {
+  async changeEmail(login: string, newEmail: string, req: Partial<SlRequest>) {
     req = req || {};
     if (!req.user) {
       req.user = { provider: 'local' };
@@ -1055,7 +1122,10 @@ export class User {
     if (emailError) {
       throw emailError;
     }
-    const user = await this.userDB.get(user_id);
+    const user = await this.getUser(login);
+    if (!user) {
+      throw { error: 'Bad Request', status: 400 }; // should exist.
+    }
     if (this.config.getItem('local.sendConfirmEmail')) {
       user.unverifiedEmail = {
         email: newEmail,
@@ -1359,6 +1429,41 @@ export class User {
         roles: roles
       });
     });
+  }
+
+  /**
+   * generates a unique username from the provided E-Mail by taking the prefix,
+   * adjusting the length and adding numbers until a unique database key is
+   * is found.
+   * @param {string} base
+   */
+  generateUsername(email: string) {
+    let base = email.split('@')[0].toLowerCase();
+    base = getSuitableBaseName(base);
+    const entries = [];
+    let finalName;
+    // todo:  nope - need a view here!
+    return this.userDB
+      .list({ startkey: base, endkey: base + '\uffff', include_docs: false })
+      .then(results => {
+        if (results.rows.length === 0) {
+          return Promise.resolve(base);
+        }
+        for (let i = 0; i < results.rows.length; i++) {
+          entries.push(results.rows[i].id);
+        }
+        if (entries.indexOf(base) === -1) {
+          return Promise.resolve(base);
+        }
+        let num = 0;
+        while (!finalName) {
+          num++;
+          if (entries.indexOf(base + num) === -1) {
+            finalName = base + num;
+          }
+        }
+        return Promise.resolve(finalName);
+      });
   }
 
   addUserDBs(newUser: SlUserDoc) {

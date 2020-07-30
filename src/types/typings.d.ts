@@ -78,7 +78,10 @@ export interface PasswortResetEntry extends TimeRestricted {
 }
 
 export interface SlUserDoc extends Document, IdentifiedObj {
-  user_uid: string;
+  /** todo: remove this, it's confusing. */
+  user_uid?: string;
+  /** this is the `_id` in version 1 of superlogin - for login with username */
+  key: string;
   roles: string[];
   providers: string[];
   local: LocalHashObj;
@@ -101,14 +104,17 @@ export interface SlRefreshSession extends TimeRestricted {
   provider: string;
   roles: string[];
   token: string;
+  /** This will still be the old `_id`, i.e. `key` now */
   user_id: string;
+  /** unique identifier of the user's DB, `including` the hyphens. */
+  user_uid: string;
 }
 
 export interface SlLoginSession extends SlRefreshSession {
   password: string;
   userDBs: { [db: string]: string };
   profile?: string;
-  user_uid?: string;
+  /** Name for Display purposes only */
   name?: string;
 }
 

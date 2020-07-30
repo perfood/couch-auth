@@ -5,6 +5,7 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "target": "ES2019",
+    "lib": ["ESNext"],
     "noImplicitAny": false,
     "moduleResolution": "node",
     "sourceMap": false,

@@ -37,12 +37,20 @@ export function hyphenizeUUID(uuid: string) {
   );
 }
 
+export function removeHyphens(uuid: string) {
+  return uuid.split('-').join('');
+}
+
 export function hashToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-export function hashPassword(password: string): Promise<HashResult> {
+export function hashPassword(
+  password: string,
+  iterations = 10000
+): Promise<HashResult> {
   return new Promise((resolve, reject) => {
+    pwd.iterations(iterations);
     pwd.hash(password, (err, salt, hash) => {
       if (err) {
         return reject(err);
@@ -336,4 +344,46 @@ export function isUserFacingError(errObj: any) {
     }
   }
   return requiredProps.size === 0;
+}
+
+export function replaceAt(str: string, idx: number, repl: string) {
+  return str.substring(0, idx) + repl + str.substring(idx + 1, str.length);
+}
+
+/** attempts to generate a short, but meaningful base name of length [min,max]*/
+export function getSuitableBaseName(base: string, min = 3, max = 13) {
+  const first = base.match(/[\W_]/)?.index;
+  let newLen = base.length;
+  if (first !== undefined) {
+    if (first >= min) {
+      return base.substring(0, first);
+    } else {
+      const nonLatins = [...base.matchAll(/[\W_]/g)];
+      let last = min;
+      for (const match of nonLatins) {
+        if (match.index > 3 && match.index < max) {
+          last = match.index;
+        }
+      }
+      if (last > min) {
+        newLen = last;
+      } else if (newLen < min) {
+        newLen = min;
+      } else if (newLen > max) {
+        newLen = max;
+      }
+      while (base.match(/[\W]/) !== null) {
+        const pos = base.match(/[\W]/).index;
+        base = replaceAt(base, pos, [0, newLen - 1].includes(pos) ? '0' : '_');
+      }
+    }
+  } else if (base.length > max) {
+    newLen = max;
+  }
+  if (base.length < min) {
+    base = base.padEnd(min - 1, '_');
+    base += '0';
+  }
+  base = base.substring(0, newLen);
+  return base;
 }

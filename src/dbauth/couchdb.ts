@@ -54,8 +54,14 @@ export class CouchAdapter implements DBAdapter {
     };
     // required when using Cloudant or other db than `_users`
     newKey.password_scheme = 'pbkdf2';
-    newKey.iterations = 10;
-    newKey = { ...newKey, ...(await hashPassword(password)) };
+    newKey.iterations = this.#config.security?.iterations;
+    if (!newKey.iterations) {
+      newKey.iterations = 10000;
+    }
+    newKey = {
+      ...newKey,
+      ...(await hashPassword(password, newKey.iterations))
+    };
 
     await this.#couchAuthDB.insert(newKey);
     newKey._id = key;

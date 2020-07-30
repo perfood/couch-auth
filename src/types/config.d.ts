@@ -28,6 +28,8 @@ export interface SecurityConfig {
   loginOnPasswordReset: boolean;
   /** Disable unused routes for better security, default: ['validate-username', 'validate-email', 'session'] */
   disabledRoutes: string[];
+  /** number of iterations for pbkdf2 password hashing. default: 10000 */
+  iterations: number;
 }
 
 export interface LengthConstraint {
@@ -51,11 +53,17 @@ export interface LocalConfig {
   sendPasswordChangedEmail: boolean;
   // If this is set, the user will be redirected to this location after confirming email instead of JSON response
   confirmEmailRedirectURL: string;
-  // Set this to true to disable usernames and use emails instead
-  //emailUsername: boolean;
-  // Also return the username and UUID when creating a session
+  /** allow to also login with the username. Default: false */
+  usernameLogin: boolean;
+  /** allow to also login with the UUID. Default: false */
+  uuidLogin: boolean;
+  /** allow to login via E-Mail. Default: true */
+  emailLogin: boolean;
+  /** only use email for signup and auto-generate the username. Default: true */
+  emailUsername: boolean;
+  /** Also return the username when creating a session */
   sendNameAndUUID: boolean;
-  // If a number is set here, the token for password reset will be shortened to that length (e.g. 8)
+  /** If a number is set here, the token for password reset will be shortened */
   tokenLengthOnReset: boolean | number;
   // Custom names for the username and password fields in your sign-in form
   usernameField: string;

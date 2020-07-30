@@ -344,7 +344,7 @@ module.exports = function (
     passport.authenticate('bearer', { session: false }),
     function (req: SlRequest, res: Response) {
       const user = req.user;
-      user.user_id = user._id;
+      user.user_id = user._id; // todo: what here??
       delete user._id;
       delete user.key;
       res.status(200).json(user);

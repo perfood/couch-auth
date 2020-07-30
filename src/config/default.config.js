@@ -10,11 +10,14 @@ module.exports = {
     tokenLife: 86400,
     loginOnRegistration: false,
     loginOnPasswordReset: false,
+    iterations: 10000,
     disabledRoutes: ['validate-username', 'validate-email', 'session']
   },
   local: {
     usernameField: 'username',
-    passwordField: 'password'
+    passwordField: 'password',
+    emailUsername: true,
+    emailLogin: true
   },
   session: {
     adapter: 'memory',
