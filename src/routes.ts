@@ -47,7 +47,7 @@ module.exports = function (
       loginLocal(req, res, next);
     },
     function (req: SlRequest, res, next) {
-      return user.createSession(req.user._id, 'local', req).then(
+      return user.createSession(req.user._id, 'local', true).then(
         function (mySession) {
           res.status(200).json(mySession);
         },
@@ -144,7 +144,7 @@ module.exports = function (
     user.createUser(req.body, req).then(
       function (newUser) {
         if (config.getItem('security.loginOnRegistration')) {
-          return user.createSession(newUser._id, 'local', req.ip).then(
+          return user.createSession(newUser._id, 'local', true).then(
             function (mySession) {
               res.status(200).json(mySession);
             },
@@ -185,7 +185,7 @@ module.exports = function (
     user.resetPassword(req.body, req).then(
       function (currentUser) {
         if (config.getItem('security.loginOnPasswordReset')) {
-          return user.createSession(currentUser._id, 'local', req.ip).then(
+          return user.createSession(currentUser._id, 'local', true).then(
             function (mySession) {
               res.status(200).json(mySession);
             },

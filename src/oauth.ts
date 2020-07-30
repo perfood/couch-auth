@@ -25,7 +25,7 @@ export class OAuth {
   private initSession(req: SlRequest, res: Response, next: NextFunction) {
     const provider = this.getProvider(req.path);
     return this.user
-      .createSession(req.user._id, provider, req)
+      .createSession(req.user._id, provider)
       .then(mySession => {
         return Promise.resolve({
           error: null,
@@ -60,7 +60,7 @@ export class OAuth {
   private initTokenSession(req: SlRequest, res: Response, next: NextFunction) {
     const provider = this.getProviderToken(req.path);
     return this.user
-      .createSession(req.user._id, provider, req)
+      .createSession(req.user._id, provider)
       .then(mySession => {
         return Promise.resolve(mySession);
       })

@@ -288,6 +288,16 @@ export class User {
     return undefined;
   }
 
+  getUserByUUID(uuid: string) {
+    return this.userDB.get(removeHyphens(uuid)).catch(err => {
+      if (err.status === 404) {
+        return null;
+      } else {
+        return Promise.reject(err);
+      }
+    });
+  }
+
   /**
    * retrieves by email (default) or username or uuid if the config options are
    * set. Rejects if no valid format.
@@ -295,15 +305,10 @@ export class User {
   getUser(login: string): Promise<SlUserDoc | null> {
     const identifier = this.getMatchingIdentifier(login);
     if (!identifier) {
+      console.log('no matching identifier for login: ', login);
       return Promise.reject({ error: 'Bad request', status: 400 });
     } else if (identifier === '_id') {
-      return this.userDB.get(removeHyphens(login)).catch(err => {
-        if (err.status === 404) {
-          return null;
-        } else {
-          return Promise.reject(err);
-        }
-      });
+      return this.getUserByUUID(login);
     }
     return this.userDB
       .view('auth', identifier, { key: login, include_docs: true })
@@ -422,7 +427,6 @@ export class User {
         });
       })
       .then(results => {
-        console.log('socialAuth - got results :', JSON.stringify(results));
         if (results.rows.length > 0) {
           user = results.rows[0].doc;
           return Promise.resolve();
@@ -524,7 +528,6 @@ export class User {
       key: profile.id,
       include_docs: true
     });
-    console.log('linkSocial - got results: ', JSON.stringify(results));
     if (results.rows.length === 0) {
       user = await this.getUser(login);
     } else {
@@ -533,14 +536,6 @@ export class User {
       if (match === '_id') {
         login = removeHyphens(login);
       }
-      console.log(
-        'linkSocial - match: ',
-        match,
-        ', login: ',
-        login,
-        ' user: ',
-        user
-      );
       if (user[match] !== login) {
         return Promise.reject({
           error: 'Conflict',
@@ -566,14 +561,15 @@ export class User {
     // Check email for conflict
     if (profile.emails) {
       const mailResults = await this.userDB.view('auth', 'email', {
-        key: profile.emails[0].value
+        key: profile.emails[0].value,
+        include_docs: true
       });
       if (mailResults.rows.length > 0) {
         const match = this.getMatchingIdentifier(login);
         if (match === '_id') {
           login = removeHyphens(login);
         }
-        if (mailResults.rows.some(row => row[match] !== login)) {
+        if (mailResults.rows.some(row => row.doc[match] !== login)) {
           throw {
             error: 'Conflict',
             message:
@@ -677,10 +673,12 @@ export class User {
    * Creates a new session for a user. provider is the name of the provider. (eg. 'local', 'facebook', twitter.)
    * req is used to log the IP if provided.
    */
-  async createSession(login: string, provider: string, req: any = {}) {
-    console.log('createSession - got user_uid: ', login);
-    let user = await this.getUser(login);
+  async createSession(login: string, provider: string, byUUID = false) {
+    let user = byUUID
+      ? await this.getUserByUUID(login)
+      : await this.getUser(login);
     if (!user) {
+      console.log('createSession - could not retrieve: ', login);
       throw { error: 'Bad Request', status: 400 };
     }
     const user_uid = user._id;

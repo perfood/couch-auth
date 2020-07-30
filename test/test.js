@@ -39,6 +39,16 @@ describe('SuperLogin', function () {
     confirmPassword: '1s3cret'
   };
 
+  const findUser = key =>
+    userDB
+      .find({
+        selector: {
+          key
+        },
+        fields: ['unverifiedEmail']
+      })
+      .then(record => record.docs[0]);
+
   before(async function () {
     await couch.db.create('sl_test-users');
     await couch.db.create('sl_test-keys');
@@ -71,8 +81,8 @@ describe('SuperLogin', function () {
         .post(server + '/auth/register')
         .send(newUser)
         .then(res => {
-          expect(res.status).to.equal(201);
-          expect(res.body.success).to.equal('User created.');
+          expect(res.status).to.equal(200);
+          expect(res.body.success).to.equal('Signup processed.');
           console.log('User created');
           return Promise.resolve();
         });
@@ -82,8 +92,7 @@ describe('SuperLogin', function () {
   it('should verify the email', function () {
     let emailToken;
     return previous.then(function () {
-      return userDB
-        .get('kewluzer')
+      return findUser('kewluzer')
         .then(function (record) {
           emailToken = record.unverifiedEmail.token;
           return 1;
@@ -188,7 +197,7 @@ describe('SuperLogin', function () {
 
   it('should reset the password', function () {
     return previous.then(function () {
-      return userDB.get(newUser.username).then(() => {
+      return findUser(newUser.username).then(() => {
         return new Promise(function (resolve, reject) {
           request
             .post(server + '/auth/password-reset')
@@ -268,7 +277,7 @@ describe('SuperLogin', function () {
 
   it('should change the password', function () {
     return previous.then(function () {
-      return userDB.get(newUser.username).then(function (resetUser) {
+      return findUser(newUser.username).then(function (resetUser) {
         return new Promise(function (resolve, reject) {
           request
             .post(server + '/auth/password-change')

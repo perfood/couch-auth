@@ -292,7 +292,6 @@ describe('User Model', async function () {
   it('should generate a new session for the user', function () {
     const emitterPromise = new Promise(function (resolve) {
       emitter.once('login', function (session) {
-        console.log('new session - got: ', JSON.stringify(session));
         expect(session.user_id).to.equal('superuser');
         resolve();
       });
@@ -301,7 +300,7 @@ describe('User Model', async function () {
     return previous
       .then(() => {
         console.log('Creating session');
-        return user.createSession(testUserForm.username, 'local', req);
+        return user.createSession(testUserForm.username, 'local');
       })
       .then(result => {
         sessionKey = result.token;
@@ -430,12 +429,12 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Logging user out completely');
-        return user.createSession(testUserForm.username, 'local', req);
+        return user.createSession(testUserForm.username, 'local');
       })
       .then(function (session1) {
         sessions[0] = session1.token;
         passes[0] = session1.password;
-        return user.createSession(testUserForm.username, 'local', req);
+        return user.createSession(testUserForm.username, 'local');
       })
       .then(function (session2) {
         sessions[1] = session2.token;
@@ -692,7 +691,7 @@ describe('User Model', async function () {
     return previous
       .then(() => {
         console.log('Authenticating new facebook user');
-        return user.socialAuth('facebook', auth, profile, req);
+        return user.socialAuth('facebook', auth, profile);
       })
       .then(newUser => {
         misterxUUID = newUser._id;
@@ -727,7 +726,6 @@ describe('User Model', async function () {
         return userDB.get(misterxUUID);
       })
       .then(function (result) {
-        console.log('existing - fb: ', JSON.stringify(result.facebook.auth));
         expect(result.facebook.auth.token).to.equal('y');
       });
   });
