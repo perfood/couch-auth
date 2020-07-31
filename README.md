@@ -416,6 +416,7 @@ superlogin.on('login', function (userDoc, provider) {
 Here is a full list of the events that SuperLogin emits, and parameters provided:
 
 - `signup`: (`userDoc`, `provider`)
+- `signup-attempt`: (`userDoc`, `provider`) // currently only for local
 - `login`: (`newSession`, `provider`)
 - `refresh`: (`newSession`)
 - `signup`: (`userDoc`, `provider`)
@@ -424,6 +425,7 @@ Here is a full list of the events that SuperLogin emits, and parameters provided
 - `forgot-password`: (`userDoc`)
 - `email-verified`: (`userDoc`)
 - `email-changed`: (`userDoc`)
+- `illegal-email-change`: (`login`, `newEmail`)
 - `user-db-added`: (`dbName`)
 - `user-db-removed`: (`dbName`)
 - `logout`: (`user_id`)

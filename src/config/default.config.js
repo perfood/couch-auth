@@ -17,7 +17,8 @@ module.exports = {
     usernameField: 'username',
     passwordField: 'password',
     emailUsername: true,
-    emailLogin: true
+    emailLogin: true,
+    requireEmailConfirm: true
   },
   session: {
     adapter: 'memory',
@@ -55,6 +56,13 @@ module.exports = {
         '../../templates/email/modified-password.ejs'
       ),
       format: 'text'
+    },
+    signupExistingEmail: {
+      subject: 'You already have registered with us',
+      template: path.join(
+        __dirname,
+        '../../templates/email/signup-email-exists.ejs'
+      )
     }
   }
 };

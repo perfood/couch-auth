@@ -150,7 +150,12 @@ module.exports = function (
     ) {
       user.createUser(req.body, req).then(
         function (newUser) {
-          if (config.getItem('security.loginOnRegistration')) {
+          if (!newUser || !config.getItem('security.loginOnRegistration')) {
+            res.status(200).json({ success: 'Signup processed.' });
+          } else if (
+            newUser &&
+            config.getItem('security.loginOnRegistration')
+          ) {
             return user.createSession(newUser._id, 'local', true).then(
               function (mySession) {
                 res.status(200).json(mySession);
@@ -159,8 +164,6 @@ module.exports = function (
                 return next(err);
               }
             );
-          } else {
-            res.status(200).json({ success: 'Signup processed.' });
           }
         },
         function (err) {

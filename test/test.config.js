@@ -23,7 +23,8 @@ module.exports = {
     sendPasswordChangedEmail: true,
     // todo: adjust once the old default behaviour works.
     usernameLogin: true,
-    emailUsername: false
+    emailUsername: false,
+    requireEmailConfirm: false
   },
   session: {
     adapter: 'redis'

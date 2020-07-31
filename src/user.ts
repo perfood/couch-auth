@@ -42,6 +42,11 @@ enum Cleanup {
   'other' = 'other',
   'all' = 'all'
 }
+enum ValidErr {
+  'exists' = 'already in use',
+  'emailInvalid' = 'invalid email',
+  'userInvalid' = 'invalid username'
+}
 
 export class User {
   #dbAuth: DBAuth;
@@ -104,7 +109,7 @@ export class User {
         return;
       }
       if (username.startsWith('_') || !username.match(USER_REGEXP)) {
-        return 'Invalid username';
+        return ValidErr.userInvalid;
       }
       try {
         const result = await userDB.view('auth', 'key', { key: username });
@@ -112,7 +117,7 @@ export class User {
           // Pass!
           return;
         } else {
-          return 'already in use';
+          return ValidErr.exists;
         }
       } catch (err) {
         throw new Error(err);
@@ -124,7 +129,7 @@ export class User {
         return;
       }
       if (!email.match(EMAIL_REGEXP)) {
-        return 'invalid email';
+        return ValidErr.emailInvalid;
       }
       try {
         const result = await userDB.view('auth', 'email', { key: email });
@@ -132,7 +137,7 @@ export class User {
           // Pass!
           return;
         } else {
-          return 'already in use';
+          return ValidErr.exists;
         }
       } catch (err) {
         throw new Error(err);
@@ -298,16 +303,8 @@ export class User {
     });
   }
 
-  /**
-   * retrieves by email (default) or username or uuid if the config options are
-   * set. Rejects if no valid format.
-   */
-  getUser(login: string): Promise<SlUserDoc | null> {
-    const identifier = this.getMatchingIdentifier(login);
-    if (!identifier) {
-      console.log('no matching identifier for login: ', login);
-      return Promise.reject({ error: 'Bad request', status: 400 });
-    } else if (identifier === '_id') {
+  getUserBy(identifier: '_id' | 'email' | 'key', login: string) {
+    if (identifier === '_id') {
       return this.getUserByUUID(login);
     }
     return this.userDB
@@ -319,6 +316,27 @@ export class User {
           return Promise.resolve(null);
         }
       });
+  }
+
+  /**
+   * retrieves by email (default) or username or uuid if the config options are
+   * set. Rejects if no valid format.
+   */
+  getUser(login: string): Promise<SlUserDoc | null> {
+    const identifier = this.getMatchingIdentifier(login);
+    if (!identifier) {
+      console.log('no matching identifier for login: ', login);
+      return Promise.reject({ error: 'Bad request', status: 400 });
+    }
+    return this.getUserBy(identifier, login);
+  }
+
+  async handleEmailExists(email: string) {
+    const existingUser = await this.getUserBy('email', email);
+    await this.mailer.sendEmail('signupExistingEmail', email, {
+      user: existingUser
+    });
+    this.emitter.emit('signup-attempt', existingUser, 'local');
   }
 
   async createUser(form, req = undefined) {
@@ -343,7 +361,18 @@ export class User {
     try {
       newUser = await user.process();
     } catch (err) {
-      console.log('validation failed.');
+      if (
+        this.emailUsername &&
+        this.config.getItem('local.requireEmailConfirm')
+      ) {
+        const inUseIdx = err.email.findIndex((s: string) =>
+          s.endsWith(ValidErr.exists)
+        );
+        err.email.splice(inUseIdx, 1);
+        if (err.email.length === 0 && Object.keys(err).length === 1) {
+          return this.handleEmailExists(form.email);
+        }
+      }
       throw {
         error: 'Validation failed',
         validationErrors: err,
@@ -1111,7 +1140,15 @@ export class User {
     }
     const emailError = await this.validateEmail(newEmail);
     if (emailError) {
-      throw emailError;
+      if (
+        this.config.getItem('local.requireEmailConfirm') &&
+        emailError === ValidErr.exists
+      ) {
+        this.emitter.emit('illegal-email-change', login, newEmail);
+        return;
+      } else {
+        throw emailError;
+      }
     }
     const user = await this.getUser(login);
     if (!user) {

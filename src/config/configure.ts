@@ -22,6 +22,12 @@ export class ConfigHelper {
     ) {
       throw 'do not provide a password when using IAM authentication!';
     }
+    if (
+      this.config.local?.requireEmailConfirm &&
+      !this.config.local.sendConfirmEmail
+    ) {
+      throw 'sendConfirmEmail must also be set if requireEmailConfirm is.';
+    }
   }
 
   getItem(key: string) {
