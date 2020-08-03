@@ -1007,6 +1007,44 @@ export class User {
     }
   }
 
+  forgotUsername(email: string, req: Partial<Request>) {
+    if (!email || !email.match(EMAIL_REGEXP)) {
+      return Promise.reject({ error: 'invalid email', status: 400 });
+    }
+    req = req || {};
+    let user: SlUserDoc;
+    return this.userDB
+      .view('auth', 'email', { key: email, include_docs: true })
+      .then(result => {
+        if (!result.rows.length) {
+          return Promise.reject({
+            error: 'User not found',
+            status: 404
+          });
+        }
+        user = result.rows[0].doc;
+      })
+      .then(() => {
+        return this.mailer.sendEmail(
+          'forgotUsername',
+          user.email || user.unverifiedEmail.email,
+          { user: user, req: req }
+        );
+      })
+      .then(() => {
+        this.emitter.emit('forgot-username', user);
+        return Promise.resolve(user);
+      })
+      .catch(err => {
+        this.emitter.emit('forgot-username-attempt', email);
+        if (err.status === 404) {
+          return Promise.resolve();
+        } else {
+          return Promise.reject(err);
+        }
+      });
+  }
+
   changePassword(user_id, newPassword, userDoc, req) {
     req = req || {};
     let promise, user;

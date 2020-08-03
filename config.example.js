@@ -127,6 +127,11 @@ module.exports = {
       // 'text' or 'html'
       format: 'text'
     },
+    forgotUsername: {
+      subject: 'Your username request',
+      template: path.join(__dirname, './templates/email/forgot-username.ejs'),
+      format: 'text'
+    },
     forgotPassword: {
       subject: 'Your password reset link',
       template: path.join(__dirname, './templates/email/forgot-password.ejs'),
@@ -140,6 +145,14 @@ module.exports = {
     confirmEmailChange: {
       subject: 'Please confirm your new email',
       template: path.join(__dirname, './templates/email/email-change.ejs'),
+      format: 'text'
+    },
+    signupExistingEmail: {
+      subject: 'You already have registered with us',
+      template: path.join(
+        __dirname,
+        './templates/email/signup-email-exists.ejs'
+      ),
       format: 'text'
     }
   },

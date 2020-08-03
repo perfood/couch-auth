@@ -172,6 +172,23 @@ module.exports = function (
       );
     });
 
+  if (!disabled.includes('forgot-username')) {
+    router.post('/forgot-username', function (
+      req: Request,
+      res: Response,
+      next: NextFunction
+    ) {
+      user.forgotUsername(req.body.email, req).then(
+        function () {
+          res.status(200).json({ success: 'Request processed.' });
+        },
+        function (err) {
+          return next(err);
+        }
+      );
+    });
+  }
+
   if (!disabled.includes('forgot-password'))
     router.post('/forgot-password', function (
       req: Request,
