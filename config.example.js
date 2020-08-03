@@ -127,6 +127,11 @@ module.exports = {
       // 'text' or 'html'
       format: 'text'
     },
+    forgotUsername: {
+      subject: 'Your username request',
+      template: path.join(__dirname, './templates/email/forgot-username.ejs'),
+      format: 'text'
+    },
     forgotPassword: {
       subject: 'Your password reset link',
       template: path.join(__dirname, './templates/email/forgot-password.ejs'),

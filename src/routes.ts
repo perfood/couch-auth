@@ -162,6 +162,21 @@ module.exports = function (
     );
   });
 
+  router.post('/forgot-username', function (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    user.forgotUsername(req.body.email, req).then(
+      function () {
+        res.status(200).json({ success: 'Username request email sent.' });
+      },
+      function (err) {
+        return next(err);
+      }
+    );
+  });
+
   router.post('/forgot-password', function (
     req: Request,
     res: Response,
