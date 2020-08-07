@@ -15,7 +15,6 @@ export class Session {
       delete token.iterations;
       return token;
     } catch (error) {
-      console.log('confirmToken - got err: ', error);
       throw Session.invalidMsg;
     }
   }
