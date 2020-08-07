@@ -151,7 +151,7 @@ module.exports = function (
       user.createUser(req.body, req).then(
         function (newUser) {
           if (!newUser || !config.getItem('security.loginOnRegistration')) {
-            res.status(200).json({ success: 'Signup processed.' });
+            res.status(200).json({ success: 'Request processed.' });
           } else if (
             newUser &&
             config.getItem('security.loginOnRegistration')
@@ -180,7 +180,7 @@ module.exports = function (
     ) {
       user.forgotPassword(req.body.email, req).then(
         function () {
-          res.status(200).json({ success: 'Password recovery email sent.' });
+          res.status(200).json({ success: 'Request processed.' });
         },
         function (err) {
           return next(err);
@@ -344,7 +344,8 @@ module.exports = function (
         }
       },
       function (req: SlRequest, res: Response, next: NextFunction) {
-        user.changeEmail(req.user._id, req.body.newEmail, req).then(
+        const login = requirePass ? req.user.key : req.user._id;
+        user.changeEmail(login, req.body.newEmail, req).then(
           function () {
             const info = requireConf ? 'change requested' : 'changed';
             res.status(200).json({ ok: true, success: `Email ${info}` });

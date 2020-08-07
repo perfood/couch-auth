@@ -959,7 +959,7 @@ export class User {
       });
   }
 
-  async changePasswordSecure(login: string, form, req) {
+  async changePasswordSecure(login: string, form, req?) {
     req = req || {};
     const ChangePasswordModel = Model(this.changePasswordModel);
     const changePasswordForm = new ChangePasswordModel(form);
@@ -1097,11 +1097,19 @@ export class User {
           'forgotPassword',
           user.email || user.unverifiedEmail.email,
           { user: user, req: req, token: token }
-        ); // Send user the unhashed token
+        );
       })
       .then(() => {
         this.emitter.emit('forgot-password', user);
         return Promise.resolve(user.forgotPassword);
+      })
+      .catch(err => {
+        this.emitter.emit('forgot-password-attempt', email);
+        if (err.status === 404) {
+          return Promise.resolve();
+        } else {
+          return Promise.reject(err);
+        }
       });
   }
 

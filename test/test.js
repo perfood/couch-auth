@@ -82,7 +82,7 @@ describe('SuperLogin', function () {
         .send(newUser)
         .then(res => {
           expect(res.status).to.equal(200);
-          expect(res.body.success).to.equal('Signup processed.');
+          expect(res.body.success).to.equal('Request processed.');
           console.log('User created');
           return Promise.resolve();
         });

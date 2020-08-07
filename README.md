@@ -423,6 +423,7 @@ Here is a full list of the events that SuperLogin emits, and parameters provided
 - `password-reset`: (`userDoc`)
 - `password-change`: (`userDoc`)
 - `forgot-password`: (`userDoc`)
+- `forgot-password-attempt`: (`email`)
 - `email-verified`: (`userDoc`)
 - `email-changed`: (`userDoc`)
 - `illegal-email-change`: (`login`, `newEmail`)
