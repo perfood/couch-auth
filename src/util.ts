@@ -1,23 +1,13 @@
 'use strict';
 import { Config, DBServerConfig } from './types/config';
-import {
-  DocumentScope,
-  HashResult,
-  LocalHashObj,
-  ServerScope,
-  SlUserDoc
-} from './types/typings';
+import { DocumentScope, ServerScope, SlUserDoc } from './types/typings';
 import cloudant from '@cloudant/cloudant';
 import { ConfigHelper } from './config/configure';
 import crypto from 'crypto';
 import nano from 'nano';
-import { promisify } from 'util';
-import pwd from '@sensu/couch-pwd';
 import { Request } from 'express';
 import URLSafeBase64 from 'urlsafe-base64';
 import { v4 as uuidv4 } from 'uuid';
-
-const getHash = promisify(pwd.hash);
 
 export function URLSafeUUID() {
   return URLSafeBase64.encode(uuidv4(null, Buffer.alloc(16)));
@@ -43,46 +33,6 @@ export function removeHyphens(uuid: string) {
 
 export function hashToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
-}
-
-export function hashPassword(
-  password: string,
-  iterations = 10000
-): Promise<HashResult> {
-  return new Promise((resolve, reject) => {
-    pwd.iterations(iterations);
-    pwd.hash(password, (err, salt, hash) => {
-      if (err) {
-        return reject(err);
-      }
-      return resolve({
-        salt: salt,
-        derived_key: hash
-      });
-    });
-  });
-}
-
-export function verifyPassword(
-  hashObj: LocalHashObj,
-  password: string
-): Promise<true> {
-  const iterations = hashObj.iterations;
-  const salt = hashObj.salt;
-  const derived_key = hashObj.derived_key;
-  if (iterations) {
-    pwd.iterations(iterations);
-  }
-  if (!salt || !derived_key) {
-    return Promise.reject(false);
-  }
-  return getHash(password, salt).then(hash => {
-    if (hash === derived_key) {
-      return Promise.resolve(true);
-    } else {
-      return Promise.reject(false);
-    }
-  });
 }
 
 /** Loads the server for CouchDB-style auth - via IAM on cloudant or simply via nano */

@@ -28,6 +28,21 @@ export class ConfigHelper {
     ) {
       throw 'sendConfirmEmail must also be set if requireEmailConfirm is.';
     }
+    if (this.config.security?.iterations) {
+      const itArr = this.config.security.iterations;
+      let prev = 0;
+      for (const pair of itArr) {
+        if (
+          pair.length !== 2 ||
+          typeof pair[0] !== 'number' ||
+          typeof pair[1] !== 'number' ||
+          pair[0] < prev
+        ) {
+          throw 'iterations are specified but have invalid format!';
+        }
+        prev = pair[0];
+      }
+    }
   }
 
   getItem(key: string) {

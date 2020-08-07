@@ -1,9 +1,12 @@
 'use strict';
+
+const { Hashing } = require('../lib/hashing');
+
 const expect = require('chai').expect;
 const Session = require('../lib/session').Session;
 
 let previous;
-const session = new Session();
+const session = new Session(new Hashing({}));
 const testToken = {
   _id: 'colinskow',
   roles: ['admin', 'user'],
@@ -33,6 +36,7 @@ describe('Session', async function () {
           done();
         })
         .catch(function (err) {
+          console.log('confirmToken - got err: ', err);
           done(err);
         });
     });

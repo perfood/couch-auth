@@ -37,6 +37,12 @@ export interface CouchDbAuthDoc
 export interface HashResult {
   salt?: string;
   derived_key?: string;
+  /**
+   * timestamp of the creation of this HashResult. If `undefined`, the default
+   * iteration number (10) is used, else the value specified in the config
+   * (`security.iterations`) that matches the creation date.
+   */
+  created?: number;
 }
 
 export interface LocalHashObj extends HashResult {

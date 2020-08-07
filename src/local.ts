@@ -5,7 +5,6 @@ import { Strategy as LocalStrategy } from 'passport-local';
 import { Request } from 'express';
 import { SlUserDoc } from './types/typings';
 import { User } from './user';
-import { verifyPassword } from './util';
 
 const BearerStrategy = require('passport-http-bearer-sl').Strategy;
 
@@ -67,7 +66,7 @@ module.exports = function (
                   message: 'Invalid username or password'
                 });
               }
-              verifyPassword(theuser.local, password).then(
+              user.verifyPassword(theuser.local, password).then(
                 () => {
                   // Check if the email has been confirmed if it is required
                   if (

@@ -51,7 +51,11 @@ const userConfig = new Configure({
   security: {
     defaultRoles: ['user'],
     userActivityLogSize: 3,
-    disabledRoutes: []
+    disabledRoutes: [],
+    iterations: [
+      [0, 10],
+      [1596797642, 10000]
+    ]
   },
   local: {
     sendConfirmEmail: true,
@@ -192,6 +196,7 @@ describe('User Model', async function () {
         resolve();
       });
     });
+    const now = new Date().valueOf();
 
     return previous
       .then(() => {
@@ -218,6 +223,7 @@ describe('User Model', async function () {
         expect(newUser.roles[0]).to.equal('user');
         expect(newUser.local.salt).to.be.a('string');
         expect(newUser.local.derived_key).to.be.a('string');
+        expect(newUser.local.created >= now).to.be.true;
         expect(newUser.modelTest).to.equal(true);
         expect(newUser.roles[0]).to.equal('user');
         expect(newUser.activity[0].action).to.equal('signup');
@@ -258,7 +264,7 @@ describe('User Model', async function () {
         return userDB.get(superuserUUID);
       })
       .then(function (newUser) {
-        return util.verifyPassword(newUser.local, 'superlogin');
+        return user.verifyPassword(newUser.local, 'superlogin');
       })
       .then(function (result) {
         console.log('Password authenticated');
@@ -600,7 +606,7 @@ describe('User Model', async function () {
         expect(args[2].user._id).to.equal(superuserUUID);
         expect(args[2].user.key).to.equal(testUserForm.username);
 
-        return util.verifyPassword(userAfterReset.local, 'newSecret');
+        return user.verifyPassword(userAfterReset.local, 'newSecret');
       })
       .then(function () {
         return emitterPromise;
@@ -638,7 +644,7 @@ describe('User Model', async function () {
         expect(args[2].user.key).to.equal(testUserForm.username);
         expect(args[2].user._id).to.equal(superuserUUID);
 
-        return util.verifyPassword(userAfterChange.local, 'superpassword2');
+        return user.verifyPassword(userAfterChange.local, 'superpassword2');
       })
       .then(function () {
         return emitterPromise;

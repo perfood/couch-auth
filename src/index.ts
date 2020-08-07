@@ -1,11 +1,11 @@
 'use strict';
+import { addProvidersToDesignDoc, loadCouchServer } from './util';
 import {
-  addProvidersToDesignDoc,
-  hashPassword,
-  loadCouchServer,
-  verifyPassword
-} from './util';
-import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
+  CouchDbAuthDoc,
+  HashResult,
+  LocalHashObj,
+  SlUserDoc
+} from './types/typings';
 import { DocumentScope, ServerScope as NanoServer } from 'nano';
 import express, { Router } from 'express';
 import { Authenticator } from 'passport';
@@ -29,8 +29,6 @@ export class SuperLogin extends User {
   registerProvider: OAuth['registerProvider'];
   registerOAuth2: OAuth['registerOAuth2'];
   registerTokenProvider: OAuth['registerTokenProvider'];
-  hashPassword: typeof hashPassword;
-  verifyPassword: typeof verifyPassword;
   sendEmail: Mailer['sendEmail'];
   requireAuth: Middleware['requireAuth'];
   requireRole: Middleware['requireRole'];
@@ -108,9 +106,6 @@ export class SuperLogin extends User {
     this.registerProvider = oauth.registerProvider.bind(oauth);
     this.registerOAuth2 = oauth.registerOAuth2.bind(oauth);
     this.registerTokenProvider = oauth.registerTokenProvider.bind(oauth);
-
-    this.hashPassword = hashPassword;
-    this.verifyPassword = verifyPassword;
 
     this.sendEmail = mailer.sendEmail.bind(mailer);
 

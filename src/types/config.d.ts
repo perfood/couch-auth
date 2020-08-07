@@ -28,8 +28,13 @@ export interface SecurityConfig {
   loginOnPasswordReset: boolean;
   /** Disable unused routes for better security, default: ['validate-username', 'validate-email', 'session'] */
   disabledRoutes: string[];
-  /** number of iterations for pbkdf2 password hashing. default: 10000 */
-  iterations: number;
+  /**
+   * number of iterations for pbkdf2 password hashing, starting with the
+   * supplied dates. The first entry is the timestamp, the second number the
+   * number of iterations that should be used from this timestamp until the
+   * next timestamp in the array
+   */
+  iterations?: number[][];
 }
 
 export interface LengthConstraint {

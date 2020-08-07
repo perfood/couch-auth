@@ -1,6 +1,7 @@
 'use strict';
 import { DocumentScope, ServerScope } from 'nano';
-import { getSecurityDoc, hashPassword, putSecurityDoc, toArray } from '../util';
+import { getSecurityDoc, putSecurityDoc, toArray } from '../util';
+import { hashCouchPassword, Hashing } from '../hashing';
 import { Config } from '../types/config';
 import { CouchDbAuthDoc } from '../types/typings';
 import { DBAdapter } from '../types/adapters';
@@ -8,21 +9,17 @@ import { DBAdapter } from '../types/adapters';
 const userPrefix = 'org.couchdb.user:';
 
 export class CouchAdapter implements DBAdapter {
-  #couchAuthDB: DocumentScope<CouchDbAuthDoc>;
-  #couch: ServerScope;
-  #config: Partial<Config>;
   couchAuthOnCloudant = false;
+  private hasher: Hashing;
   constructor(
-    couchAuthDB: DocumentScope<CouchDbAuthDoc>,
-    couch: ServerScope,
-    config: Partial<Config>
+    private couchAuthDB: DocumentScope<CouchDbAuthDoc>,
+    private couch: ServerScope,
+    private config: Partial<Config>
   ) {
-    this.#couchAuthDB = couchAuthDB;
-    this.#couch = couch;
-    this.#config = config;
-    if (this.#config?.dbServer.couchAuthOnCloudant) {
+    if (this.config?.dbServer.couchAuthOnCloudant) {
       this.couchAuthOnCloudant = true;
     }
+    this.hasher = new Hashing(config);
   }
 
   /**
@@ -55,16 +52,13 @@ export class CouchAdapter implements DBAdapter {
     };
     // required when using Cloudant or other db than `_users`
     newKey.password_scheme = 'pbkdf2';
-    newKey.iterations = this.#config.security?.iterations;
-    if (!newKey.iterations) {
-      newKey.iterations = 10000;
-    }
+    newKey.iterations = 10;
     newKey = {
       ...newKey,
-      ...(await hashPassword(password, newKey.iterations))
+      ...(await hashCouchPassword(password))
     };
 
-    await this.#couchAuthDB.insert(newKey);
+    await this.couchAuthDB.insert(newKey);
     newKey._id = key;
     return newKey;
   }
@@ -73,7 +67,7 @@ export class CouchAdapter implements DBAdapter {
    * fetches the document from the couchAuthDB, if it's present. Throws an error otherwise.
    */
   retrieveKey(key: string) {
-    return this.#couchAuthDB.get(userPrefix + key);
+    return this.couchAuthDB.get(userPrefix + key);
   }
 
   /**
@@ -88,7 +82,7 @@ export class CouchAdapter implements DBAdapter {
     const toDelete: { _id: string; _rev: string; _deleted: boolean }[] = [];
     // success: have row.doc, but possibly row.doc = null and row.value.deleted = true
     // failure: have row.key and row.error
-    const keyDocs = await this.#couchAuthDB.fetch({ keys: keylist });
+    const keyDocs = await this.couchAuthDB.fetch({ keys: keylist });
     keyDocs.rows.forEach(row => {
       if (!('doc' in row)) {
         console.info('removeKeys() - could not retrieve: ' + row.key);
@@ -102,7 +96,7 @@ export class CouchAdapter implements DBAdapter {
       }
     });
     if (toDelete.length) {
-      return this.#couchAuthDB.bulk({ docs: toDelete });
+      return this.couchAuthDB.bulk({ docs: toDelete });
     } else {
       return false;
     }
@@ -120,7 +114,7 @@ export class CouchAdapter implements DBAdapter {
     memberRoles: string[]
   ) {
     let changes = false;
-    const secDoc = await getSecurityDoc(this.#couch, db);
+    const secDoc = await getSecurityDoc(this.couch, db);
     if (!secDoc.admins) {
       secDoc.admins = { names: [], roles: [] };
     }
@@ -150,7 +144,7 @@ export class CouchAdapter implements DBAdapter {
       secDoc.couchdb_auth_only = true;
     }
     if (changes) {
-      return putSecurityDoc(this.#couch, db, secDoc);
+      return putSecurityDoc(this.couch, db, secDoc);
     } else {
       return false;
     }
@@ -176,7 +170,7 @@ export class CouchAdapter implements DBAdapter {
     }
     // Convert keys to an array if it is just a string
     keys = toArray(keys);
-    const secDoc = await getSecurityDoc(this.#couch, db);
+    const secDoc = await getSecurityDoc(this.couch, db);
     if (!secDoc.members) {
       secDoc.members = { names: [], roles: [] };
     }
@@ -192,7 +186,7 @@ export class CouchAdapter implements DBAdapter {
       }
     });
     if (changes) {
-      return await putSecurityDoc(this.#couch, db, secDoc);
+      return await putSecurityDoc(this.couch, db, secDoc);
     } else {
       return false;
     }
@@ -203,7 +197,7 @@ export class CouchAdapter implements DBAdapter {
    */
   async deauthorizeKeys(db: DocumentScope<any>, keys: string[] | string) {
     const keysArr = toArray(keys);
-    const secDoc = await getSecurityDoc(this.#couch, db);
+    const secDoc = await getSecurityDoc(this.couch, db);
     if (!secDoc.members || !secDoc.members.names) {
       return false;
     }
@@ -216,7 +210,7 @@ export class CouchAdapter implements DBAdapter {
       }
     });
     if (changes) {
-      return await putSecurityDoc(this.#couch, db, secDoc);
+      return await putSecurityDoc(this.couch, db, secDoc);
     } else {
       return false;
     }

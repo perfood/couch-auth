@@ -5,15 +5,15 @@ import {
   getExpiredSessions,
   getSessions,
   getSuitableBaseName,
-  hashPassword,
   hashToken,
   hyphenizeUUID,
   removeHyphens,
-  URLSafeUUID,
-  verifyPassword
+  URLSafeUUID
 } from './util';
 import {
   CouchDbAuthDoc,
+  HashResult,
+  LocalHashObj,
   SessionObj,
   SlLoginSession,
   SlRefreshSession,
@@ -28,6 +28,7 @@ import { ConfigHelper } from './config/configure';
 import { DBAuth } from './dbauth';
 import { DocumentScope } from 'nano';
 import { EventEmitter } from 'events';
+import { Hashing } from './hashing';
 import { Mailer } from './mailer';
 import merge from 'deepmerge';
 import { Request } from 'express';
@@ -49,10 +50,11 @@ enum ValidErr {
 }
 
 export class User {
-  #dbAuth: DBAuth;
-  #session: Session;
-  #onCreateActions;
-  #onLinkActions;
+  private dbAuth: DBAuth;
+  private session: Session;
+  private onCreateActions;
+  private onLinkActions;
+  private hasher: Hashing;
 
   // config flags
   tokenLife: number;
@@ -77,10 +79,11 @@ export class User {
     protected emitter: EventEmitter
   ) {
     const dbAuth = new DBAuth(config, userDB, couchAuthDB);
-    this.#dbAuth = dbAuth;
-    this.#session = new Session(config);
-    this.#onCreateActions = [];
-    this.#onLinkActions = [];
+    this.dbAuth = dbAuth;
+    this.onCreateActions = [];
+    this.onLinkActions = [];
+    this.hasher = new Hashing(config.config);
+    this.session = new Session(this.hasher);
 
     // Token valid for 24 hours by default
     // Forget password token life
@@ -217,6 +220,13 @@ export class User {
     };
   }
 
+  hashPassword(pw: string): Promise<HashResult> {
+    return this.hasher.hashUserPassword(pw);
+  }
+  verifyPassword(obj: LocalHashObj, pw: string): Promise<boolean> {
+    return this.hasher.verifyUserPassword(obj, pw);
+  }
+
   /**
    * Use this to add as many functions as you want to transform the new user document before it is saved.
    * Your function should accept two arguments (userDoc, provider) and return a Promise that resolves to the modified user document.
@@ -225,7 +235,7 @@ export class User {
    */
   onCreate(fn) {
     if (typeof fn === 'function') {
-      this.#onCreateActions.push(fn);
+      this.onCreateActions.push(fn);
     } else {
       throw new TypeError('onCreate: You must pass in a function');
     }
@@ -239,7 +249,7 @@ export class User {
    */
   onLink(fn) {
     if (typeof fn === 'function') {
-      this.#onLinkActions.push(fn);
+      this.onLinkActions.push(fn);
     } else {
       throw new TypeError('onLink: You must pass in a function');
     }
@@ -396,15 +406,7 @@ export class User {
       };
       delete newUser.email;
     }
-    const hash = await hashPassword(
-      newUser.password,
-      this.config.getItem('security.iterations')
-    );
-
-    // Store password hash
-    newUser.local = {};
-    newUser.local.salt = hash.salt;
-    newUser.local.derived_key = hash.derived_key;
+    newUser.local = await this.hashPassword(newUser.password);
     delete newUser.password;
     delete newUser.confirmPassword;
     newUser.signUp = {
@@ -419,7 +421,7 @@ export class User {
       newUser as SlUserDoc
     );
     const finalNewUser = await this.processTransformations(
-      this.#onCreateActions,
+      this.onCreateActions,
       newUser,
       'local'
     );
@@ -527,13 +529,13 @@ export class User {
       .then(userDoc => {
         if (newAccount) {
           return this.processTransformations(
-            this.#onCreateActions,
+            this.onCreateActions,
             userDoc,
             provider
           );
         } else {
           return this.processTransformations(
-            this.#onLinkActions,
+            this.onLinkActions,
             userDoc,
             provider
           );
@@ -627,7 +629,7 @@ export class User {
     delete user[provider].profile._raw;
     const userDoc = await this.logActivity(user._id, 'link', provider, user);
     const finalUser = await this.processTransformations(
-      this.#onLinkActions,
+      this.onLinkActions,
       userDoc,
       provider
     );
@@ -715,7 +717,7 @@ export class User {
     const password = token.password;
     const newToken = token;
     newToken.provider = provider;
-    await this.#dbAuth.storeKey(
+    await this.dbAuth.storeKey(
       user.key,
       newToken.key,
       password,
@@ -725,7 +727,7 @@ export class User {
     );
     // authorize the new session across all dbs
     if (user.personalDBs) {
-      await this.#dbAuth.authorizeUserSessions(
+      await this.dbAuth.authorizeUserSessions(
         user_uid,
         user.personalDBs,
         newToken.key,
@@ -898,7 +900,7 @@ export class User {
     req = req || {};
     const ResetPasswordModel = Model(this.resetPasswordModel);
     const passwordResetForm = new ResetPasswordModel(form);
-    let user;
+    let user: SlUserDoc;
     return passwordResetForm
       .validate()
       .then(
@@ -925,17 +927,13 @@ export class User {
         if (user.forgotPassword.expires < Date.now()) {
           return Promise.reject({ status: 400, error: 'Token expired' });
         }
-        return hashPassword(
-          form.password,
-          this.config.getItem('security.iterations')
-        );
+        return this.hashPassword(form.password);
       })
       .then(hash => {
         if (!user.local) {
           user.local = {};
         }
-        user.local.salt = hash.salt;
-        user.local.derived_key = hash.derived_key;
+        user.local = { ...user.local, ...hash };
         if (user.providers.indexOf('local') === -1) {
           user.providers.push('local');
         }
@@ -990,7 +988,7 @@ export class User {
             status: 400
           };
         }
-        await verifyPassword(user.local, form.currentPassword);
+        await this.verifyPassword(user.local, form.currentPassword);
       }
       await this.changePassword(user._id, form.newPassword, user, req);
     } catch (err) {
@@ -1021,10 +1019,7 @@ export class User {
       .then(
         doc => {
           user = doc;
-          return hashPassword(
-            newPassword,
-            this.config.getItem('security.iterations')
-          );
+          return this.hasher.hashUserPassword(newPassword);
         },
         err => {
           return Promise.reject({
@@ -1209,10 +1204,10 @@ export class User {
           delete user.personalDBs[db];
           update = true;
           if (type === 'private' && deletePrivate) {
-            await this.#dbAuth.removeDB(dbName);
+            await this.dbAuth.removeDB(dbName);
           }
           if (type === 'shared' && deleteShared) {
-            await this.#dbAuth.removeDB(dbName);
+            await this.dbAuth.removeDB(dbName);
           }
         }
       }
@@ -1267,12 +1262,12 @@ export class User {
       }
     }
     // 1.) if this fails, the whole logout has failed! Else ok, will be cleaned up later.
-    await this.#dbAuth.removeKeys(session_id);
+    await this.dbAuth.removeKeys(session_id);
     //console.log('1.) - removed keys for', session_id);
     let caughtError = {};
     try {
       // 2) deauthorize from user's dbs
-      await this.#dbAuth.deauthorizeUser(user, session_id);
+      await this.dbAuth.deauthorizeUser(user, session_id);
       //console.log('2.) - deauthorized user for ', session_id);
 
       // Clean out expired sessions
@@ -1342,9 +1337,9 @@ export class User {
     }
     if (sessions.length) {
       // 1.) Remove the keys from our couchDB auth database. Must happen first.
-      await this.#dbAuth.removeKeys(sessions);
+      await this.dbAuth.removeKeys(sessions);
       // 2.) Deauthorize keys from each personal database and from session store
-      await this.#dbAuth.deauthorizeUser(userDoc, sessions);
+      await this.dbAuth.deauthorizeUser(userDoc, sessions);
       if (op === Cleanup.expired || op === Cleanup.other) {
         sessions.forEach(session => {
           delete userDoc.session[session];
@@ -1366,7 +1361,7 @@ export class User {
     }
     Object.keys(user.personalDBs).forEach(userdb => {
       if (user.personalDBs[userdb].type === 'private') {
-        promises.push(this.#dbAuth.removeDB(userdb));
+        promises.push(this.dbAuth.removeDB(userdb));
       }
     });
     await Promise.all(promises);
@@ -1379,7 +1374,7 @@ export class User {
    */
   async confirmSession(key: string, password: string) {
     try {
-      const doc = await this.#dbAuth.retrieveKey(key);
+      const doc = await this.dbAuth.retrieveKey(key);
       if (doc.expires > Date.now()) {
         const token: any = doc;
         token._id = token.user_id;
@@ -1389,16 +1384,16 @@ export class User {
         delete token.type;
         delete token._rev;
         delete token.password_scheme;
-        return this.#session.confirmToken(token, password);
+        return this.session.confirmToken(token, password);
       } else {
-        this.#dbAuth.removeKeys(key);
+        this.dbAuth.removeKeys(key);
       }
     } catch {}
     throw Session.invalidMsg;
   }
 
   generateSession(user_uid: string, roles: string[]) {
-    return this.#dbAuth.getApiKey().then(key => {
+    return this.dbAuth.getApiKey().then(key => {
       const now = Date.now();
       return Promise.resolve({
         _id: user_uid,
@@ -1457,7 +1452,7 @@ export class User {
     permissions?: string[]
   ) {
     let userDoc: SlUserDoc;
-    const dbConfig = this.#dbAuth.getDBConfig(dbName, type || 'private');
+    const dbConfig = this.dbAuth.getDBConfig(dbName, type || 'private');
     dbConfig.designDocs = designDocs || dbConfig.designDocs || '';
     dbConfig.permissions = permissions || dbConfig.permissions;
     return this.getUser(login)
@@ -1466,7 +1461,7 @@ export class User {
           return Promise.reject({ status: 404, error: 'User not found' });
         }
         userDoc = result;
-        return this.#dbAuth.addUserDB(
+        return this.dbAuth.addUserDB(
           userDoc,
           dbName,
           dbConfig.designDocs,
@@ -1503,9 +1498,9 @@ export class User {
 
     const processUserDBs = (dbList, type) => {
       dbList.forEach(userDBName => {
-        const dbConfig = this.#dbAuth.getDBConfig(userDBName);
+        const dbConfig = this.dbAuth.getDBConfig(userDBName);
         promises.push(
-          this.#dbAuth
+          this.dbAuth
             .addUserDB(
               newUser,
               userDBName,
@@ -1546,6 +1541,6 @@ export class User {
 
   /** Cleans up all expired keys from the authentification-DB (`_users`) and superlogin's db. Call this regularily! */
   removeExpiredKeys() {
-    return this.#dbAuth.removeExpiredKeys();
+    return this.dbAuth.removeExpiredKeys();
   }
 }
