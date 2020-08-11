@@ -23,16 +23,6 @@ module.exports = {
           }
         }
       },
-      emailUsername: {
-        map: function (doc) {
-          emit(doc._id, null);
-          if (doc.email) {
-            emit(doc.email, null);
-          } else if (doc.unverifiedEmail.email) {
-            emit(doc.unverifiedEmail.email, null);
-          }
-        }
-      },
       passwordReset: {
         map: function (doc) {
           if (doc.forgotPassword && doc.forgotPassword.token) {
