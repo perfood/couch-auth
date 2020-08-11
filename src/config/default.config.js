@@ -51,6 +51,14 @@ module.exports = {
         '../../templates/email/modified-password.ejs'
       ),
       format: 'text'
+    },
+    forgotUsername: {
+      subject: 'Your username request',
+      template: path.join(
+        __dirname,
+        '../../templates/email/forgot-username.ejs'
+      ),
+      format: 'text'
     }
   }
 };
