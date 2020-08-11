@@ -9,6 +9,10 @@ import { Request } from 'express';
 import URLSafeBase64 from 'urlsafe-base64';
 import { v4 as uuidv4 } from 'uuid';
 
+// regexp from https://emailregex.com/
+export const EMAIL_REGEXP = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+export const USER_REGEXP = /^[a-z0-9_-]{3,16}$/;
+
 export function URLSafeUUID() {
   return URLSafeBase64.encode(uuidv4(null, Buffer.alloc(16)));
 }

@@ -1,14 +1,14 @@
 'use strict';
 import {
   arrayUnion,
-  capitalizeFirstLetter,
+  EMAIL_REGEXP,
   getExpiredSessions,
   getSessions,
-  getSuitableBaseName,
   hashToken,
   hyphenizeUUID,
   removeHyphens,
-  URLSafeUUID
+  URLSafeUUID,
+  USER_REGEXP
 } from './util';
 import {
   CouchDbAuthDoc,
@@ -21,11 +21,11 @@ import {
   SlUserDoc,
   SlUserNew
 } from './types/typings';
-import { validate as isUUID, v4 as uuidv4 } from 'uuid';
 import Model, { Sofa } from '@sl-nx/sofa-model';
 
 import { ConfigHelper } from './config/configure';
 import { DBAuth } from './dbauth';
+import { DbManager } from './user/DbManager';
 import { DocumentScope } from 'nano';
 import { EventEmitter } from 'events';
 import { Hashing } from './hashing';
@@ -34,10 +34,8 @@ import merge from 'deepmerge';
 import { Request } from 'express';
 import { Session } from './session';
 import url from 'url';
+import { v4 as uuidv4 } from 'uuid';
 
-// regexp from https://emailregex.com/
-const EMAIL_REGEXP = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-const USER_REGEXP = /^[a-z0-9_-]{3,16}$/;
 enum Cleanup {
   'expired' = 'expired',
   'other' = 'other',
@@ -51,6 +49,7 @@ enum ValidErr {
 
 export class User {
   private dbAuth: DBAuth;
+  private userDbManager: DbManager;
   private session: Session;
   private onCreateActions;
   private onLinkActions;
@@ -84,6 +83,7 @@ export class User {
     this.onLinkActions = [];
     this.hasher = new Hashing(config.config);
     this.session = new Session(this.hasher);
+    this.userDbManager = new DbManager(userDB, config.config);
 
     // Token valid for 24 hours by default
     // Forget password token life
@@ -282,71 +282,16 @@ export class User {
     return promise;
   }
 
-  getMatchingIdentifier(login: string) {
-    if (
-      this.config.config.local.uuidLogin &&
-      [32, 36].includes(login.length) &&
-      !login.includes('@')
-    ) {
-      const testStr = login.length === 32 ? hyphenizeUUID(login) : login;
-      if (isUUID(testStr)) {
-        return '_id';
-      }
-    } else if (
-      this.config.config.local.usernameLogin &&
-      USER_REGEXP.test(login)
-    ) {
-      return 'key';
-    } else if (EMAIL_REGEXP.test(login)) {
-      return 'email';
-    }
-    return undefined;
-  }
-
-  getUserByUUID(uuid: string) {
-    return this.userDB.get(removeHyphens(uuid)).catch(err => {
-      if (err.status === 404) {
-        return null;
-      } else {
-        return Promise.reject(err);
-      }
-    });
-  }
-
-  /** returns the `SlUserDoc`, if found, else `null`. */
-  private getUserBy(
-    identifier: '_id' | 'email' | 'key',
-    login: string
-  ): Promise<SlUserDoc> {
-    if (identifier === '_id') {
-      return this.getUserByUUID(login);
-    }
-    return this.userDB
-      .view('auth', identifier, { key: login, include_docs: true })
-      .then(results => {
-        if (results.rows.length > 0) {
-          return Promise.resolve(results.rows[0].doc);
-        } else {
-          return Promise.resolve(null);
-        }
-      });
-  }
-
   /**
    * retrieves by email (default) or username or uuid if the config options are
    * set. Rejects if no valid format.
    */
   getUser(login: string): Promise<SlUserDoc | null> {
-    const identifier = this.getMatchingIdentifier(login);
-    if (!identifier) {
-      console.log('no matching identifier for login: ', login);
-      return Promise.reject({ error: 'Bad request', status: 400 });
-    }
-    return this.getUserBy(identifier, login);
+    return this.userDbManager.getUser(login);
   }
 
   async handleEmailExists(email: string): Promise<void> {
-    const existingUser = await this.getUserBy('email', email);
+    const existingUser = await this.userDbManager.getUserBy('email', email);
     await this.mailer.sendEmail('signupExistingEmail', email, {
       user: existingUser
     });
@@ -401,7 +346,7 @@ export class User {
     newUser._id = removeHyphens(uid);
     if (this.emailUsername) {
       const base = newUser.email.split('@')[0].toLowerCase();
-      newUser.key = await this.generateUsername(base);
+      newUser.key = await this.userDbManager.generateUsername(base);
     }
     if (this.config.getItem('local.sendConfirmEmail')) {
       newUser.unverifiedEmail = {
@@ -418,7 +363,7 @@ export class User {
       timestamp: new Date().toISOString()
     };
     newUser = await this.addUserDBs(newUser as SlUserDoc);
-    newUser = await this.logActivity(
+    newUser = await this.userDbManager.logActivity(
       newUser._id,
       'signup',
       'local',
@@ -443,7 +388,8 @@ export class User {
   }
 
   /**
-   * Creates a new user following authentication from an OAuth provider. If the user already exists it will update the profile.
+   * Creates a new user following authentication from an OAuth provider.
+   * If the user already exists it will update the profile.
    * @param {string} provider the name of the provider in lowercase, (e.g. 'facebook')
    * @param {any} auth credentials supplied by the provider
    * @param {any} profile the profile supplied by the provider
@@ -505,7 +451,9 @@ export class User {
             if (err) {
               return emailFail();
             }
-            return Promise.resolve(this.generateUsername(baseUsername));
+            return Promise.resolve(
+              this.userDbManager.generateUsername(baseUsername)
+            );
           });
         }
       })
@@ -528,7 +476,12 @@ export class User {
       })
       .then(userDoc => {
         action = newAccount ? 'signup' : 'login';
-        return this.logActivity(userDoc._id, action, provider, userDoc);
+        return this.userDbManager.logActivity(
+          userDoc._id,
+          action,
+          provider,
+          userDoc
+        );
       })
       .then(userDoc => {
         if (newAccount) {
@@ -562,88 +515,19 @@ export class User {
     auth,
     profile
   ): Promise<SlUserDoc> {
-    let user: SlUserDoc;
-    // Load user doc
-    const results = await this.userDB.view('auth', provider, {
-      key: profile.id,
-      include_docs: true
-    });
-    if (results.rows.length === 0) {
-      user = await this.getUser(login);
-    } else {
-      user = results.rows[0].doc;
-      const match = this.getMatchingIdentifier(login);
-      if (match === '_id') {
-        login = removeHyphens(login);
-      }
-      if (user[match] !== login) {
-        return Promise.reject({
-          error: 'Conflict',
-          message:
-            'This ' +
-            provider +
-            ' profile is already in use by another account.',
-          status: 409
-        });
-      }
-    }
-    // Check for conflicting provider
-    if (user[provider] && user[provider].profile.id !== profile.id) {
-      return Promise.reject({
-        error: 'Conflict',
-        message:
-          'Your account is already linked with another ' +
-          provider +
-          'profile.',
-        status: 409
-      });
-    }
-    // Check email for conflict
-    if (profile.emails) {
-      const mailResults = await this.userDB.view('auth', 'email', {
-        key: profile.emails[0].value,
-        include_docs: true
-      });
-      if (mailResults.rows.length > 0) {
-        const match = this.getMatchingIdentifier(login);
-        if (match === '_id') {
-          login = removeHyphens(login);
-        }
-        if (mailResults.rows.some(row => row.doc[match] !== login)) {
-          throw {
-            error: 'Conflict',
-            message:
-              'The email ' +
-              profile.emails[0].value +
-              ' is already in use by another account.',
-            status: 409
-          };
-        }
-      }
-    }
-
-    // Insert provider info
-    user[provider] = {};
-    user[provider].auth = auth;
-    user[provider].profile = profile;
-    if (!user.providers) {
-      user.providers = [];
-    }
-    if (user.providers.indexOf(provider) === -1) {
-      user.providers.push(provider);
-    }
-    if (!user.name) {
-      user.name = profile.displayName;
-    }
-    delete user[provider].profile._raw;
-    const userDoc = await this.logActivity(user._id, 'link', provider, user);
+    const userDoc = await this.userDbManager.initLinkSocial(
+      login,
+      provider,
+      auth,
+      profile
+    );
     const finalUser = await this.processTransformations(
       this.onLinkActions,
       userDoc,
       provider
     );
     await this.userDB.insert(finalUser);
-    return user;
+    return finalUser;
   }
 
   /**
@@ -653,60 +537,7 @@ export class User {
    * @param {string} provider
    */
   unlink(user_id, provider) {
-    let user;
-    return this.getUser(user_id)
-      .then(theUser => {
-        if (!theUser) {
-          return Promise.reject({
-            error: 'Bad Request',
-            message: 400
-          });
-        }
-        user = theUser;
-        if (!provider) {
-          return Promise.reject({
-            error: 'Unlink failed',
-            message: 'You must specify a provider to unlink.',
-            status: 400
-          });
-        }
-        // We can only unlink if there are at least two providers
-        if (
-          !user.providers ||
-          !(user.providers instanceof Array) ||
-          user.providers.length < 2
-        ) {
-          return Promise.reject({
-            error: 'Unlink failed',
-            message: "You can't unlink your only provider!",
-            status: 400
-          });
-        }
-        // We cannot unlink local
-        if (provider === 'local') {
-          return Promise.reject({
-            error: 'Unlink failed',
-            message: "You can't unlink local.",
-            status: 400
-          });
-        }
-        // Check that the provider exists
-        if (!user[provider] || typeof user[provider] !== 'object') {
-          return Promise.reject({
-            error: 'Unlink failed',
-            message:
-              'Provider: ' + capitalizeFirstLetter(provider) + ' not found.',
-            status: 404
-          });
-        }
-        delete user[provider];
-        // Remove the unlinked provider from the list of providers
-        user.providers.splice(user.providers.indexOf(provider), 1);
-        return this.userDB.insert(user);
-      })
-      .then(() => {
-        return Promise.resolve(user);
-      });
+    return this.userDbManager.unlink(user_id, provider);
   }
 
   /**
@@ -719,7 +550,7 @@ export class User {
     byUUID = false
   ): Promise<SlLoginSession> {
     let user = byUUID
-      ? await this.getUserByUUID(login)
+      ? await this.userDbManager.getUserByUUID(login)
       : await this.getUser(login);
     if (!user) {
       console.log('createSession - could not retrieve: ', login);
@@ -762,7 +593,12 @@ export class User {
       user.local.failedLoginAttempts = 0;
       delete user.local.lockedUntil;
     }
-    const userDoc = await this.logActivity(user_uid, 'login', provider, user);
+    const userDoc = await this.userDbManager.logActivity(
+      user_uid,
+      'login',
+      provider,
+      user
+    );
     // Clean out expired sessions on login
     const finalUser = await this.logoutUserSessions(userDoc, Cleanup.expired);
     user = finalUser;
@@ -810,74 +646,7 @@ export class User {
 
   /** returns `true` if user is now locked. */
   handleFailedLogin(user: SlUserDoc, req: Partial<Request>): Promise<boolean> {
-    req = req || {};
-    const maxFailedLogins = this.config.getItem('security.maxFailedLogins');
-    if (!maxFailedLogins) {
-      return Promise.resolve(false);
-    }
-    if (!user.local) {
-      user.local = {};
-    }
-    if (!user.local.failedLoginAttempts) {
-      user.local.failedLoginAttempts = 0;
-    }
-    user.local.failedLoginAttempts++;
-    if (user.local.failedLoginAttempts > maxFailedLogins) {
-      user.local.failedLoginAttempts = 0;
-      user.local.lockedUntil =
-        Date.now() + this.config.getItem('security.lockoutTime') * 1000;
-    }
-    return this.logActivity(user._id, 'failed login', 'local', user)
-      .then(finalUser => {
-        return this.userDB.insert(finalUser);
-      })
-      .then(() => {
-        return Promise.resolve(!!user.local.lockedUntil);
-      });
-  }
-
-  logActivity(
-    user_id: string,
-    action: string,
-    provider: string,
-    userDoc: SlUserDoc,
-    saveDoc?: boolean
-  ): Promise<SlUserDoc> {
-    const logSize = this.config.getItem('security.userActivityLogSize');
-    if (!logSize) {
-      return Promise.resolve(userDoc);
-    }
-    let promise;
-    if (userDoc) {
-      promise = Promise.resolve(userDoc);
-    } else {
-      if (saveDoc !== false) {
-        saveDoc = true;
-      }
-      promise = this.userDB.get(user_id);
-    }
-    return promise.then(theUser => {
-      userDoc = theUser;
-      if (!userDoc.activity || !(userDoc.activity instanceof Array)) {
-        userDoc.activity = [];
-      }
-      const entry = {
-        timestamp: new Date().toISOString(),
-        action: action,
-        provider: provider
-      };
-      userDoc.activity.unshift(entry);
-      while (userDoc.activity.length > logSize) {
-        userDoc.activity.pop();
-      }
-      if (saveDoc) {
-        return this.userDB.insert(userDoc).then(() => {
-          return Promise.resolve(userDoc);
-        });
-      } else {
-        return Promise.resolve(userDoc);
-      }
-    });
+    return this.userDbManager.handleFailedLogin(user, req);
   }
 
   /**
@@ -887,7 +656,7 @@ export class User {
    * - handle error if invalid state occurs that doc is not present.
    */
   async refreshSession(key: string): Promise<SlRefreshSession> {
-    const userDoc = await this.findUserDocBySession(key);
+    const userDoc = await this.userDbManager.findUserDocBySession(key);
     userDoc.session[key].expires = Date.now() + this.sessionLife * 1000;
     // Clean out expired sessions on refresh
     const finalUser = await this.logoutUserSessions(userDoc, Cleanup.expired);
@@ -960,7 +729,12 @@ export class User {
             'verified via password reset'
           );
         }
-        return this.logActivity(user._id, 'reset password', 'local', user);
+        return this.userDbManager.logActivity(
+          user._id,
+          'reset password',
+          'local',
+          user
+        );
       })
       .then(finalUser => this.userDB.insert(finalUser))
       .then(() => this.sendModifiedPasswordEmail(user, req))
@@ -1024,7 +798,8 @@ export class User {
     }
     req = req || {};
     let user: SlUserDoc;
-    return this.getUserBy('email', email)
+    return this.userDbManager
+      .getUserBy('email', email)
       .then(user => {
         if (!user) {
           return Promise.reject({
@@ -1084,7 +859,12 @@ export class User {
         if (user.providers.indexOf('local') === -1) {
           user.providers.push('local');
         }
-        return this.logActivity(user._id, 'changed password', 'local', user);
+        return this.userDbManager.logActivity(
+          user._id,
+          'changed password',
+          'local',
+          user
+        );
       })
       .then(finalUser => this.userDB.insert(finalUser))
       .then(() => this.sendModifiedPasswordEmail(user, req))
@@ -1111,14 +891,16 @@ export class User {
     }
     req = req || {};
     let user: SlUserDoc, token, tokenHash;
-    return this.getUserBy('email', email)
-      .then(user => {
-        if (!user) {
+    return this.userDbManager
+      .getUserBy('email', email)
+      .then(res => {
+        if (!res) {
           return Promise.reject({
             error: 'User not found',
             status: 404
           });
         }
+        user = res;
         token = URLSafeUUID();
         if (this.config.getItem('local.tokenLengthOnReset')) {
           token = token.substring(
@@ -1132,7 +914,12 @@ export class User {
           issued: Date.now(),
           expires: Date.now() + this.tokenLife * 1000
         };
-        return this.logActivity(user._id, 'forgot password', 'local', user);
+        return this.userDbManager.logActivity(
+          user._id,
+          'forgot password',
+          'local',
+          user
+        );
       })
       .then(finalUser => {
         return this.userDB.insert(finalUser);
@@ -1178,7 +965,12 @@ export class User {
     userDoc.email = userDoc.unverifiedEmail.email;
     delete userDoc.unverifiedEmail;
     this.emitter.emit('email-verified', userDoc);
-    return await this.logActivity(userDoc.key, logInfo, 'local', userDoc);
+    return await this.userDbManager.logActivity(
+      userDoc.key,
+      logInfo,
+      'local',
+      userDoc
+    );
   }
 
   async changeEmail(login: string, newEmail: string, req: Partial<SlRequest>) {
@@ -1218,25 +1010,13 @@ export class User {
       user.email = newEmail;
     }
     this.emitter.emit('email-changed', user);
-    const finalUser = await this.logActivity(
+    const finalUser = await this.userDbManager.logActivity(
       user._id,
       'changed email',
       req.user.provider,
       user
     );
     return this.userDB.insert(finalUser);
-  }
-
-  async findUserDocBySession(key: string): Promise<SlUserDoc | undefined> {
-    const results = await this.userDB.view('auth', 'session', {
-      key,
-      include_docs: true
-    });
-    if (results.rows.length > 0) {
-      return results.rows[0].doc as SlUserDoc;
-    } else {
-      return undefined;
-    }
   }
 
   async removeUserDB(
@@ -1280,7 +1060,7 @@ export class User {
     if (login) {
       user = await this.getUser(login);
     } else if (session_id) {
-      user = await this.findUserDocBySession(session_id);
+      user = await this.userDbManager.findUserDocBySession(session_id);
     }
     if (!user) {
       return Promise.reject({
@@ -1301,7 +1081,7 @@ export class User {
   async logoutSession(session_id: string) {
     let startSessions = 0;
     let endSessions = 0;
-    let user = await this.findUserDocBySession(session_id);
+    let user = await this.userDbManager.findUserDocBySession(session_id);
     if (!user) {
       throw {
         error: 'unauthorized',
@@ -1355,7 +1135,7 @@ export class User {
   }
 
   async logoutOthers(session_id) {
-    const user = await this.findUserDocBySession(session_id);
+    const user = await this.userDbManager.findUserDocBySession(session_id);
     if (user) {
       if (user.session && user.session[session_id]) {
         const finalUser = await this.logoutUserSessions(
@@ -1456,43 +1236,6 @@ export class User {
         expires: now + this.sessionLife * 1000,
         roles: roles
       });
-    });
-  }
-
-  /**
-   * generates a unique username from the provided E-Mail by taking the prefix,
-   * adjusting the length and adding numbers until a unique database key is
-   * is found.
-   * @param {string} base
-   */
-  generateUsername(base: string) {
-    base = getSuitableBaseName(base);
-    let finalName;
-    const keyQuery = {
-      selector: {
-        key: {
-          $gte: base,
-          $lt: base + '\uffff'
-        }
-      },
-      fields: ['key']
-    };
-    return this.userDB.find(keyQuery).then(results => {
-      if (results.docs.length === 0) {
-        return Promise.resolve(base);
-      }
-      const entries = results.docs.map(r => r.key);
-      if (entries.indexOf(base) === -1) {
-        return Promise.resolve(base);
-      }
-      let num = 0;
-      while (!finalName) {
-        num++;
-        if (entries.indexOf(base + num) === -1) {
-          finalName = base + num;
-        }
-      }
-      return Promise.resolve(finalName);
     });
   }
 
