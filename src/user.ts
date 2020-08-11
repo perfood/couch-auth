@@ -313,7 +313,11 @@ export class User {
     });
   }
 
-  getUserBy(identifier: '_id' | 'email' | 'key', login: string) {
+  /** returns the `SlUserDoc`, if found, else `null`. */
+  private getUserBy(
+    identifier: '_id' | 'email' | 'key',
+    login: string
+  ): Promise<SlUserDoc> {
     if (identifier === '_id') {
       return this.getUserByUUID(login);
     }
@@ -341,7 +345,7 @@ export class User {
     return this.getUserBy(identifier, login);
   }
 
-  async handleEmailExists(email: string) {
+  async handleEmailExists(email: string): Promise<void> {
     const existingUser = await this.getUserBy('email', email);
     await this.mailer.sendEmail('signupExistingEmail', email, {
       user: existingUser
@@ -349,7 +353,7 @@ export class User {
     this.emitter.emit('signup-attempt', existingUser, 'local');
   }
 
-  async createUser(form, req = undefined) {
+  async createUser(form, req = undefined): Promise<void | SlUserDoc> {
     req = req || {};
     let finalUserModel = this.userModel;
     const newUserModel = this.config.getItem('userModel');
@@ -435,7 +439,7 @@ export class User {
       );
     }
     this.emitter.emit('signup', newUser, 'local');
-    return newUser;
+    return newUser as SlUserDoc;
   }
 
   /**
@@ -444,7 +448,7 @@ export class User {
    * @param {any} auth credentials supplied by the provider
    * @param {any} profile the profile supplied by the provider
    */
-  socialAuth(provider, auth, profile) {
+  socialAuth(provider, auth, profile): Promise<SlUserDoc> {
     let user: Partial<SlUserDoc>;
     let newAccount = false;
     let action;
@@ -548,11 +552,16 @@ export class User {
         if (action === 'signup') {
           this.emitter.emit('signup', user, provider);
         }
-        return Promise.resolve(user);
+        return Promise.resolve(user as SlUserDoc);
       });
   }
 
-  async linkSocial(login: string, provider: string, auth, profile) {
+  async linkSocial(
+    login: string,
+    provider: string,
+    auth,
+    profile
+  ): Promise<SlUserDoc> {
     let user: SlUserDoc;
     // Load user doc
     const results = await this.userDB.view('auth', provider, {
@@ -704,7 +713,11 @@ export class User {
    * Creates a new session for a user. provider is the name of the provider. (eg. 'local', 'facebook', twitter.)
    * req is used to log the IP if provided.
    */
-  async createSession(login: string, provider: string, byUUID = false) {
+  async createSession(
+    login: string,
+    provider: string,
+    byUUID = false
+  ): Promise<SlLoginSession> {
     let user = byUUID
       ? await this.getUserByUUID(login)
       : await this.getUser(login);
@@ -795,11 +808,12 @@ export class User {
     return newSession as SlLoginSession;
   }
 
-  handleFailedLogin(user: SlUserDoc, req: Partial<Request>) {
+  /** returns `true` if user is now locked. */
+  handleFailedLogin(user: SlUserDoc, req: Partial<Request>): Promise<boolean> {
     req = req || {};
     const maxFailedLogins = this.config.getItem('security.maxFailedLogins');
     if (!maxFailedLogins) {
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
     if (!user.local) {
       user.local = {};
@@ -871,9 +885,6 @@ export class User {
    * The only field that will change is expires. Expired sessions are removed.
    * todo:
    * - handle error if invalid state occurs that doc is not present.
-   * - I'd need to store salts & derived keys within sl-users as well for staying
-   *   compatible with legacy auth on cloudant
-   * - ensure that ip is removed/ not sent
    */
   async refreshSession(key: string): Promise<SlRefreshSession> {
     const userDoc = await this.findUserDocBySession(key);
@@ -1013,16 +1024,14 @@ export class User {
     }
     req = req || {};
     let user: SlUserDoc;
-    return this.userDB
-      .view('auth', 'email', { key: email, include_docs: true })
-      .then(result => {
-        if (!result.rows.length) {
+    return this.getUserBy('email', email)
+      .then(user => {
+        if (!user) {
           return Promise.reject({
             error: 'User not found',
             status: 404
           });
         }
-        user = result.rows[0].doc;
       })
       .then(() => {
         return this.mailer.sendEmail(
@@ -1102,16 +1111,14 @@ export class User {
     }
     req = req || {};
     let user: SlUserDoc, token, tokenHash;
-    return this.userDB
-      .view('auth', 'email', { key: email, include_docs: true })
-      .then(result => {
-        if (!result.rows.length) {
+    return this.getUserBy('email', email)
+      .then(user => {
+        if (!user) {
           return Promise.reject({
             error: 'User not found',
             status: 404
           });
         }
-        user = result.rows[0].doc;
         token = URLSafeUUID();
         if (this.config.getItem('local.tokenLengthOnReset')) {
           token = token.substring(
