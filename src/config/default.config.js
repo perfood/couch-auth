@@ -26,7 +26,6 @@ module.exports = {
   },
   session: {
     adapter: 'memory',
-    dbFallback: false,
     file: {
       sessionsRoot: '.sessions'
     }

@@ -102,10 +102,6 @@ const userConfig = new Configure({
     password: config.dbServer.password,
     publicURL: 'https://mydb.example.com'
   },
-  session: {
-    adapter: 'memory',
-    dbFallback: true
-  },
   userDBs: {
     defaultSecurityRoles: {
       admins: ['admin_role'],

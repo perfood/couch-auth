@@ -58,7 +58,6 @@ export class User {
   // config flags
   tokenLife: number;
   sessionLife: number;
-  useDbFallback: boolean;
   emailUsername: boolean;
 
   passwordConstraints;
@@ -90,7 +89,6 @@ export class User {
     this.tokenLife = config.getItem('security.tokenLife') || 86400;
     // Session token life
     this.sessionLife = config.getItem('security.sessionLife') || 86400;
-    this.useDbFallback = config.getItem('session.dbFallback');
     this.emailUsername = config.getItem('local.emailUsername');
     this.passwordConstraints = {
       presence: true,

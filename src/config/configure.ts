@@ -13,9 +13,6 @@ export class ConfigHelper {
 
   /** Verifies the config against some incompatible settings */
   verifyConfig() {
-    if (this.config.dbServer?.cloudant && this.getItem('session.dbFallback')) {
-      throw 'dbFallback is only implemented for CouchDB.';
-    }
     if (
       this.config.dbServer?.iamApiKey &&
       (this.config.dbServer?.password || process.env.CLOUDANT_PASS)

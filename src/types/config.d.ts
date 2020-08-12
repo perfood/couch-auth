@@ -123,30 +123,6 @@ export interface DBServerConfig {
   couchAuthDB: string;
 }
 
-export interface RedisConfig {
-  // If url is supplied, port and host will be ignored
-  url: string;
-  port: number;
-  host: string;
-  // If a UNIX domain socket is specified, port, host and url will be ignored
-  unix_socket: string;
-  options: any;
-  password: string;
-}
-
-export interface SessionConfig {
-  adapter: 'memory' | 'redis' | 'file';
-  /**
-   * check CouchDB when a session is not present in the adapter. Should only be used for local development or if
-   * redis was down. Cannot be used with Cloudant. Default: false
-   */
-  dbFallback?: boolean;
-  file?: {
-    sessionsRoot: string;
-  };
-  redis?: RedisConfig;
-}
-
 export interface EmailTemplate {
   subject: string;
   template?: string;
@@ -260,7 +236,6 @@ export interface Config {
   testMode: TestConfig;
   security: SecurityConfig;
   local: LocalConfig;
-  session: SessionConfig;
   dbServer: DBServerConfig;
   emails: TemplateConfig;
   // Custom settings to manage personal databases for your users
