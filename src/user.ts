@@ -319,6 +319,7 @@ export class User {
       newUser = await user.process();
     } catch (err) {
       if (
+        err.email &&
         this.emailUsername &&
         this.config.getItem('local.requireEmailConfirm')
       ) {
