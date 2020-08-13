@@ -337,7 +337,8 @@ export function getSuitableBaseName(base: string, min = 3, max = 13) {
   if (base.length < min) {
     base = base.padEnd(min - 1, '_');
     base += '0';
+  } else {
+    base = base.substring(0, newLen);
   }
-  base = base.substring(0, newLen);
   return base;
 }
