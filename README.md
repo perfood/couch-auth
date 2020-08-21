@@ -18,6 +18,7 @@ The current status will become the 1.0 branch soon and be maintenance only. A ne
 - E-Mail only signup instead of usernames is encouraged
 - no more account-guessing via forgotpass, login or signup
 - no more IP logging
+- might remove `lockoutTime` and `maxFailedLogins` because it causes more harm (conflicts, name guessing) than good and should be handled via rate limiting instead.
 
 For issues and feature requests visit the [issue tracker](https://github.com/sl-nx/superlogin/issues).
 
