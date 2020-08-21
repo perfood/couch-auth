@@ -15,10 +15,9 @@ The current status will become the 1.0 branch soon and be maintenance only. A ne
 - The adapters will no longer be used and the `session` route becomes deprecated
 - db and doc ids will no longer include PII, but be UUIDs instead. Will require manual migration via replication.
 - `validate-x` routes and cloudant legacy auth become deprecated
-- new users can only signup with e-mail and not with username
+- E-Mail only signup instead of usernames is encouraged
 - no more account-guessing via forgotpass, login or signup
 - no more IP logging
-- EventEmmitter functionality might be removed
 
 For issues and feature requests visit the [issue tracker](https://github.com/sl-nx/superlogin/issues).
 
@@ -55,13 +54,13 @@ User authentication is often the hardest part of building any web app, especiall
 - Facebook, WindowsLive, Google, Github, and LinkedIn integration fully tested
 - Link multiple authentication strategies to the same account for user convenience
 - 100% cookie free, which means that [CSRF](<https://www.owasp.org/index.php/Cross-Site_Request_Forgery_(CSRF)_Prevention_Cheat_Sheet>) attacks are impossible against your app
-- Fast and massively scalable with a Redis session store
+- ~Fast and massively scalable with a Redis session store~ -> CouchDB does is own caching and this isn't really needed for offline-first apps.
 - Provides seamless token access to both your CouchDB server (or Cloudant) and your private API
 - Manages permissions on an unlimited number of private or shared user databases and seeds them with the correct design documents
 
 ## Client Tools and Demo
 
-Todo: also fork & host the demos :)
+Todo: host a demo, provide postman collection
 
 - [NG-SuperLogin](https://github.com/colinskow/ng-superlogin)
   Helps you easily integrate a SuperLogin backend into your single page AngularJS applications.
@@ -76,7 +75,7 @@ Todo: also fork & host the demos :)
 
 Simply authenticate yourself with SuperLogin using any supported strategy and you will be issued a temporary access token and password. Then include the access token and password in an Authorization Bearer header on every request to access protected endpoints. The same credentials will authenticate you on any CouchDB or Cloudant database you have been authorized to use.
 
-Session storage is handled by Redis for production environments, but SuperLogin includes a memory adapter for testing purposes. When you logout or the token expires, your session is invalidated and those credentials are also removed from any database you had access to.
+~Session storage is handled by Redis for production environments, but SuperLogin includes a memory adapter for testing purposes.~ When you logout or the token expires, your session is invalidated and those credentials are also removed from any database you had access to.
 
 ## Quick Start
 
@@ -363,11 +362,11 @@ Resets the password. Required fields: `token`, `password`, and `confirmPassword`
 
 Authentication required. Changes the user's password or creates one if it doesn't exist. Required fields: `newPassword`, and `confirmPassword`. If the user already has a password set then `currentPassword` is required.
 
-##### `GET /validate-username/{username}`
+##### `GET /validate-username/{username}` (_deprecated_)
 
 Checks a username to make sure it is correctly formed and not already in use. Responds with status 200 if successful, or status 409 if unsuccessful.
 
-##### `GET /validate-email/{email}`
+##### `GET /validate-email/{email}` (_deprecated_)
 
 Checks an email to make sure it is valid and not already in use. Responds with status 200 if successful, or status 409 if unsuccessful.
 
@@ -377,7 +376,8 @@ Authentication required. Changes the user's email. Required field: `newEmail`.
 
 ##### `GET /session`
 
-Returns information on the current session if it is valid. Otherwise you will get a 401 unauthorized response.
+Returns information on the current session if it is valid. Otherwise you will get a 401 unauthorized response. 
+With 2.0, this route shouldn't be used anymore but is still present for backwards compatibility. You should handle session expiration dates on client side, simply try to connect with the Database and handle 401/403 responses accordingly.
 
 ##### `GET /{provider}`
 
@@ -594,7 +594,7 @@ Renders an email and sends it out. Server settings are specified under `mailer` 
 - `email`: the email address that the email
 - `locals`: local variables that will be passed into the ejs template to be rendered
 
-##### `superlogin.quitRedis()`
+##### `superlogin.quitRedis()` (deprecated)
 
 Quits Redis if that is the session adapter you are using. This is useful for cleanup when your server shuts down.
 
