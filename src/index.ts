@@ -1,11 +1,6 @@
 'use strict';
 import { addProvidersToDesignDoc, loadCouchServer } from './util';
-import {
-  CouchDbAuthDoc,
-  HashResult,
-  LocalHashObj,
-  SlUserDoc
-} from './types/typings';
+import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
 import { DocumentScope, ServerScope as NanoServer } from 'nano';
 import express, { Router } from 'express';
 import { Authenticator } from 'passport';

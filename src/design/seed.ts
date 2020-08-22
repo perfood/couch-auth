@@ -22,7 +22,7 @@ THE SOFTWARE.
 */
 
 import {
-  DocumentInsertResponse,
+  DocumentBulkResponse,
   DocumentScope,
   IdentifiedDocument,
   MaybeIdentifiedDocument,
@@ -98,7 +98,7 @@ export default async function seed(db: DocumentScope<any>, design: any) {
         return local[key];
       });
 
-    let result: DocumentInsertResponse[] | boolean = false;
+    let result: DocumentBulkResponse[] | boolean = false;
     if (update.length > 0) {
       result = await db.bulk({ docs: update });
     }
