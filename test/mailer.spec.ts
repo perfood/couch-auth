@@ -1,9 +1,8 @@
 'use strict';
-const path = require('path');
-const expect = require('chai').expect;
-
-const Configure = require('../lib/config/configure').ConfigHelper;
-const Mailer = require('../lib/mailer').Mailer;
+import { ConfigHelper as Configure } from '../src/config/configure';
+import { expect } from 'chai';
+import { Mailer } from '../src/mailer';
+import path from 'path';
 
 const mailerTestConfig = new Configure({
   testMode: {

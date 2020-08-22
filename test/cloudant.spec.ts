@@ -1,9 +1,9 @@
 'use strict';
-const expect = require('chai').expect;
-const CloudantAdapter = require('../lib/dbauth/cloudant').CloudantAdapter;
+import { CloudantAdapter } from '../src/dbauth/cloudant';
+import { expect } from 'chai';
+import { getCloudantURL } from '../src/util';
 const cloudant = new CloudantAdapter();
-const utils = require('../lib/util');
-const nano = require('nano')(utils.getCloudantURL());
+const nano = require('nano')(getCloudantURL());
 const testDBName = 'temp_test';
 /** @type {import('nano').DocumentScope<any>} */
 let testDB;

@@ -21,8 +21,17 @@ module.exports = {
     usernameField: 'username',
     passwordField: 'password',
     emailUsername: true,
+    emailLogin: true
+    /** // todo: activate like this!
+    requireEmailConfirm: true,
+    sendConfirmEmail: true,
+    requirePasswordOnEmailChange: false,
+    sendPasswordChangedEmail: true,
+    usernameLogin: false,
+    uuidLogin: false,
     emailLogin: true,
-    requireEmailConfirm: true
+    emailUsername: true
+    */
   },
   session: {
     adapter: 'memory',

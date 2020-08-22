@@ -1,19 +1,16 @@
-'use strict';
-const nano = require('nano');
-const request = require('superagent');
-const chai = require('chai');
-const sinon = require('sinon');
-const expect = chai.expect;
+import chai, { expect } from 'chai';
+import { getDBURL } from '../lib/util';
+import nano from 'nano';
+import request from 'superagent';
+import seed from '../lib/design/seed';
+import sinon from 'sinon';
 chai.use(require('sinon-chai'));
-
-const seed = require('../lib/design/seed').default;
-const util = require('../lib/util');
 
 describe('SuperLogin', function () {
   let app;
   /** @type {import('nano').DocumentScope} */
   let userDB;
-  let previous;
+  let previous: Promise<any>;
   let accessToken;
   let accessPass;
   let expireCompare;
@@ -21,7 +18,7 @@ describe('SuperLogin', function () {
 
   const config = require('./test.config');
   const server = 'http://localhost:5000';
-  const dbUrl = util.getDBURL(config.dbServer);
+  const dbUrl = getDBURL(config.dbServer);
   const couch = nano({ url: dbUrl, parseUrl: false });
   const newUser = {
     name: 'Kewl Uzer',
@@ -49,7 +46,7 @@ describe('SuperLogin', function () {
       })
       .then(record => record.docs[0]);
 
-  before(async function () {
+  before(async () => {
     await couch.db.create('sl_test-users');
     await couch.db.create('sl_test-keys');
     userDB = couch.use('sl_test-users');
@@ -58,8 +55,8 @@ describe('SuperLogin', function () {
       userDoc.profile = { name: userDoc.name };
       return Promise.resolve(userDoc);
     });
-
-    previous = seed(userDB, require('../lib/design/user-design'));
+    await seed(userDB, require('../lib/design/user-design.js'));
+    previous = Promise.resolve();
     return previous;
   });
 
@@ -77,6 +74,7 @@ describe('SuperLogin', function () {
 
   it('should create a new user', function () {
     return previous.then(() => {
+      console.log('setup ok');
       return request
         .post(server + '/auth/register')
         .send(newUser)
@@ -334,7 +332,7 @@ describe('SuperLogin', function () {
           .send(newUser2)
           .end(function (error, res) {
             expect(res.status).to.equal(200);
-            expect(res.body.token).to.be.a.string;
+            expect(res.body.token).to.be.string;
             console.log('User created and logged in');
             resolve();
           });
@@ -416,7 +414,7 @@ describe('SuperLogin', function () {
       .then(function () {
         return attemptLogin('nopassword', 'wrongpassword');
       })
-      .then(function (result) {
+      .then(function (result: any) {
         expect(result.status).to.equal(401);
         expect(result.message).to.equal('Invalid username or password');
       });
@@ -427,22 +425,22 @@ describe('SuperLogin', function () {
       .then(function () {
         return attemptLogin('kewluzer', 'wrong');
       })
-      .then(function (result) {
+      .then(function (result: any) {
         expect(result.status).to.equal(401);
         expect(result.message).to.equal('Invalid username or password');
         return attemptLogin('kewluzer', 'wrong');
       })
-      .then(function (result) {
+      .then(function (result: any) {
         expect(result.status).to.equal(401);
         expect(result.message).to.equal('Invalid username or password');
         return attemptLogin('kewluzer', 'wrong');
       })
-      .then(function (result) {
+      .then(function (result: any) {
         expect(result.status).to.equal(401);
         expect(result.message.search('Maximum failed login')).to.equal(0);
         return attemptLogin('kewluzer', 'newpass');
       })
-      .then(function (result) {
+      .then(function (result: any) {
         expect(result.status).to.equal(401);
         expect(
           result.message.search('Your account is currently locked')

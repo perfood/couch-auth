@@ -1,28 +1,28 @@
-'use strict';
-const events = require('events');
-const path = require('path');
-const Configure = require('../lib/config/configure').ConfigHelper;
-const User = require('../lib/user').User;
-const Mailer = require('../lib/mailer').Mailer;
-const util = require('../lib/util');
-const seed = require('../lib/design/seed').default;
-const request = require('superagent');
-const config = require('./test.config.js');
-const nano = require('nano');
-const { v4: uuidv4, validate: isUUID } = require('uuid');
-
-const chai = require('chai');
-const sinon = require('sinon');
-const expect = chai.expect;
+import { addProvidersToDesignDoc, getDBURL, hyphenizeUUID } from '../src/util';
+import chai, { expect } from 'chai';
+import { CouchDbAuthDoc, DocumentScope, SlUserDoc } from '../src/types/typings';
+import { validate as isUUID, v4 as uuidv4 } from 'uuid';
+import { ConfigHelper as Configure } from '../src/config/configure';
+import events from 'events';
+import { Mailer } from '../src/mailer';
+import nano from 'nano';
+import path from 'path';
+import request from 'superagent';
+import seed from '../src/design/seed';
+import sinon from 'sinon';
+import { User } from '../src/user';
 chai.use(require('sinon-chai'));
 
-const dbUrl = util.getDBURL(config.dbServer);
+const config = require('./test.config.js');
+const dbUrl = getDBURL(config.dbServer);
 const couch = nano({ url: dbUrl, parseUrl: false });
 
 const emitter = new events.EventEmitter();
 
-const userDB = couch.db.use('superlogin_test_users');
-const keysDB = couch.db.use('superlogin_test_keys');
+const userDB: DocumentScope<SlUserDoc> = couch.db.use('superlogin_test_users');
+const keysDB: DocumentScope<CouchDbAuthDoc> = couch.db.use(
+  'superlogin_test_keys'
+);
 
 const testUserForm = {
   name: 'Super',
@@ -121,6 +121,7 @@ const userConfig = new Configure({
   },
   providers: {
     facebook: {
+      // @ts-ignore todo: differs from config..
       clientID: 'FAKE_ID',
       clientSecret: 'FAKE_SECRET',
       callbackURL: 'http://localhost:5000/auth/facebook/callback'
@@ -154,7 +155,7 @@ describe('User Model', async function () {
     await couch.db.create('superlogin_test_users');
     await couch.db.create('superlogin_test_keys');
     let userDesign = require('../lib/design/user-design');
-    userDesign = util.addProvidersToDesignDoc(userConfig, userDesign);
+    userDesign = addProvidersToDesignDoc(userConfig, userDesign);
     previous = Promise.resolve();
     return previous
       .then(function () {
@@ -187,7 +188,7 @@ describe('User Model', async function () {
   it('should save a new user', function () {
     const emitterPromise = new Promise(function (resolve) {
       emitter.once('signup', function (user) {
-        expect(isUUID(util.hyphenizeUUID(user._id))).to.be.true;
+        expect(isUUID(hyphenizeUUID(user._id))).to.be.true;
         expect(user.key).to.equal('superuser');
         resolve();
       });
@@ -214,7 +215,7 @@ describe('User Model', async function () {
       })
       .then(function (newUser) {
         verifyEmailToken = newUser.unverifiedEmail.token;
-        expect(isUUID(util.hyphenizeUUID(newUser._id))).to.be.true;
+        expect(isUUID(hyphenizeUUID(newUser._id))).to.be.true;
         expect(newUser.key).to.equal('superuser');
         expect(newUser.roles[0]).to.equal('user');
         expect(newUser.local.salt).to.be.a('string');
@@ -592,7 +593,7 @@ describe('User Model', async function () {
       })
       .then(function (userAfterReset) {
         // It should delete the password reset token completely
-        expect(userAfterReset.forgotPassword).to.be.an.undefined;
+        expect(userAfterReset.forgotPassword).to.be.undefined;
         expect(userAfterReset.activity[0].action).to.equal('reset password');
 
         expect(spySendMail.callCount).to.equal(2);
@@ -839,6 +840,7 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Cleaning expired sessions');
+        // @ts-ignore
         return user.logoutUserSessions(testUser, 'expired');
       })
       .then(function (finalDoc) {
@@ -861,6 +863,7 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Logging out of other sessions');
+        // @ts-ignore
         return userDB.insert(testUser);
       })
       .then(function () {

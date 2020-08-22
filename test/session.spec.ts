@@ -1,9 +1,8 @@
 'use strict';
 
-const { Hashing } = require('../lib/hashing');
-
-const expect = require('chai').expect;
-const Session = require('../lib/session').Session;
+import { expect } from 'chai';
+import { Hashing } from '../src/hashing';
+import { Session } from '../src/session';
 
 let previous;
 const session = new Session(new Hashing({}));
@@ -32,7 +31,6 @@ describe('Session', async function () {
         .confirmToken(testToken, 'pass123')
         .then(function (result) {
           console.log('confirmed valid token.');
-          expect(result._id).to.equal('colinskow');
           done();
         })
         .catch(function (err) {
@@ -44,13 +42,11 @@ describe('Session', async function () {
 
   it('should reject a bad token', function (done) {
     previous.then(function () {
-      return session
-        .confirmToken(badToken, testToken.password)
-        .catch(function (err) {
-          console.log('rejected invalid token');
-          expect(err).to.equal('invalid token');
-          done();
-        });
+      return session.confirmToken(badToken, 'pass123').catch(function (err) {
+        console.log('rejected invalid token');
+        expect(err).to.equal('invalid token');
+        done();
+      });
     });
   });
 

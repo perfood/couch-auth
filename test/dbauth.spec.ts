@@ -1,21 +1,22 @@
 'use strict';
-const seed = require('./../lib/design/seed').default;
-const request = require('superagent');
-const expect = require('chai').expect;
-const nano = require('nano');
-const ConfigHelper = require('../lib/config/configure').ConfigHelper;
-const DBAuth = require('../lib/dbauth').DBAuth;
-const util = require('../lib/util.js');
-const config = require('./test.config.js');
+import { CouchDbAuthDoc, DocumentScope, SlUserDoc } from '../src/types/typings';
+import { ConfigHelper } from '../src/config/configure';
+import { DBAuth } from '../src/dbauth';
+import { expect } from 'chai';
+import { getDBURL } from '../src/util';
+import nano from 'nano';
+import request from 'superagent';
+import seed from '../src/design/seed';
 
-const dbUrl = util.getDBURL(config.dbServer);
+const config = require('./test.config.js');
+const dbUrl = getDBURL(config.dbServer);
 const couch = nano({ url: dbUrl, parseUrl: false });
 
 couch.db.create('cane_test_users');
 couch.db.create('cane_test_keys');
 couch.db.create('cane_test_test');
-const userDB = couch.db.use('cane_test_users');
-const keysDB = couch.db.use('cane_test_keys');
+const userDB: DocumentScope<SlUserDoc> = couch.db.use('cane_test_users');
+const keysDB: DocumentScope<CouchDbAuthDoc> = couch.db.use('cane_test_keys');
 const testDB = couch.db.use('cane_test_test');
 
 const userDesign = require('../lib/design/user-design');
@@ -26,9 +27,8 @@ const testUser = {
 };
 
 const userConfig = new ConfigHelper({
-  test: true,
-  confirmEmail: true,
-  emailFrom: 'noreply@example.com',
+  //confirmEmail: true,
+  //emailFrom: 'noreply@example.com',
   dbServer: {
     protocol: config.dbServer.protocol,
     host: config.dbServer.host,
@@ -156,6 +156,7 @@ describe('DBAuth', () => {
     return previous
       .then(function () {
         return dbAuth.addUserDB(
+          // @ts-ignore
           userDoc,
           'personal',
           ['test'],
@@ -229,7 +230,8 @@ describe('DBAuth', () => {
         // Save the users
         promises.push(userDB.bulk({ docs: [user1, user2] }));
         // Add their personal dbs
-        promises.push(dbAuth.addUserDB(user1, 'expiretest'));
+        // @ts-ignore
+        promises.push(dbAuth.addUserDB(user1, 'expiretest')); // @ts-ignore
         promises.push(dbAuth.addUserDB(user2, 'expiretest'));
         // Store the keys
         promises.push(
