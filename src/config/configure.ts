@@ -1,18 +1,26 @@
 'use strict';
-import { delObjectRef, getObjectRef, setObjectRef } from '../util';
 import { Config } from '../types/config';
+import { defaultConfig } from './default.config';
+import { mergeConfig } from '../util';
 
 export class ConfigHelper {
-  config: Partial<Config>;
-  defaults: Partial<Config>;
+  public config: Partial<Config> = defaultConfig;
 
-  constructor(data: Partial<Config> = {}, defaults: Partial<Config> = {}) {
-    this.config = data;
-    this.defaults = defaults;
+  constructor(data: Partial<Config> = {}) {
+    // Some extra default settings if no config object is specified
+    if (Object.keys(data).length === 0) {
+      this.config.testMode = {
+        noEmail: true,
+        debugEmail: true
+      };
+    } else {
+      this.config = mergeConfig(this.config, data);
+      this.verifyConfig();
+    }
   }
 
   /** Verifies the config against some incompatible settings */
-  verifyConfig() {
+  private verifyConfig() {
     if (
       this.config.dbServer?.iamApiKey &&
       (this.config.dbServer?.password || process.env.CLOUDANT_PASS)
@@ -40,22 +48,5 @@ export class ConfigHelper {
         prev = pair[0];
       }
     }
-  }
-
-  getItem(key: string) {
-    let result = getObjectRef(this.config, key);
-    if (typeof result === 'undefined' || result === null) {
-      result = getObjectRef(this.defaults, key);
-    }
-    return result;
-  }
-
-  setItem(key: string, value: any) {
-    return setObjectRef(this.config, key, value);
-  }
-
-  /** @param {string} key */
-  removeItem(key: string) {
-    return delObjectRef(this.config, key);
   }
 }

@@ -1,4 +1,5 @@
 'use strict';
+import { Config, PersonalDBSettings } from '../types/config';
 import {
   CouchDbAuthDoc,
   DocumentScope,
@@ -8,35 +9,25 @@ import {
 } from '../types/typings';
 import { getSessions, loadCouchServer, toArray, URLSafeUUID } from '../util';
 import { CloudantAdapter } from './cloudant';
-import { ConfigHelper } from '../config/configure';
 import { CouchAdapter } from './couchdb';
-import { PersonalDBSettings } from '../types/config';
 import seed from '../design/seed';
 
 export class DBAuth {
   #adapter: CouchAdapter | CloudantAdapter;
-  #config: ConfigHelper;
-  #userDB: DocumentScope<SlUserDoc>;
   #server: ServerScope;
 
   constructor(
-    config: ConfigHelper,
-    userDB: DocumentScope<SlUserDoc>,
+    private config: Partial<Config>,
+    private userDB: DocumentScope<SlUserDoc>,
     couchAuthDB?: DocumentScope<CouchDbAuthDoc>
   ) {
-    this.#config = config;
-    this.#userDB = userDB;
-    this.#server = loadCouchServer(config.config);
+    this.#server = loadCouchServer(config);
 
-    const cloudant = this.#config.getItem('dbServer.cloudant');
+    const cloudant = this.config.dbServer.cloudant;
     if (cloudant) {
-      this.#adapter = new CloudantAdapter(this.#config.config);
+      this.#adapter = new CloudantAdapter(this.config);
     } else {
-      this.#adapter = new CouchAdapter(
-        couchAuthDB,
-        this.#server,
-        this.#config.config
-      );
+      this.#adapter = new CouchAdapter(couchAuthDB, this.#server, this.config);
     }
   }
 
@@ -72,7 +63,7 @@ export class DBAuth {
 
   /** generates a random token and password (CouchDB) or retrieves from Cloudant */
   getApiKey() {
-    if (this.#config.getItem('dbServer.cloudant')) {
+    if (this.config.dbServer.cloudant) {
       return (this.#adapter as CloudantAdapter).getAPIKey();
     } else {
       let token = URLSafeUUID();
@@ -113,10 +104,9 @@ export class DBAuth {
       let permissions = personalDBs[personalDB].permissions;
       if (!permissions) {
         permissions =
-          this.#config.getItem(
-            'userDBs.model.' + personalDBs[personalDB].name + '.permissions'
-          ) ||
-          this.#config.getItem('userDBs.model._default.permissions') ||
+          this.config.userDBs.model?.[personalDBs[personalDB].name]
+            ?.permissions ||
+          this.config.userDBs.model?._default?.permissions ||
           [];
       }
       const db = this.#server.use(personalDB);
@@ -146,8 +136,8 @@ export class DBAuth {
     adminRoles = adminRoles || [];
     memberRoles = memberRoles || [];
     // Create and the database and seed it if a designDoc is specified
-    const prefix = this.#config.getItem('userDBs.privatePrefix')
-      ? this.#config.getItem('userDBs.privatePrefix') + '_'
+    const prefix = this.config.userDBs.privatePrefix
+      ? this.config.userDBs.privatePrefix + '_'
       : '';
 
     // new in 2.0: use uuid instead of username
@@ -206,7 +196,7 @@ export class DBAuth {
     const userDocs = {};
     const expiredKeys = [];
     // query a list of expired keys by user
-    const results = await this.#userDB.view('auth', 'expiredKeys', {
+    const results = await this.userDB.view('auth', 'expiredKeys', {
       endkey: Date.now(),
       include_docs: true
     });
@@ -242,7 +232,7 @@ export class DBAuth {
         userUpdates.push(userDocs[user]);
       });
       // 3. save the changes to the SL-doc
-      await this.#userDB.bulk({ docs: userUpdates });
+      await this.userDB.bulk({ docs: userUpdates });
     }
     return expiredKeys;
   }
@@ -271,7 +261,7 @@ export class DBAuth {
       return null;
     }
     let designDoc;
-    let designDocDir = this.#config.getItem('userDBs.designDocDir');
+    let designDocDir = this.config.userDBs.designDocDir;
     if (!designDocDir) {
       designDocDir = __dirname;
     }
@@ -291,19 +281,16 @@ export class DBAuth {
       name: dbName
     };
     dbConfig.adminRoles =
-      this.#config.getItem('userDBs.defaultSecurityRoles.admins') || [];
+      this.config.userDBs?.defaultSecurityRoles?.admins || [];
     dbConfig.memberRoles =
-      this.#config.getItem('userDBs.defaultSecurityRoles.members') || [];
-    const dbConfigRef = 'userDBs.model.' + dbName;
-    if (this.#config.getItem(dbConfigRef)) {
-      dbConfig.permissions =
-        this.#config.getItem(dbConfigRef + '.permissions') || [];
-      dbConfig.designDocs =
-        this.#config.getItem(dbConfigRef + '.designDocs') || [];
-      dbConfig.type =
-        type || this.#config.getItem(dbConfigRef + '.type') || 'private';
-      const dbAdminRoles = this.#config.getItem(dbConfigRef + '.adminRoles');
-      const dbMemberRoles = this.#config.getItem(dbConfigRef + '.memberRoles');
+      this.config.userDBs?.defaultSecurityRoles?.members || [];
+    const dbConfigRef = this.config.userDBs?.model[dbName];
+    if (dbConfigRef) {
+      dbConfig.permissions = dbConfigRef.permissions || [];
+      dbConfig.designDocs = dbConfigRef.designDocs || [];
+      dbConfig.type = type || dbConfigRef.type || 'private';
+      const dbAdminRoles = dbConfigRef.adminRoles;
+      const dbMemberRoles = dbConfigRef.memberRoles;
       if (dbAdminRoles && dbAdminRoles instanceof Array) {
         dbAdminRoles.forEach(role => {
           if (role && dbConfig.adminRoles.indexOf(role) === -1) {
@@ -318,13 +305,13 @@ export class DBAuth {
           }
         });
       }
-    } else if (this.#config.getItem('userDBs.model._default')) {
+    } else if (this.config.userDBs.model?._default) {
       dbConfig.permissions =
-        this.#config.getItem('userDBs.model._default.permissions') || [];
+        this.config.userDBs.model._default.permissions || [];
       // Only add the default design doc to a private database
       if (!type || type === 'private') {
         dbConfig.designDocs =
-          this.#config.getItem('userDBs.model._default.designDocs') || [];
+          this.config.userDBs.model._default.designDocs || [];
       } else {
         dbConfig.designDocs = [];
       }

@@ -44,7 +44,7 @@ const emailUserForm = {
   confirmPassword: 'supercool'
 };
 
-const userConfig = new Configure({
+const userConfigHelper = new Configure({
   testMode: {
     noEmail: true
   },
@@ -134,6 +134,7 @@ const userConfig = new Configure({
     whitelist: ['age', 'zipcode']
   }
 });
+const userConfig = userConfigHelper.config;
 
 const req = {
   headers: {
@@ -945,9 +946,9 @@ describe('User Model', async function () {
   it('should create a new user in userEmail mode', function () {
     return previous
       .then(function () {
-        userConfig.setItem('local.emailUsername', true);
+        userConfig.local.emailUsername = true;
         // Don't create any more userDBs
-        userConfig.removeItem('userDBs.defaultDBs');
+        delete userConfig.userDBs.defaultDBs;
         // Create a new instance of user with the new config
         user = new User(userConfig, userDB, keysDB, mailer, emitter);
         return user.createUser(emailUserForm, req);

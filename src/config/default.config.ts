@@ -1,7 +1,8 @@
-const path = require('path');
+import { Config } from '../types/config';
+import path from 'path';
 
 // These are the default settings that will be used if you don't override them in your config
-module.exports = {
+export const defaultConfig: Config = {
   security: {
     defaultRoles: ['user'],
     maxFailedLogins: 4,
@@ -32,12 +33,6 @@ module.exports = {
     emailLogin: true,
     emailUsername: true
     */
-  },
-  session: {
-    adapter: 'memory',
-    file: {
-      sessionsRoot: '.sessions'
-    }
   },
   dbServer: {
     protocol: 'http://',

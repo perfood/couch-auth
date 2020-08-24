@@ -325,7 +325,7 @@ describe('SuperLogin', function () {
 
   it('should login after creating a new user', function () {
     return previous.then(function () {
-      app.config.setItem('security.loginOnRegistration', true);
+      app.config.security.loginOnRegistration = true;
       return new Promise(function (resolve, reject) {
         request
           .post(server + '/auth/register')

@@ -26,7 +26,7 @@ const testUser = {
   roles: ['admin', 'user']
 };
 
-const userConfig = new ConfigHelper({
+const userConfigHelper = new ConfigHelper({
   //confirmEmail: true,
   //emailFrom: 'noreply@example.com',
   dbServer: {
@@ -41,7 +41,7 @@ const userConfig = new ConfigHelper({
   }
 });
 
-const dbAuth = new DBAuth(userConfig, userDB, keysDB);
+const dbAuth = new DBAuth(userConfigHelper.config, userDB, keysDB);
 
 describe('DBAuth', () => {
   let key, previous;

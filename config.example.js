@@ -2,7 +2,8 @@
 
 const path = require('path');
 
-module.exports = {
+/** @type {import('./src/types/config').Config} */
+const exampleConfig = {
   // Useful settings for testing and debugging your app
   testMode: {
     // Use a stub transport so no email is actually sent
@@ -87,22 +88,6 @@ module.exports = {
     couchAuthDB: '_users',
     // Use this flag instead if you use Cloudant, but with the `_users` - DB and CouchDB's permission system instead
     couchAuthOnCloudant: false
-  },
-  session: {
-    // 'redis' or 'memory'
-    adapter: 'redis',
-    // check CouchDB if a session is not present in the adapter
-    dbFallback: false,
-    redis: {
-      // If url is supplied, port and host will be ignored
-      url: 'redis://user:pass@host:port',
-      port: 6379,
-      host: 'localhost',
-      // If a UNIX domain socket is specified, port, host and url will be ignored
-      unix_socket: '/tmp/echo.sock',
-      options: {},
-      password: process.env.REDIS_PASSWORD
-    }
   },
   mailer: {
     // Email address that all your system emails will be from
@@ -235,3 +220,4 @@ module.exports = {
     }
   }
 };
+module.exports = exampleConfig;

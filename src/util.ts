@@ -159,8 +159,8 @@ export function getSessionToken(req: Request) {
 /**
  * Generates views for each registered provider in the user design doc
  */
-export function addProvidersToDesignDoc(config: ConfigHelper, ddoc: any) {
-  const providers = config.getItem('providers');
+export function addProvidersToDesignDoc(config: Partial<Config>, ddoc: any) {
+  const providers = config.providers;
   if (!providers) {
     return ddoc;
   }
@@ -181,77 +181,17 @@ export function capitalizeFirstLetter(str: string) {
 }
 
 /**
- * Access nested JavaScript objects with string key
- * http://stackoverflow.com/questions/6491463/accessing-nested-javascript-objects-with-string-key
- *
- * @param obj The base object you want to get a reference to
- * @param str The string addressing the part of the object you want
- * @return a reference to the requested key or undefined if not found
+ * adds the nested properties of `source` to `dest`, overwriting present entries
  */
-
-export function getObjectRef(obj: any, str: string) {
-  str = str.replace(/\[(\w+)\]/g, '.$1'); // convert indexes to properties
-  str = str.replace(/^\./, ''); // strip a leading dot
-  const pList = str.split('.');
-  while (pList.length) {
-    const n = pList.shift();
-    if (n in obj) {
-      obj = obj[n];
+export function mergeConfig(dest: any, source: any) {
+  for (const [k, v] of Object.entries(source)) {
+    if (typeof dest[k] === 'object' && !Array.isArray(dest[k])) {
+      dest[k] = mergeConfig(dest[k], source[k]);
     } else {
-      return;
+      dest[k] = v;
     }
   }
-  return obj;
-}
-
-/**
- * Dynamically set property of nested object
- * http://stackoverflow.com/questions/18936915/dynamically-set-property-of-nested-object
- *
- * @param obj The base object you want to set the property in
- * @param str The string addressing the part of the object you want
- * @param val The value you want to set the property to
- * @return the value the reference was set to
- */
-
-export function setObjectRef(obj: Record<string, any>, str: string, val: any) {
-  str = str.replace(/\[(\w+)\]/g, '.$1'); // convert indexes to properties
-  str = str.replace(/^\./, ''); // strip a leading dot
-  const pList = str.split('.');
-  const len = pList.length;
-  for (let i = 0; i < len - 1; i++) {
-    const elem = pList[i];
-    if (!obj[elem]) {
-      obj[elem] = {};
-    }
-    obj = obj[elem];
-  }
-  obj[pList[len - 1]] = val;
-  return val;
-}
-
-/**
- * Dynamically delete property of nested object
- *
- * @param obj The base object you want to set the property in
- * @param str The string addressing the part of the object you want
- * @return true if successful
- */
-
-export function delObjectRef(obj: Record<string, any>, str: string) {
-  str = str.replace(/\[(\w+)\]/g, '.$1'); // convert indexes to properties
-  str = str.replace(/^\./, ''); // strip a leading dot
-  const pList = str.split('.');
-  const len = pList.length;
-  for (let i = 0; i < len - 1; i++) {
-    const elem = pList[i];
-    if (!obj[elem]) {
-      return false;
-    }
-    obj = obj[elem];
-  }
-  delete obj[pList[len - 1]];
-  return true;
+  return dest;
 }
 
 /**

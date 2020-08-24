@@ -34,7 +34,7 @@ const theUser = {
   }
 };
 
-const mailer = new Mailer(mailerTestConfig);
+const mailer = new Mailer(mailerTestConfig.config);
 
 describe('Mailer', function () {
   it('should send a confirmation email', function () {

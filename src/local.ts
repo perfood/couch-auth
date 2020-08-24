@@ -1,6 +1,6 @@
 'use strict';
 import { Authenticator } from 'passport';
-import { ConfigHelper } from './config/configure';
+import { Config } from './types/config';
 import { Strategy as LocalStrategy } from 'passport-local';
 import { Request } from 'express';
 import { SlUserDoc } from './types/typings';
@@ -8,8 +8,8 @@ import { User } from './user';
 
 const BearerStrategy = require('passport-http-bearer-sl').Strategy;
 
-module.exports = function (
-  config: ConfigHelper,
+export default function (
+  config: Partial<Config>,
   passport: Authenticator,
   user: User
 ) {
@@ -41,8 +41,8 @@ module.exports = function (
   passport.use(
     new LocalStrategy(
       {
-        usernameField: config.getItem('local.usernameField') || 'username',
-        passwordField: config.getItem('local.passwordField') || 'password',
+        usernameField: config.local.usernameField || 'username',
+        passwordField: config.local.passwordField || 'password',
         session: false,
         passReqToCallback: true
       },
@@ -69,10 +69,7 @@ module.exports = function (
               user.verifyPassword(theuser.local, password).then(
                 () => {
                   // Check if the email has been confirmed if it is required
-                  if (
-                    config.getItem('local.requireEmailConfirm') &&
-                    !theuser.email
-                  ) {
+                  if (config.local.requireEmailConfirm && !theuser.email) {
                     return done(null, false, {
                       message: 'You must confirm your email address.'
                     });
@@ -117,10 +114,10 @@ module.exports = function (
       if (locked) {
         invalid.message =
           'Maximum failed login attempts exceeded. Your account has been locked for ' +
-          Math.round(config.getItem('security.lockoutTime') / 60) +
+          Math.round(config.security.lockoutTime / 60) +
           ' minutes.';
       }
       return done(null, false, invalid);
     });
   }
-};
+}

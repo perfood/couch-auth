@@ -7,21 +7,18 @@ import {
 import { NextFunction, Request, Response, Router } from 'express';
 
 import { Authenticator } from 'passport';
-import { ConfigHelper } from './config/configure';
+import { Config } from './types/config';
 import { SlRequest } from './types/typings';
 import { User } from './user';
 
-module.exports = function (
-  config: ConfigHelper,
+export default function (
+  config: Partial<Config>,
   router: Router,
   passport: Authenticator,
   user: User
 ) {
   const env = process.env.NODE_ENV || 'development';
-  const requirePass =
-    config.getItem('local.requirePasswordOnEmailChange') === true;
-  const requireConf = config.getItem('local.requireEmailConfirm') === true;
-  const disabled: string[] = config.getItem('security.disabledRoutes');
+  const disabled: string[] = config.security.disabledRoutes;
 
   function loginLocal(req, res, next) {
     passport.authenticate('local', function (err, user, info) {
@@ -150,12 +147,9 @@ module.exports = function (
     ) {
       user.createUser(req.body, req).then(
         function (newUser) {
-          if (!newUser || !config.getItem('security.loginOnRegistration')) {
+          if (!newUser || !config.security.loginOnRegistration) {
             res.status(200).json({ success: 'Request processed.' });
-          } else if (
-            newUser &&
-            config.getItem('security.loginOnRegistration')
-          ) {
+          } else if (newUser && config.security.loginOnRegistration) {
             return user.createSession(newUser._id, 'local', true).then(
               function (mySession) {
                 res.status(200).json(mySession);
@@ -213,7 +207,7 @@ module.exports = function (
     ) {
       user.resetPassword(req.body, req).then(
         function (currentUser) {
-          if (config.getItem('security.loginOnPasswordReset')) {
+          if (config.security.loginOnPasswordReset) {
             return user.createSession(currentUser._id, 'local', true).then(
               function (mySession) {
                 res.status(200).json(mySession);
@@ -273,7 +267,7 @@ module.exports = function (
       res: Response,
       next: NextFunction
     ) {
-      const redirectURL = config.getItem('local.confirmEmailRedirectURL');
+      const redirectURL = config.local.confirmEmailRedirectURL;
       if (!req.params.token) {
         const err = { error: 'Email verification token required' };
         if (redirectURL) {
@@ -354,17 +348,21 @@ module.exports = function (
       '/change-email',
       passport.authenticate('bearer', { session: false }),
       function (req: Request, res: Response, next: NextFunction) {
-        if (requirePass) {
+        if (config.local.requirePasswordOnEmailChange) {
           loginLocal(req, res, next);
         } else {
           next();
         }
       },
       function (req: SlRequest, res: Response, next: NextFunction) {
-        const login = requirePass ? req.user.key : req.user._id;
+        const login = config.local.requirePasswordOnEmailChange
+          ? req.user.key
+          : req.user._id;
         user.changeEmail(login, req.body.newEmail, req).then(
           function () {
-            const info = requireConf ? 'change requested' : 'changed';
+            const info = config.local.requireEmailConfirm
+              ? 'change requested'
+              : 'changed';
             res.status(200).json({ ok: true, success: `Email ${info}` });
           },
           function (err) {
@@ -411,4 +409,4 @@ module.exports = function (
       res.status(err.status || 500).json(err);
     }
   });
-};
+}

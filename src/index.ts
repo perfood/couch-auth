@@ -8,14 +8,13 @@ import { ServerScope as CloudantServer } from '@cloudant/cloudant';
 import { Config } from './types/config';
 import { ConfigHelper } from './config/configure';
 import events from 'events';
+import loadRoutes from './routes';
+import localConfig from './local';
 import { Mailer } from './mailer';
 import { Middleware } from './middleware';
 import { OAuth } from './oauth';
 import seed from './design/seed';
 import { User } from './user';
-
-const loadRoutes = require('./routes');
-const localConfig = require('./local');
 
 export class SuperLogin extends User {
   router: Router;
@@ -36,10 +35,8 @@ export class SuperLogin extends User {
     userDB?: DocumentScope<SlUserDoc>,
     couchAuthDB?: DocumentScope<CouchDbAuthDoc>
   ) {
-    const config = new ConfigHelper(
-      configData,
-      require('./config/default.config')
-    );
+    const configHelper = new ConfigHelper(configData);
+    const config = configHelper.config;
     const router = express.Router();
     const emitter = new events.EventEmitter();
 
@@ -48,32 +45,24 @@ export class SuperLogin extends User {
     }
     const middleware = new Middleware(passport);
 
-    // Some extra default settings if no config object is specified
-    if (!configData) {
-      config.setItem('testMode.noEmail', true);
-      config.setItem('testMode.debugEmail', true);
-    }
-
     // Create the DBs if they weren't passed in
     let server: CloudantServer | NanoServer;
     if (
-      (!userDB && config.getItem('dbServer.userDB')) ||
-      (!couchAuthDB &&
-        config.getItem('dbServer.couchAuthDB') &&
-        !config.getItem('dbServer.cloudant'))
+      (!userDB && config.dbServer.userDB) ||
+      (!couchAuthDB && config.dbServer.couchAuthDB && !config.dbServer.cloudant)
     ) {
-      server = loadCouchServer(config.config);
+      server = loadCouchServer(config);
     }
 
-    if (!userDB && config.getItem('dbServer.userDB')) {
-      userDB = server.use(config.getItem('dbServer.userDB'));
+    if (!userDB && config.dbServer.userDB) {
+      userDB = server.use(config.dbServer.userDB);
     }
     if (
       !couchAuthDB &&
-      config.getItem('dbServer.couchAuthDB') &&
-      !config.getItem('dbServer.cloudant')
+      config.dbServer.couchAuthDB &&
+      !config.dbServer.cloudant
     ) {
-      couchAuthDB = server.use(config.getItem('dbServer.couchAuthDB'));
+      couchAuthDB = server.use(config.dbServer.couchAuthDB);
     }
     if (!userDB || typeof userDB !== 'object') {
       throw new Error(

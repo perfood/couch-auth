@@ -22,8 +22,7 @@ import {
   SlUserNew
 } from './types/typings';
 import Model, { Sofa } from '@sl-nx/sofa-model';
-
-import { ConfigHelper } from './config/configure';
+import { Config } from './types/config';
 import { DBAuth } from './dbauth';
 import { DbManager } from './user/DbManager';
 import { DocumentScope } from 'nano';
@@ -55,11 +54,6 @@ export class User {
   private onLinkActions;
   private hasher: Hashing;
 
-  // config flags
-  tokenLife: number;
-  sessionLife: number;
-  emailUsername: boolean;
-
   passwordConstraints;
   // validation funs. todo: implement via bind...
   validateUsername: Function;
@@ -70,26 +64,21 @@ export class User {
   changePasswordModel: Sofa.AsyncOptions;
 
   constructor(
-    protected config: ConfigHelper,
+    protected config: Partial<Config>,
     protected userDB: DocumentScope<SlUserDoc>,
     couchAuthDB: DocumentScope<CouchDbAuthDoc>,
     protected mailer: Mailer,
     protected emitter: EventEmitter
   ) {
-    const dbAuth = new DBAuth(config, userDB, couchAuthDB);
-    this.dbAuth = dbAuth;
+    this.dbAuth = new DBAuth(config, userDB, couchAuthDB);
     this.onCreateActions = [];
     this.onLinkActions = [];
-    this.hasher = new Hashing(config.config);
+    this.hasher = new Hashing(config);
     this.session = new Session(this.hasher);
-    this.userDbManager = new DbManager(userDB, config.config);
+    this.userDbManager = new DbManager(userDB, config);
 
     // Token valid for 24 hours by default
-    // Forget password token life
-    this.tokenLife = config.getItem('security.tokenLife') || 86400;
     // Session token life
-    this.sessionLife = config.getItem('security.sessionLife') || 86400;
-    this.emailUsername = config.getItem('local.emailUsername');
     this.passwordConstraints = {
       presence: true,
       length: {
@@ -98,7 +87,7 @@ export class User {
       },
       matches: 'confirmPassword'
     };
-    const additionalConstraints = config.getItem('local.passwordConstraints');
+    const additionalConstraints = config.local.passwordConstraints;
     this.passwordConstraints = merge(
       this.passwordConstraints,
       additionalConstraints ? additionalConstraints : {}
@@ -175,7 +164,7 @@ export class User {
       },
       static: {
         type: 'user',
-        roles: config.getItem('security.defaultRoles'),
+        roles: config.security.defaultRoles,
         providers: ['local']
       },
       rename: {
@@ -183,7 +172,7 @@ export class User {
       }
     };
 
-    if (this.emailUsername) {
+    if (this.config.local.emailUsername) {
       delete userModel.validate.username;
     }
     this.userModel = userModel;
@@ -299,7 +288,7 @@ export class User {
   async createUser(form, req = undefined): Promise<void | SlUserDoc> {
     req = req || {};
     let finalUserModel = this.userModel;
-    const newUserModel = this.config.getItem('userModel');
+    const newUserModel = this.config.userModel;
     if (typeof newUserModel === 'object') {
       let whitelist;
       if (newUserModel.whitelist) {
@@ -308,8 +297,11 @@ export class User {
           newUserModel.whitelist
         );
       }
-      const addUserModel = this.config.getItem('userModel');
-      finalUserModel = merge(this.userModel, addUserModel ? addUserModel : {});
+      const addUserModel = this.config.userModel;
+      finalUserModel = merge(
+        this.userModel,
+        addUserModel ? (addUserModel as Sofa.AsyncOptions) : {}
+      );
       finalUserModel.whitelist = whitelist || finalUserModel.whitelist;
     }
     const UserModel = Model(finalUserModel);
@@ -320,8 +312,8 @@ export class User {
     } catch (err) {
       if (
         err.email &&
-        this.emailUsername &&
-        this.config.getItem('local.requireEmailConfirm')
+        this.config.local.emailUsername &&
+        this.config.local.requireEmailConfirm
       ) {
         const inUseIdx = err.email.findIndex((s: string) =>
           s.endsWith(ValidErr.exists)
@@ -339,15 +331,15 @@ export class User {
     }
     const uid = uuidv4();
     // todo: remove, this is just for backwards compat...
-    if (this.config.getItem('local.sendNameAndUUID')) {
+    if (this.config.local.sendNameAndUUID) {
       newUser.user_uid = uid;
     }
     newUser._id = removeHyphens(uid);
-    if (this.emailUsername) {
+    if (this.config.local.emailUsername) {
       const base = newUser.email.split('@')[0].toLowerCase();
       newUser.key = await this.userDbManager.generateUsername(base);
     }
-    if (this.config.getItem('local.sendConfirmEmail')) {
+    if (this.config.local.sendConfirmEmail) {
       newUser.unverifiedEmail = {
         email: newUser.email,
         token: URLSafeUUID()
@@ -375,7 +367,7 @@ export class User {
     );
     const result = await this.userDB.insert(finalNewUser);
     newUser._rev = result.rev;
-    if (this.config.getItem('local.sendConfirmEmail')) {
+    if (this.config.local.sendConfirmEmail) {
       await this.mailer.sendEmail(
         'confirmEmail',
         newUser.unverifiedEmail.email,
@@ -416,7 +408,7 @@ export class User {
             email: profile.emails ? profile.emails[0].value : undefined,
             providers: [provider],
             type: 'user',
-            roles: this.config.getItem('security.defaultRoles'),
+            roles: this.config.security.defaultRoles,
             signUp: {
               provider: provider,
               timestamp: new Date().toISOString()
@@ -610,18 +602,18 @@ export class User {
     if (typeof user.personalDBs === 'object') {
       const userDBs = {};
       let publicURL;
-      if (this.config.getItem('dbServer.publicURL')) {
-        const dbObj = url.parse(this.config.getItem('dbServer.publicURL'));
+      if (this.config.dbServer.publicURL) {
+        const dbObj = url.parse(this.config.dbServer.publicURL);
         dbObj.auth = newSession.token + ':' + newSession.password;
         publicURL = url.format(dbObj);
       } else {
         publicURL =
-          this.config.getItem('dbServer.protocol') +
+          this.config.dbServer.protocol +
           newSession.token +
           ':' +
           newSession.password +
           '@' +
-          this.config.getItem('dbServer.host') +
+          this.config.dbServer.host +
           '/';
       }
       Object.keys(user.personalDBs).forEach(finalDBName => {
@@ -632,8 +624,7 @@ export class User {
     if (user.profile) {
       newSession.profile = user.profile;
     }
-    // New config option: also send user_uid, and name if present
-    if (this.config.getItem('local.sendNameAndUUID')) {
+    if (this.config.local.sendNameAndUUID) {
       if (user.name) {
         newSession.name = user.name;
       }
@@ -656,7 +647,8 @@ export class User {
    */
   async refreshSession(key: string): Promise<SlRefreshSession> {
     const userDoc = await this.userDbManager.findUserDocBySession(key);
-    userDoc.session[key].expires = Date.now() + this.sessionLife * 1000;
+    userDoc.session[key].expires =
+      Date.now() + this.config.security.sessionLife * 1000;
     // Clean out expired sessions on refresh
     const finalUser = await this.logoutUserSessions(userDoc, Cleanup.expired);
     await this.userDB.insert(finalUser);
@@ -873,7 +865,7 @@ export class User {
   }
 
   private sendModifiedPasswordEmail(user, req) {
-    if (this.config.getItem('local.sendPasswordChangedEmail')) {
+    if (this.config.local.sendPasswordChangedEmail) {
       return this.mailer.sendEmail(
         'modifiedPassword',
         user.email || user.unverifiedEmail.email,
@@ -901,17 +893,14 @@ export class User {
         }
         user = res;
         token = URLSafeUUID();
-        if (this.config.getItem('local.tokenLengthOnReset')) {
-          token = token.substring(
-            0,
-            this.config.getItem('local.tokenLengthOnReset')
-          );
+        if (this.config.local.tokenLengthOnReset) {
+          token = token.substring(0, this.config.local.tokenLengthOnReset);
         }
         tokenHash = hashToken(token);
         user.forgotPassword = {
           token: tokenHash, // Store secure hashed token
           issued: Date.now(),
-          expires: Date.now() + this.tokenLife * 1000
+          expires: Date.now() + this.config.security.tokenLife * 1000
         };
         return this.userDbManager.logActivity(
           user._id,
@@ -980,7 +969,7 @@ export class User {
     const emailError = await this.validateEmail(newEmail);
     if (emailError) {
       if (
-        this.config.getItem('local.requireEmailConfirm') &&
+        this.config.local.requireEmailConfirm &&
         emailError === ValidErr.exists
       ) {
         this.emitter.emit('illegal-email-change', login, newEmail);
@@ -993,12 +982,12 @@ export class User {
     if (!user) {
       throw { error: 'Bad Request', status: 400 }; // should exist.
     }
-    if (this.config.getItem('local.sendConfirmEmail')) {
+    if (this.config.local.sendConfirmEmail) {
       user.unverifiedEmail = {
         email: newEmail,
         token: URLSafeUUID()
       };
-      const mailType = this.config.getItem('emails.confirmEmailChange')
+      const mailType = this.config.emails.confirmEmailChange
         ? 'confirmEmailChange'
         : 'confirmEmail';
       await this.mailer.sendEmail(mailType, user.unverifiedEmail.email, {
@@ -1232,7 +1221,7 @@ export class User {
         key: key.key,
         password: key.password,
         issued: now,
-        expires: now + this.sessionLife * 1000,
+        expires: now + this.config.security.sessionLife * 1000,
         roles: roles
       });
     });
@@ -1285,7 +1274,7 @@ export class User {
 
   addUserDBs(newUser: SlUserDoc) {
     // Add personal DBs
-    if (!this.config.getItem('userDBs.defaultDBs')) {
+    if (!this.config.userDBs?.defaultDBs) {
       return Promise.resolve(newUser);
     }
     const promises = [];
@@ -1318,12 +1307,12 @@ export class User {
     };
 
     // Just in case defaultDBs is not specified
-    let defaultPrivateDBs = this.config.config.userDBs?.defaultDBs?.private;
+    let defaultPrivateDBs = this.config.userDBs.defaultDBs.private;
     if (!Array.isArray(defaultPrivateDBs)) {
       defaultPrivateDBs = [];
     }
     processUserDBs(defaultPrivateDBs, 'private');
-    let defaultSharedDBs = this.config.config.userDBs?.defaultDBs?.shared;
+    let defaultSharedDBs = this.config.userDBs.defaultDBs.shared;
     if (!Array.isArray(defaultSharedDBs)) {
       defaultSharedDBs = [];
     }

@@ -4,7 +4,7 @@ import { NextFunction, Request, Response, Router } from 'express';
 import { Authenticator } from 'passport';
 import { callbackify } from 'util';
 import { capitalizeFirstLetter } from './util';
-import { ConfigHelper } from './config/configure';
+import { Config } from './types/config';
 import { join } from 'path';
 import { readFileSync } from 'fs';
 import { render } from 'ejs';
@@ -18,7 +18,7 @@ export class OAuth {
     private router: Router,
     private passport: Authenticator,
     private user: User,
-    private config: ConfigHelper
+    private config: Partial<Config>
   ) {}
 
   // Function to initialize a session following authentication from a socialAuth provider
@@ -36,7 +36,7 @@ export class OAuth {
       .then(
         results => {
           let template;
-          if (this.config.getItem('testMode.oauthTest')) {
+          if (this.config.testMode?.oauthTest) {
             template = readFileSync(
               join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
               'utf8'
@@ -83,7 +83,7 @@ export class OAuth {
       link: provider
     };
     let template;
-    if (this.config.getItem('testMode.oauthTest')) {
+    if (this.config.testMode?.oauthTest) {
       template = readFileSync(
         join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
         'utf8'
@@ -116,7 +116,7 @@ export class OAuth {
     next: NextFunction
   ) {
     let template;
-    if (this.config.getItem('testMode.oauthTest')) {
+    if (this.config.testMode.oauthTest) {
       template = readFileSync(
         join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
         'utf8'
@@ -163,11 +163,11 @@ export class OAuth {
   // Framework to register OAuth providers with passport
   public registerProvider(provider: string, configFunction: Function) {
     provider = provider.toLowerCase();
-    const configRef = 'providers.' + provider;
-    if (this.config.getItem(configRef + '.credentials')) {
-      const credentials = this.config.getItem(configRef + '.credentials');
+    const configRef = this.config.providers[provider];
+    if (configRef.credentials) {
+      const credentials = configRef.credentials;
       credentials.passReqToCallback = true;
-      const options = this.config.getItem(configRef + '.options') || {};
+      const options = configRef.options || {};
       configFunction.call(
         null,
         credentials,
@@ -184,7 +184,7 @@ export class OAuth {
         this.initSession.bind(this),
         this.oauthErrorHandler.bind(this)
       );
-      if (!this.config.getItem('security.disableLinkAccounts')) {
+      if (!this.config.security.disableLinkAccounts) {
         this.router.get(
           '/link/' + provider,
           this.passport.authenticate('bearer', { session: false }),
@@ -238,11 +238,11 @@ export class OAuth {
   // This is for supporting Cordova, native IOS and Android apps, as well as other devices
   public registerTokenProvider(providerName: string, Strategy) {
     providerName = providerName.toLowerCase();
-    const configRef = 'providers.' + providerName;
-    if (this.config.getItem(configRef + '.credentials')) {
-      const credentials = this.config.getItem(configRef + '.credentials');
+    const configRef = this.config.providers[providerName];
+    if (configRef.credentials) {
+      const credentials = configRef.credentials;
       credentials.passReqToCallback = true;
-      const options = this.config.getItem(configRef + '.options') || {};
+      const options = configRef.options || {};
       // Configure the Passport Strategy
       this.passport.use(
         providerName + '-token',
@@ -265,7 +265,7 @@ export class OAuth {
         this.initTokenSession.bind(this),
         this.tokenAuthErrorHandler
       );
-      if (!this.config.getItem('security.disableLinkAccounts')) {
+      if (!this.config.security.disableLinkAccounts) {
         this.router.post(
           '/link/' + providerName + '/token',
           this.passport.authenticate('bearer', { session: false }),
@@ -302,8 +302,7 @@ export class OAuth {
       if (
         accessToken &&
         (OAuth.stateRequired.indexOf(provider) > -1 ||
-          this.config.getItem('providers.' + provider + '.stateRequired') ===
-            true)
+          this.config.providers[provider].stateRequired === true)
       ) {
         theOptions.state = accessToken;
       }
@@ -351,8 +350,7 @@ export class OAuth {
       if (
         accessToken &&
         (OAuth.stateRequired.indexOf(provider) > -1 ||
-          this.config.getItem('providers.' + provider + '.stateRequired') ===
-            true)
+          this.config.providers[provider].stateRequired === true)
       ) {
         reqUrl =
           protocol +

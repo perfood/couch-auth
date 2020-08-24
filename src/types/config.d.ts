@@ -1,8 +1,12 @@
+import { Sofa } from '@sl-nx/sofa-model';
+
 export interface TestConfig {
   /** Use a stub transport so no email is actually sent. Default: false */
   noEmail?: boolean;
   /** Displays debug information in the oauth dialogs. Default: false */
   oauthDebug?: boolean;
+  /** Use the oauth test template */
+  oauthTest?: boolean;
   /** Logs out-going emails to the console. Default: false */
   debugEmail?: boolean;
 }
@@ -103,8 +107,8 @@ export interface DBServerConfig {
   // The CouchDB compatible server where all your databases are stored on
   protocol: 'https://' | 'http://';
   host: string;
-  user: string;
-  password: string;
+  user?: string;
+  password?: string;
   // If the public uses a separate URL from your Node.js server to access the database specify it here.
   // This will be the access URL for all your user's personalDBs
   publicURL?: string;
@@ -130,6 +134,8 @@ export interface DBServerConfig {
    * This is not used when `cloudant` is true, but can be used with
    * `couchStyleAuth` on Cloudant as well. */
   couchAuthDB?: string;
+  /** Directory for the DDocs of user-DBs, as specified by `userDB.designDocs` */
+  designDocDir?: string;
 }
 
 export interface EmailTemplate {
@@ -188,7 +194,7 @@ export interface SecurityRoles {
 }
 
 export interface PersonalDBSettings {
-  /** Array containing name of the design doc files (omitting .js extension), in the directory configured below */
+  /** Array containing name of the design doc files (omitting .js extension), in the directory specified in `designDocDir` */
   designDocs: string[];
   /** these permissions only work with the Cloudant API */
   permissions: string[];
@@ -250,13 +256,19 @@ export interface ProviderConfig {
 }
 
 export interface Config {
-  testMode: Partial<TestConfig>;
-  security: Partial<SecurityConfig>;
-  local: Partial<LocalConfig>;
+  testMode?: Partial<TestConfig>;
+  security?: Partial<SecurityConfig>;
+  local?: Partial<LocalConfig>;
   dbServer: DBServerConfig;
-  mailer: MailerConfig;
-  emails: TemplateConfig;
-  // Custom settings to manage personal databases for your users
-  userDBs: UserDBConfig;
-  providers: { [provider: string]: ProviderConfig };
+  mailer?: MailerConfig;
+  emails?: TemplateConfig;
+  /** Custom settings to manage personal databases for your users */
+  userDBs?: UserDBConfig;
+  providers?: { [provider: string]: ProviderConfig };
+  /**
+   * Anything here will be merged with the default async userModel that
+   * validates your local sign-up form. For details, check the
+   * [Sofa Model documentation](http://github.com/sl-nx/sofa-model)
+   */
+  userModel?: Sofa.Options | Sofa.AsyncOptions;
 }
