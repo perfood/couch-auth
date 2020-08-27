@@ -820,48 +820,40 @@ export class User {
       });
   }
 
-  changePassword(user_id, newPassword, userDoc, req) {
+  async changePassword(
+    user_id: string,
+    newPassword: string,
+    userDoc: SlUserDoc,
+    req
+  ) {
     req = req || {};
-    let promise, user;
-    if (userDoc) {
-      promise = Promise.resolve(userDoc);
-    } else {
-      promise = this.userDB.get(user_id);
+    if (!userDoc) {
+      try {
+        userDoc = await this.userDB.get(user_id);
+      } catch (error) {
+        throw {
+          error: 'User not found',
+          status: 404
+        };
+      }
     }
-    return promise
-      .then(
-        doc => {
-          user = doc;
-          return this.hasher.hashUserPassword(newPassword);
-        },
-        err => {
-          return Promise.reject({
-            error: 'User not found',
-            status: 404
-          });
-        }
-      )
-      .then(hash => {
-        if (!user.local) {
-          user.local = {};
-        }
-        user.local.salt = hash.salt;
-        user.local.derived_key = hash.derived_key;
-        if (user.providers.indexOf('local') === -1) {
-          user.providers.push('local');
-        }
-        return this.userDbManager.logActivity(
-          user._id,
-          'changed password',
-          'local',
-          user
-        );
-      })
-      .then(finalUser => this.userDB.insert(finalUser))
-      .then(() => this.sendModifiedPasswordEmail(user, req))
-      .then(() => {
-        this.emitter.emit('password-change', user);
-      });
+    const hash = await this.hashPassword(newPassword);
+    if (!userDoc.local) {
+      userDoc.local = {};
+    }
+    if (userDoc.providers.indexOf('local') === -1) {
+      userDoc.providers.push('local');
+    }
+    userDoc.local = { ...userDoc.local, ...hash };
+    const finalUser = await this.userDbManager.logActivity(
+      userDoc._id,
+      'changed password',
+      'local',
+      userDoc
+    );
+    await this.userDB.insert(finalUser);
+    await this.sendModifiedPasswordEmail(userDoc, req);
+    this.emitter.emit('password-change', userDoc);
   }
 
   private sendModifiedPasswordEmail(user, req) {
