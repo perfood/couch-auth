@@ -50,21 +50,20 @@ export default function (
         user.getUser(username).then(
           theuser => {
             if (theuser) {
-              // Check if the account is locked
+              // Check if the account is locked. todo: remove this functionality
               if (
                 theuser.local &&
                 theuser.local.lockedUntil &&
                 theuser.local.lockedUntil > Date.now()
               ) {
                 return done(null, false, {
+                  error: 'Unauthorized',
                   message:
                     'Your account is currently locked. Please wait a few minutes and try again.'
                 });
               }
               if (!theuser.local || !theuser.local.derived_key) {
-                return done(null, false, {
-                  message: 'Invalid username or password'
-                });
+                return done(null, false, invalidResponse());
               }
               user.verifyPassword(theuser.local, password).then(
                 () => {
@@ -89,10 +88,7 @@ export default function (
               );
             } else {
               // user not found
-              return done(null, false, {
-                //error: 'Unauthorized',
-                message: 'Invalid username or password'
-              });
+              return done(null, false, invalidResponse());
             }
           },
           err => {
@@ -104,11 +100,15 @@ export default function (
     )
   );
 
-  function handleFailedLogin(userDoc: SlUserDoc, req: Request, done: Function) {
-    const invalid = {
+  function invalidResponse() {
+    return {
       error: 'Unauthorized',
       message: 'Invalid username or password'
     };
+  }
+
+  function handleFailedLogin(userDoc: SlUserDoc, req: Request, done: Function) {
+    const invalid = invalidResponse();
     // @ts-ignore
     return user.handleFailedLogin(userDoc, req).then(locked => {
       if (locked) {

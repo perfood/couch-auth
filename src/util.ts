@@ -2,7 +2,6 @@
 import { Config, DBServerConfig } from './types/config';
 import { DocumentScope, ServerScope, SlUserDoc } from './types/typings';
 import cloudant from '@cloudant/cloudant';
-import { ConfigHelper } from './config/configure';
 import crypto from 'crypto';
 import nano from 'nano';
 import { Request } from 'express';
