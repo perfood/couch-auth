@@ -379,110 +379,77 @@ export class User {
    * @param {any} auth credentials supplied by the provider
    * @param {any} profile the profile supplied by the provider
    */
-  socialAuth(provider, auth, profile): Promise<SlUserDoc> {
+  async socialAuth(provider, auth, profile): Promise<SlUserDoc> {
     let user: Partial<SlUserDoc>;
     let newAccount = false;
-    let action;
-    let baseUsername;
     // This used to be consumed by `.nodeify` from Bluebird. I hope `callbackify` works just as well...
-    return Promise.resolve()
-      .then(() => {
-        return this.userDB.view('auth', provider, {
-          key: profile.id,
-          include_docs: true
-        });
-      })
-      .then(results => {
-        if (results.rows.length > 0) {
-          user = results.rows[0].doc;
-          return Promise.resolve();
-        } else {
-          newAccount = true;
-          user = {
-            email: profile.emails ? profile.emails[0].value : undefined,
-            providers: [provider],
-            type: 'user',
-            roles: this.config.security.defaultRoles,
-            signUp: {
-              provider: provider,
-              timestamp: new Date().toISOString()
-            }
-          };
-          user[provider] = {};
+    const results = await this.userDB.view('auth', provider, {
+      key: profile.id,
+      include_docs: true
+    });
 
-          const emailFail = () => {
-            return Promise.reject({
-              error: 'Email already in use',
-              message:
-                'Your email is already in use. Try signing in first and then linking this account.',
-              status: 409
-            });
-          };
-          // Now we need to generate a username
-          if (!user.email) {
-            return Promise.reject({
-              error: 'No email provided',
-              message: `An email is required for registration, but ${provider} didn't supply one.`,
-              status: 400
-            });
-          }
-          if (profile.username) {
-            baseUsername = profile.username.toLowerCase();
-          } else {
-            const parseEmail = user.email.split('@');
-            baseUsername = parseEmail[0].toLowerCase();
-          }
-          return this.validateEmail(user.email).then(err => {
-            if (err) {
-              return emailFail();
-            }
-            return Promise.resolve(
-              this.userDbManager.generateUsername(baseUsername)
-            );
-          });
+    if (results.rows.length > 0) {
+      user = results.rows[0].doc;
+    } else {
+      newAccount = true;
+      user = {
+        email: profile.emails ? profile.emails[0].value : undefined,
+        providers: [provider],
+        type: 'user',
+        roles: this.config.security.defaultRoles,
+        signUp: {
+          provider: provider,
+          timestamp: new Date().toISOString()
         }
-      })
-      .then(finalUsername => {
-        if (finalUsername) {
-          user.key = finalUsername;
-        }
-        user[provider].auth = auth;
-        user[provider].profile = profile;
-        if (!user.name) {
-          user.name = profile.displayName;
-        }
-        delete user[provider].profile._raw;
-        if (newAccount) {
-          user._id = removeHyphens(uuidv4());
-          return this.addUserDBs(user as SlUserDoc);
-        } else {
-          return Promise.resolve(user as SlUserDoc);
-        }
-      })
-      .then(userDoc => {
-        if (newAccount) {
-          return this.processTransformations(
-            this.onCreateActions,
-            userDoc,
-            provider
-          );
-        } else {
-          return this.processTransformations(
-            this.onLinkActions,
-            userDoc,
-            provider
-          );
-        }
-      })
-      .then(finalUser => {
-        return this.userDB.insert(finalUser);
-      })
-      .then(() => {
-        if (newAccount) {
-          this.emitter.emit('signup', user, provider);
-        }
-        return Promise.resolve(user as SlUserDoc);
-      });
+      };
+      user[provider] = {};
+      // Now we need to generate a username
+      if (!user.email) {
+        throw {
+          error: 'No email provided',
+          message: `An email is required for registration, but ${provider} didn't supply one.`,
+          status: 400
+        };
+      }
+      let baseUsername;
+      if (profile.username) {
+        baseUsername = profile.username.toLowerCase();
+      } else {
+        const parseEmail = user.email.split('@');
+        baseUsername = parseEmail[0].toLowerCase();
+      }
+
+      const emailCheck = await this.validateEmail(user.email);
+      if (emailCheck) {
+        throw {
+          error: 'Email already in use',
+          message:
+            'Your email is already in use. Try signing in first and then linking this account.',
+          status: 409
+        };
+      }
+      user.key = await this.userDbManager.generateUsername(baseUsername);
+    }
+
+    user[provider].auth = auth;
+    user[provider].profile = profile;
+    if (!user.name) {
+      user.name = profile.displayName;
+    }
+    delete user[provider].profile._raw;
+    if (newAccount) {
+      user._id = removeHyphens(uuidv4());
+      user = await this.addUserDBs(user as SlUserDoc);
+    }
+    const finalUser = await this.processTransformations(
+      newAccount ? this.onCreateActions : this.onLinkActions,
+      user,
+      provider
+    );
+    await this.userDB.insert(finalUser);
+    const action = newAccount ? 'signup' : 'link-social';
+    this.emitter.emit(action, user, provider);
+    return user as SlUserDoc;
   }
 
   async linkSocial(
@@ -641,67 +608,54 @@ export class User {
   /**
    * Required form fields: token, password, and confirmPassword
    */
-  resetPassword(form, req: Partial<Request> = undefined): Promise<SlUserDoc> {
+  async resetPassword(
+    form,
+    req: Partial<Request> = undefined
+  ): Promise<SlUserDoc> {
     req = req || {};
     const ResetPasswordModel = Model(this.resetPasswordModel);
     const passwordResetForm = new ResetPasswordModel(form);
     let user: SlUserDoc;
-    return passwordResetForm
-      .validate()
-      .then(
-        () => {
-          const tokenHash = hashToken(form.token);
-          return this.userDB.view('auth', 'passwordReset', {
-            key: tokenHash,
-            include_docs: true
-          });
-        },
-        err => {
-          return Promise.reject({
-            error: 'Validation failed',
-            validationErrors: err,
-            status: 400
-          });
-        }
-      )
-      .then(results => {
-        if (!results.rows.length) {
-          return Promise.reject({ status: 400, error: 'Invalid token' });
-        }
-        user = results.rows[0].doc;
-        if (user.forgotPassword.expires < Date.now()) {
-          return Promise.reject({ status: 400, error: 'Token expired' });
-        }
-        return this.hashPassword(form.password);
-      })
-      .then(hash => {
-        if (!user.local) {
-          user.local = {};
-        }
-        user.local = { ...user.local, ...hash };
-        if (user.providers.indexOf('local') === -1) {
-          user.providers.push('local');
-        }
-        // logout user completely
-        return this.logoutUserSessions(user, Cleanup.all);
-      })
-      .then(async userDoc => {
-        user = userDoc;
-        delete user.forgotPassword;
-        if (user.unverifiedEmail) {
-          user = await this.markEmailAsVerified(
-            user,
-            'verified via password reset'
-          );
-        }
-        return user;
-      })
-      .then(finalUser => this.userDB.insert(finalUser))
-      .then(() => this.sendModifiedPasswordEmail(user, req))
-      .then(() => {
-        this.emitter.emit('password-reset', user);
-        return Promise.resolve(user);
-      });
+    try {
+      await passwordResetForm.validate();
+    } catch (err) {
+      throw {
+        error: 'Validation failed',
+        validationErrors: err,
+        status: 400
+      };
+    }
+    const tokenHash = hashToken(form.token);
+    const results = await this.userDB.view('auth', 'passwordReset', {
+      key: tokenHash,
+      include_docs: true
+    });
+    if (!results.rows.length) {
+      throw { status: 400, error: 'Invalid token' };
+    }
+    user = results.rows[0].doc;
+    if (user.forgotPassword.expires < Date.now()) {
+      return Promise.reject({ status: 400, error: 'Token expired' });
+    }
+    const hash = await this.hashPassword(form.password);
+
+    if (!user.local) {
+      user.local = {};
+    }
+    user.local = { ...user.local, ...hash };
+    if (user.providers.indexOf('local') === -1) {
+      user.providers.push('local');
+    }
+    // logout user completely
+    user = await this.logoutUserSessions(user, Cleanup.all);
+    delete user.forgotPassword;
+    if (user.unverifiedEmail) {
+      user = await this.markEmailAsVerified(user);
+    }
+    await this.userDB.insert(user);
+    await this.sendModifiedPasswordEmail(user, req);
+    this.emitter.emit('password-reset', user);
+    return user;
   }
 
   async changePasswordSecure(login: string, form, req?) {
@@ -892,14 +846,14 @@ export class User {
           return Promise.reject({ error: 'Invalid token', status: 400 });
         }
         user = result.rows[0].doc;
-        return this.markEmailAsVerified(user, 'verified email');
+        return this.markEmailAsVerified(user);
       })
       .then(finalUser => {
         return this.userDB.insert(finalUser);
       });
   }
 
-  private async markEmailAsVerified(userDoc, logInfo) {
+  private async markEmailAsVerified(userDoc) {
     userDoc.email = userDoc.unverifiedEmail.email;
     delete userDoc.unverifiedEmail;
     this.emitter.emit('email-verified', userDoc);

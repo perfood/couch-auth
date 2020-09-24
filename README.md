@@ -417,9 +417,9 @@ Here is a full list of the events that SuperLogin emits, and parameters provided
 
 - `signup`: (`userDoc`, `provider`)
 - `signup-attempt`: (`userDoc`, `provider`) // currently only for local
+- `link-social`: (`userDoc`, `provider`)
 - `login`: (`newSession`, `provider`)
 - `refresh`: (`newSession`)
-- `signup`: (`userDoc`, `provider`)
 - `password-reset`: (`userDoc`)
 - `password-change`: (`userDoc`)
 - `forgot-password`: (`userDoc`)
