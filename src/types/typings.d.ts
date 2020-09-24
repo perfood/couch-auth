@@ -75,12 +75,6 @@ export interface SessionCollection {
   [session: string]: SessionObj;
 }
 
-export interface UserActivity {
-  timestamp: string;
-  action: string;
-  provider: string;
-}
-
 export interface PasswortResetEntry extends TimeRestricted {
   token: string;
 }
@@ -93,7 +87,6 @@ export interface SlUserDoc extends Document, IdentifiedObj {
   roles: string[];
   providers: string[];
   local: LocalHashObj;
-  activity?: UserActivity[];
   forgotPassword?: PasswortResetEntry;
   unverifiedEmail?: { email: string; token: string };
   signUp: SignUpObj;

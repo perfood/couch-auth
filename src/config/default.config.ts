@@ -5,8 +5,6 @@ import path from 'path';
 export const defaultConfig: Config = {
   security: {
     defaultRoles: ['user'],
-    maxFailedLogins: 4,
-    lockoutTime: 300,
     sessionLife: 86400,
     tokenLife: 86400,
     loginOnRegistration: false,

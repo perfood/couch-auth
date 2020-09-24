@@ -14,8 +14,6 @@ module.exports = {
     couchAuthDB: 'sl_test-keys'
   },
   security: {
-    maxFailedLogins: 2,
-    lockoutTime: 600,
     disabledRoutes: []
   },
   local: {

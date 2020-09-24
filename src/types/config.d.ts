@@ -19,22 +19,10 @@ export interface SecurityConfig {
    * Default: false
    */
   disableLinkAccounts: boolean;
-  // Maximum number of failed logins before the account is locked
-  maxFailedLogins: number;
-  /**
-   * The amount of time the account will be locked for (in seconds) after the
-   * maximum failed logins is exceeded. Default: 300
-   */
-  lockoutTime: number;
   // The amount of time a new session is valid for (default: 24 hours)
   sessionLife: number;
   // The amount of time a password reset token is valid for
   tokenLife: number;
-  /**
-   * @deprecated. The maximum number of entries in the activity log in each user
-   * doc. Zero to disable completely. This functionality will be removed.
-   */
-  userActivityLogSize: number;
   /** If `true`, the user will be logged in automatically after registering. Default: `false` */
   loginOnRegistration: boolean;
   /** If `true`, the user will be logged in automatically after resetting the

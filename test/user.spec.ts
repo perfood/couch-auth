@@ -50,7 +50,6 @@ const userConfigHelper = new Configure({
   },
   security: {
     defaultRoles: ['user'],
-    userActivityLogSize: 3,
     disabledRoutes: [],
     iterations: [
       [0, 10],

@@ -12,13 +12,12 @@ passing a PouchDB (it now uses [nano](https://github.com/apache/couchdb-nano) or
 
 The current status will become the 1.0 branch soon and be maintenance only. A new, more OWASP-compliant and [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry)-ready version is developed in the `minimal` branch:
 
-- The adapters will no longer be used and the `session` route becomes deprecated
-- db and doc ids will no longer include PII, but be UUIDs instead. Will require manual migration via replication.
-- `validate-x` routes and cloudant legacy auth become deprecated
-- new users can only signup with e-mail and not with username
-- no more account-guessing via forgotpass, login or signup
+- The adapters will no longer be used. The `session` route becomes deprecated.
+- db and doc ids will no longer include PII, but be UUIDs instead. Requires manual migration via replication.
+- `validate-x` routes and cloudant legacy auth become deprecated.
+- signup with e-Mail only instead of `username` is preferred: now prevents account-guessing via forgotpass, login or signup
 - no more IP logging
-- EventEmmitter functionality might be removed
+- `lockedUntil` and `activityLog` functionality has been removed
 
 For issues and feature requests visit the [issue tracker](https://github.com/sl-nx/superlogin/issues).
 
