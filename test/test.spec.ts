@@ -420,7 +420,7 @@ describe('SuperLogin', function () {
       });
   });
 
-  it('should block a user after failed logins', function () {
+  it('should respond unauthorized if the password is wrong', function () {
     return previous
       .then(function () {
         return attemptLogin('kewluzer', 'wrong');
@@ -428,23 +428,6 @@ describe('SuperLogin', function () {
       .then(function (result: any) {
         expect(result.status).to.equal(401);
         expect(result.message).to.equal('Invalid username or password');
-        return attemptLogin('kewluzer', 'wrong');
-      })
-      .then(function (result: any) {
-        expect(result.status).to.equal(401);
-        expect(result.message).to.equal('Invalid username or password');
-        return attemptLogin('kewluzer', 'wrong');
-      })
-      .then(function (result: any) {
-        expect(result.status).to.equal(401);
-        expect(result.message.search('Maximum failed login')).to.equal(0);
-        return attemptLogin('kewluzer', 'newpass');
-      })
-      .then(function (result: any) {
-        expect(result.status).to.equal(401);
-        expect(
-          result.message.search('Your account is currently locked')
-        ).to.equal(0);
         return Promise.resolve();
       });
   });

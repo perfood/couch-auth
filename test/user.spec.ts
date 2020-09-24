@@ -224,7 +224,6 @@ describe('User Model', async function () {
         expect(newUser.local.created >= now).to.be.true;
         expect(newUser.modelTest).to.equal(true);
         expect(newUser.roles[0]).to.equal('user');
-        expect(newUser.activity[0].action).to.equal('signup');
         expect(newUser.onCreate1).to.equal(true);
         expect(newUser.onCreate2).to.equal(true);
         expect(newUser.age).to.equal('32');
@@ -324,7 +323,6 @@ describe('User Model', async function () {
         return userDB.get(superuserUUID);
       })
       .then(function (user) {
-        expect(user.activity[0].action).to.equal('login');
         return emitterPromise;
       });
   });
@@ -490,7 +488,6 @@ describe('User Model', async function () {
       })
       .then(function (verifiedUser) {
         expect(verifiedUser.email).to.equal(testUserForm.email);
-        expect(verifiedUser.activity[0].action).to.equal('verified email');
         return emitterPromise;
       });
   });
@@ -522,7 +519,6 @@ describe('User Model', async function () {
 
         expect(result.forgotPassword.token).to.be.a('string');
         expect(result.forgotPassword.expires).to.be.above(Date.now());
-        expect(result.activity[0].action).to.equal('forgot password');
 
         expect(spySendMail.callCount).to.equal(1);
 
@@ -540,7 +536,7 @@ describe('User Model', async function () {
   });
 
   it('should not reset the password', function () {
-    const emitterPromise = new Promise(function (resolve) {
+    new Promise(function (resolve) {
       emitter.once('email-changed', function (user) {
         expect(user.key).to.equal('superuser');
         resolve();
@@ -595,7 +591,6 @@ describe('User Model', async function () {
       .then(function (userAfterReset) {
         // It should delete the password reset token completely
         expect(userAfterReset.forgotPassword).to.be.undefined;
-        expect(userAfterReset.activity[0].action).to.equal('reset password');
 
         expect(spySendMail.callCount).to.equal(2);
         const args = spySendMail.getCall(1).args;
@@ -633,8 +628,6 @@ describe('User Model', async function () {
         return userDB.get(superuserUUID);
       })
       .then(function (userAfterChange) {
-        expect(userAfterChange.activity[0].action).to.equal('changed password');
-
         expect(spySendMail.callCount).to.equal(3);
         const args = spySendMail.getCall(2).args;
         expect(args[0]).to.equal('modifiedPassword');
@@ -670,7 +663,6 @@ describe('User Model', async function () {
         return userDB.get(superuserUUID);
       })
       .then(function (userAfterChange) {
-        expect(userAfterChange.activity[0].action).to.equal('changed email');
         expect(userAfterChange.unverifiedEmail.email).to.equal(
           'superuser2@example.com'
         );
@@ -708,8 +700,6 @@ describe('User Model', async function () {
         expect(result.email).to.equal('misterx@example.com');
         expect(result.providers[0]).to.equal('facebook');
         expect(result.facebook.profile.username).to.equal('misterx');
-        expect(result.activity[0].action).to.equal('signup');
-        expect(result.activity[0].provider).to.equal('facebook');
         return emitterPromise;
       });
   });
@@ -799,10 +789,6 @@ describe('User Model', async function () {
       })
       .then(function (theUser) {
         expect(theUser.facebook.profile.username).to.equal('superuser');
-        expect(theUser.activity[0].action).to.equal('link');
-        expect(theUser.activity[0].provider).to.equal('facebook');
-        // Test that the activity list is limited to the maximum value
-        expect(theUser.activity.length).to.equal(3);
       });
   });
 

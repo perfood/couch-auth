@@ -9,7 +9,6 @@ import {
 import { Config } from '../types/config';
 import { DocumentScope } from '../types/typings';
 import { validate as isUUID } from 'uuid';
-import { Request } from 'express';
 import { SlUserDoc } from '../types/typings';
 
 export class DbManager {
@@ -96,50 +95,6 @@ export class DbManager {
     });
   }
 
-  logActivity(
-    user_id: string,
-    action: string,
-    provider: string,
-    userDoc: SlUserDoc,
-    saveDoc?: boolean
-  ): Promise<SlUserDoc> {
-    const logSize = this.config.security?.userActivityLogSize;
-    if (!logSize) {
-      return Promise.resolve(userDoc);
-    }
-    let promise;
-    if (userDoc) {
-      promise = Promise.resolve(userDoc);
-    } else {
-      if (saveDoc !== false) {
-        saveDoc = true;
-      }
-      promise = this.userDB.get(user_id);
-    }
-    return promise.then(theUser => {
-      userDoc = theUser;
-      if (!userDoc.activity || !(userDoc.activity instanceof Array)) {
-        userDoc.activity = [];
-      }
-      const entry = {
-        timestamp: new Date().toISOString(),
-        action: action,
-        provider: provider
-      };
-      userDoc.activity.unshift(entry);
-      while (userDoc.activity.length > logSize) {
-        userDoc.activity.pop();
-      }
-      if (saveDoc) {
-        return this.userDB.insert(userDoc).then(() => {
-          return Promise.resolve(userDoc);
-        });
-      } else {
-        return Promise.resolve(userDoc);
-      }
-    });
-  }
-
   getMatchingIdentifier(login: string): '_id' | 'email' | 'key' {
     if (
       this.config.local.uuidLogin &&
@@ -165,40 +120,6 @@ export class DbManager {
       return Promise.reject({ error: 'Bad request', status: 400 });
     }
     return this.getUserBy(identifier, login);
-  }
-
-  /**
-   * saves the failed login attempt, returns `true` if user is now locked.
-   * todo: maybe remove, this should not be done this way - conflicts...
-   * */
-  handleFailedLogin(user: SlUserDoc, req: Partial<Request>): Promise<boolean> {
-    req = req || {};
-    const maxFailedLogins = this.config.security?.maxFailedLogins;
-    if (!maxFailedLogins) {
-      return Promise.resolve(false);
-    }
-    if (!user.local) {
-      user.local = {};
-    }
-    if (!user.local.failedLoginAttempts) {
-      user.local.failedLoginAttempts = 0;
-    }
-    user.local.failedLoginAttempts++;
-    if (user.local.failedLoginAttempts > maxFailedLogins) {
-      user.local.failedLoginAttempts = 0;
-      let lockoutTime = this.config.security.lockoutTime;
-      if (!lockoutTime) {
-        lockoutTime = 300;
-      }
-      user.local.lockedUntil = Date.now() + lockoutTime * 1000;
-    }
-    return this.logActivity(user._id, 'failed login', 'local', user)
-      .then(finalUser => {
-        return this.userDB.insert(finalUser);
-      })
-      .then(() => {
-        return Promise.resolve(!!user.local.lockedUntil);
-      });
   }
 
   async initLinkSocial(
@@ -281,7 +202,7 @@ export class DbManager {
       user.name = profile.displayName;
     }
     delete user[provider].profile._raw;
-    return this.logActivity(user._id, 'link', provider, user);
+    return user;
   }
 
   async unlink(user_id, provider): Promise<SlUserDoc> {

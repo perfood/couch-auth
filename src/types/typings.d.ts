@@ -46,8 +46,10 @@ export interface HashResult {
 }
 
 export interface LocalHashObj extends HashResult {
+  /** @deprecated */
   failedLoginAttempts?: number;
   iterations?: number;
+  /** @deprecated */
   lockedUntil?: number;
 }
 

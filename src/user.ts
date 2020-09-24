@@ -354,12 +354,6 @@ export class User {
       timestamp: new Date().toISOString()
     };
     newUser = await this.addUserDBs(newUser as SlUserDoc);
-    newUser = await this.userDbManager.logActivity(
-      newUser._id,
-      'signup',
-      'local',
-      newUser as SlUserDoc
-    );
     const finalNewUser = await this.processTransformations(
       this.onCreateActions,
       newUser,
@@ -466,15 +460,6 @@ export class User {
         }
       })
       .then(userDoc => {
-        action = newAccount ? 'signup' : 'login';
-        return this.userDbManager.logActivity(
-          userDoc._id,
-          action,
-          provider,
-          userDoc
-        );
-      })
-      .then(userDoc => {
         if (newAccount) {
           return this.processTransformations(
             this.onCreateActions,
@@ -493,7 +478,7 @@ export class User {
         return this.userDB.insert(finalUser);
       })
       .then(() => {
-        if (action === 'signup') {
+        if (newAccount) {
           this.emitter.emit('signup', user, provider);
         }
         return Promise.resolve(user as SlUserDoc);
@@ -581,17 +566,11 @@ export class User {
     // Clear any failed login attempts
     if (provider === 'local') {
       if (!user.local) user.local = {};
-      user.local.failedLoginAttempts = 0;
+      delete user.local.failedLoginAttempts;
       delete user.local.lockedUntil;
     }
-    const userDoc = await this.userDbManager.logActivity(
-      user_uid,
-      'login',
-      provider,
-      user
-    );
     // Clean out expired sessions on login
-    const finalUser = await this.logoutUserSessions(userDoc, Cleanup.expired);
+    const finalUser = await this.logoutUserSessions(user, Cleanup.expired);
     user = finalUser;
     await this.userDB.insert(finalUser);
     newSession.token = newToken.key;
@@ -632,11 +611,6 @@ export class User {
     }
     this.emitter.emit('login', newSession, provider);
     return newSession as SlLoginSession;
-  }
-
-  /** returns `true` if user is now locked. */
-  handleFailedLogin(user: SlUserDoc, req: Partial<Request>): Promise<boolean> {
-    return this.userDbManager.handleFailedLogin(user, req);
   }
 
   /**
@@ -720,12 +694,7 @@ export class User {
             'verified via password reset'
           );
         }
-        return this.userDbManager.logActivity(
-          user._id,
-          'reset password',
-          'local',
-          user
-        );
+        return user;
       })
       .then(finalUser => this.userDB.insert(finalUser))
       .then(() => this.sendModifiedPasswordEmail(user, req))
@@ -845,13 +814,7 @@ export class User {
       userDoc.providers.push('local');
     }
     userDoc.local = { ...userDoc.local, ...hash };
-    const finalUser = await this.userDbManager.logActivity(
-      userDoc._id,
-      'changed password',
-      'local',
-      userDoc
-    );
-    await this.userDB.insert(finalUser);
+    await this.userDB.insert(userDoc);
     await this.sendModifiedPasswordEmail(userDoc, req);
     this.emitter.emit('password-change', userDoc);
   }
@@ -894,12 +857,7 @@ export class User {
           issued: Date.now(),
           expires: Date.now() + this.config.security.tokenLife * 1000
         };
-        return this.userDbManager.logActivity(
-          user._id,
-          'forgot password',
-          'local',
-          user
-        );
+        return user;
       })
       .then(finalUser => {
         return this.userDB.insert(finalUser);
@@ -945,12 +903,7 @@ export class User {
     userDoc.email = userDoc.unverifiedEmail.email;
     delete userDoc.unverifiedEmail;
     this.emitter.emit('email-verified', userDoc);
-    return await this.userDbManager.logActivity(
-      userDoc.key,
-      logInfo,
-      'local',
-      userDoc
-    );
+    return userDoc;
   }
 
   async changeEmail(login: string, newEmail: string, req: Partial<SlRequest>) {
@@ -990,13 +943,7 @@ export class User {
       user.email = newEmail;
     }
     this.emitter.emit('email-changed', user);
-    const finalUser = await this.userDbManager.logActivity(
-      user._id,
-      'changed email',
-      req.user.provider,
-      user
-    );
-    return this.userDB.insert(finalUser);
+    return this.userDB.insert(user);
   }
 
   async removeUserDB(
