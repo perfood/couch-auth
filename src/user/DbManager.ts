@@ -38,8 +38,16 @@ export class DbManager {
     return this.userDB
       .view('auth', identifier, { key: login, include_docs: true })
       .then(results => {
-        if (results.rows.length > 0) {
+        if (results.rows.length === 1) {
           return Promise.resolve(results.rows[0].doc);
+        } else if (results.rows.length > 1) {
+          console.error(
+            `Invalid state - got multiple docs for ${identifier}: ${login}`
+          );
+          return Promise.reject({
+            status: 500,
+            error: 'Internal Server Error'
+          });
         } else {
           return Promise.resolve(null);
         }
