@@ -20,7 +20,13 @@ The current status will become the 1.0 branch soon and be maintenance only. A ne
 - no more IP logging
 - might remove `lockoutTime` and `maxFailedLogins` because it causes more harm (conflicts, name guessing) than good and should be handled via rate limiting instead.
 
+You should use that version for new projects (pin to the latest commit) over the currently published one.
+
+Note that I'm no OAuth expert and only actively working on / performing security testing for the `local` email/PW authentication strategy.
+
 For issues and feature requests visit the [issue tracker](https://github.com/sl-nx/superlogin/issues).
+
+## Below is the (partially adjusted) original README:
 
 ## Overview
 
@@ -377,7 +383,7 @@ Authentication required. Changes the user's email. Required field: `newEmail`.
 
 ##### `GET /session`
 
-Returns information on the current session if it is valid. Otherwise you will get a 401 unauthorized response. 
+Returns information on the current session if it is valid. Otherwise you will get a 401 unauthorized response.
 With 2.0, this route shouldn't be used anymore but is still present for backwards compatibility. You should handle session expiration dates on client side, simply try to connect with the Database and handle 401/403 responses accordingly.
 
 ##### `GET /{provider}`

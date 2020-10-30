@@ -712,7 +712,7 @@ export class User {
     let user = await this.userDB.get(user_id);
     const token = await this.generateSession(user._id, user.roles);
     const password = token.password;
-    const newToken = token;
+    const newToken: any = token;
     newToken.provider = provider;
     await this.#session.storeToken(newToken);
     await this.#dbAuth.storeKey(
