@@ -19,7 +19,11 @@ The current status will become the 1.0 branch soon and be maintenance only. A ne
 - no more IP logging
 - `lockedUntil` and `activityLog` functionality has been removed
 
+Note that I'm no OAuth expert and only actively working on / performing security testing for the `local` email/PW authentication strategy.
+
 For issues and feature requests visit the [issue tracker](https://github.com/sl-nx/superlogin/issues).
+
+## Below is the (partially adjusted) original README:
 
 ## Overview
 
