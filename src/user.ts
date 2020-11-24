@@ -588,11 +588,13 @@ export class User {
    */
   async refreshSession(key: string): Promise<SlRefreshSession> {
     const userDoc = await this.userDbManager.findUserDocBySession(key);
-    userDoc.session[key].expires =
-      Date.now() + this.config.security.sessionLife * 1000;
+    const newExpiration = Date.now() + this.config.security.sessionLife * 1000;
+    userDoc.session[key].expires = newExpiration;
     // Clean out expired sessions on refresh
     const finalUser = await this.logoutUserSessions(userDoc, Cleanup.expired);
     await this.userDB.insert(finalUser);
+    await this.dbAuth.extendKey(key, newExpiration);
+
     const newSession: SlRefreshSession = {
       ...userDoc.session[key],
       token: key,

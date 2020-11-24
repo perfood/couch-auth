@@ -44,6 +44,11 @@ export class CloudantAdapter implements DBAdapter {
     return Promise.resolve();
   }
 
+  /** not implemented for Cloudant */
+  extendKey() {
+    return Promise.resolve();
+  }
+
   /** not needed/ implemented for Cloudant */
   initSecurity() {
     return Promise.resolve();

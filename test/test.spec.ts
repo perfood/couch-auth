@@ -10,6 +10,8 @@ describe('SuperLogin', function () {
   let app;
   /** @type {import('nano').DocumentScope} */
   let userDB;
+  /** @type {import('nano').DocumentScope} */
+  let keysDB;
   let previous: Promise<any>;
   let accessToken;
   let accessPass;
@@ -50,6 +52,7 @@ describe('SuperLogin', function () {
     await couch.db.create('sl_test-users');
     await couch.db.create('sl_test-keys');
     userDB = couch.use('sl_test-users');
+    keysDB = couch.use('sl_test-keys');
     app = require('./test-server')(config);
     app.superlogin.onCreate((userDoc, provider) => {
       userDoc.profile = { name: userDoc.name };
@@ -266,6 +269,10 @@ describe('SuperLogin', function () {
           .then(res => {
             expect(res.status).to.equal(200);
             expect(res.body.expires).to.be.above(expireCompare);
+            return keysDB.get('org.couchdb.user:' + accessToken);
+          })
+          .then(tokenDoc => {
+            expect(tokenDoc.expires).to.be.above(expireCompare);
             console.log('Session successfully refreshed.');
             resolve();
           });

@@ -63,6 +63,12 @@ export class CouchAdapter implements DBAdapter {
     return newKey;
   }
 
+  async extendKey(key: string, newExpiration: number) {
+    const token = await this.retrieveKey(key);
+    token.expires = newExpiration;
+    return await this.couchAuthDB.insert(token);
+  }
+
   /**
    * fetches the document from the couchAuthDB, if it's present. Throws an error otherwise.
    */

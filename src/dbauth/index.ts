@@ -61,6 +61,10 @@ export class DBAuth {
     return this.#adapter.retrieveKey(key) as Promise<CouchDbAuthDoc>;
   }
 
+  extendKey(key: string, newExpiration: number) {
+    return this.#adapter.extendKey(key, newExpiration);
+  }
+
   /** generates a random token and password (CouchDB) or retrieves from Cloudant */
   getApiKey() {
     if (this.config.dbServer.cloudant) {
