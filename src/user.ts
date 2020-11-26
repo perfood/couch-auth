@@ -40,7 +40,7 @@ enum Cleanup {
   'other' = 'other',
   'all' = 'all'
 }
-enum ValidErr {
+export enum ValidErr {
   'exists' = 'already in use',
   'emailInvalid' = 'invalid email',
   'userInvalid' = 'invalid username'
@@ -318,7 +318,9 @@ export class User {
         const inUseIdx = err.email.findIndex((s: string) =>
           s.endsWith(ValidErr.exists)
         );
-        err.email.splice(inUseIdx, 1);
+        if (inUseIdx >= 0) {
+          err.email.splice(inUseIdx, 1);
+        }
         if (err.email.length === 0 && Object.keys(err).length === 1) {
           return this.handleEmailExists(form.email);
         }

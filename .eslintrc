@@ -11,7 +11,7 @@
     "no-var": "warn",
     "prefer-const": "warn",
     "sort-imports": [
-      "error",
+      "warn",
       {
         "ignoreCase": true
       }

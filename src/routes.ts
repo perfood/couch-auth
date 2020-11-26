@@ -5,11 +5,11 @@ import {
   isUserFacingError
 } from './util';
 import { NextFunction, Request, Response, Router } from 'express';
+import { User, ValidErr } from './user';
 
 import { Authenticator } from 'passport';
 import { Config } from './types/config';
 import { SlRequest } from './types/typings';
-import { User } from './user';
 
 export default function (
   config: Partial<Config>,
@@ -333,6 +333,8 @@ export default function (
         function (err) {
           if (!err) {
             res.status(200).json({ ok: true });
+          } else if (err === ValidErr.emailInvalid) {
+            res.status(400).json({ error: ValidErr.emailInvalid });
           } else {
             res.status(409).json({ error: 'Email already in use' });
           }

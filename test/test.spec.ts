@@ -22,6 +22,7 @@ describe('SuperLogin', function () {
   const server = 'http://localhost:5000';
   const dbUrl = getDBURL(config.dbServer);
   const couch = nano({ url: dbUrl, parseUrl: false });
+
   const newUser = {
     name: 'Kewl Uzer',
     username: 'kewluzer',
@@ -29,6 +30,7 @@ describe('SuperLogin', function () {
     password: '1s3cret',
     confirmPassword: '1s3cret'
   };
+  const invalidNewUser = { ...newUser, email: 'blah@example' };
 
   const newUser2 = {
     name: 'Kewler Uzer',
@@ -75,9 +77,24 @@ describe('SuperLogin', function () {
     app.shutdown();
   });
 
+  it('should reject a new user with an invalid email', () => {
+    console.log('setup ok');
+    return previous.then(() => {
+      return request
+        .post(server + '/auth/register')
+        .send(invalidNewUser)
+        .then(() => {
+          return Promise.reject('invalid email should have been rejected');
+        })
+        .catch(err => {
+          expect(err.status).to.equal(400);
+          console.log('Rejected user with invalid email');
+        });
+    });
+  });
+
   it('should create a new user', function () {
     return previous.then(() => {
-      console.log('setup ok');
       return request
         .post(server + '/auth/register')
         .send(newUser)
@@ -382,6 +399,16 @@ describe('SuperLogin', function () {
             .end(function (error, res) {
               expect(res.status).to.equal(200);
               expect(res.body.ok).to.equal(true);
+              resolve();
+            });
+        });
+      })
+      .then(() => {
+        return new Promise((resolve, reject) => {
+          request
+            .get(server + '/auth/validate-email/nobody@example')
+            .end((err, res) => {
+              expect(res.status).to.equal(400);
               resolve();
             });
         });
