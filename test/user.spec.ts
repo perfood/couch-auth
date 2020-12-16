@@ -654,7 +654,7 @@ describe('User Model', async function () {
         console.log('Changing the email');
         return user.changeEmail(
           testUserForm.username,
-          'superuser2@example.com',
+          'Superuser2@example.com ',
           req
         );
       })

@@ -869,6 +869,7 @@ export class User {
     if (!req.user) {
       req.user = { provider: 'local' };
     }
+    newEmail = newEmail.toLowerCase().trim(); // todo: use Sofa Model, merge with config!
     const emailError = await this.validateEmail(newEmail);
     if (emailError) {
       if (
