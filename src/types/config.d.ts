@@ -78,10 +78,11 @@ export interface LocalConfig {
   /** allow to login via E-Mail. Default: true */
   emailLogin: boolean;
   /**
-   * only use email for signup and auto-generate the username. Default: true
+   * only require email for signup and use a randomly generated `key` for the
+   * username for compatibility reasons. Default: true
    * If `false`, the `signup`-route will be vulnerable to name guessing, so you
    * should only disable this option if your usernames are public anyways.
-   * */
+   */
   emailUsername: boolean;
   /** Also return the username when creating a session */
   sendNameAndUUID?: boolean;
@@ -90,7 +91,9 @@ export interface LocalConfig {
   // Custom names for the username and password fields in your sign-in form
   usernameField?: string;
   passwordField?: string;
-  // override default constraints (processed by sofa-model)
+  /**
+   * override default constraints (processed by sofa-model).
+   */
   passwordConstraints?: PasswordConstraints;
 }
 

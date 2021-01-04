@@ -1,7 +1,7 @@
 import {
   capitalizeFirstLetter,
   EMAIL_REGEXP,
-  getSuitableBaseName,
+  generateSlUserKey,
   hyphenizeUUID,
   removeHyphens,
   USER_REGEXP
@@ -67,40 +67,28 @@ export class DbManager {
   }
 
   /**
-   * generates a unique username from the provided E-Mail by taking the prefix,
-   * adjusting the length and adding numbers until a unique database key is
-   * is found.
-   * @param {string} base
+   * generates a unique user_id used as `key` for backwards compatibility with
+   * old `user_id`s. Returns a URL-Safe UUID, shortened to length 8.
    */
-  generateUsername(base: string): Promise<string> {
-    base = getSuitableBaseName(base);
-    let finalName: string;
+  async generateUsername(): Promise<string> {
+    let keyOK = false;
+    let newKey: string;
+    while (!keyOK) {
+      newKey = generateSlUserKey();
+      keyOK = await this.verifyNewDBKey(newKey);
+    }
+    return newKey;
+  }
+
+  async verifyNewDBKey(newKey: string): Promise<boolean> {
     const keyQuery = {
       selector: {
-        key: {
-          $gte: base,
-          $lt: base + '\uffff'
-        }
+        key: newKey
       },
       fields: ['key']
     };
-    return this.userDB.find(keyQuery).then(results => {
-      if (results.docs.length === 0) {
-        return Promise.resolve(base);
-      }
-      const entries = results.docs.map(r => r.key);
-      if (entries.indexOf(base) === -1) {
-        return Promise.resolve(base);
-      }
-      let num = 0;
-      while (!finalName) {
-        num++;
-        if (entries.indexOf(base + num) === -1) {
-          finalName = base + num;
-        }
-      }
-      return Promise.resolve(finalName);
-    });
+    const results = await this.userDB.find(keyQuery);
+    return results.docs.length === 0;
   }
 
   getMatchingIdentifier(login: string): '_id' | 'email' | 'key' {

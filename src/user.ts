@@ -338,8 +338,7 @@ export class User {
     }
     newUser._id = removeHyphens(uid);
     if (this.config.local.emailUsername) {
-      const base = newUser.email.split('@')[0].toLowerCase();
-      newUser.key = await this.userDbManager.generateUsername(base);
+      newUser.key = await this.userDbManager.generateUsername();
     }
     if (this.config.local.sendConfirmEmail) {
       newUser.unverifiedEmail = {
@@ -413,14 +412,6 @@ export class User {
           status: 400
         };
       }
-      let baseUsername;
-      if (profile.username) {
-        baseUsername = profile.username.toLowerCase();
-      } else {
-        const parseEmail = user.email.split('@');
-        baseUsername = parseEmail[0].toLowerCase();
-      }
-
       const emailCheck = await this.validateEmail(user.email);
       if (emailCheck) {
         throw {
@@ -430,7 +421,7 @@ export class User {
           status: 409
         };
       }
-      user.key = await this.userDbManager.generateUsername(baseUsername);
+      user.key = await this.userDbManager.generateUsername();
     }
 
     user[provider].auth = auth;

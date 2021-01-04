@@ -62,24 +62,9 @@ User authentication is often the hardest part of building any web app, especiall
 - Provides seamless token access to both your CouchDB server (or Cloudant) and your private API
 - Manages permissions on an unlimited number of private or shared user databases and seeds them with the correct design documents
 
-## Client Tools and Demo
-
-Todo: also fork & host the demos :)
-
-- [NG-SuperLogin](https://github.com/colinskow/ng-superlogin)
-  Helps you easily integrate a SuperLogin backend into your single page AngularJS applications.
-
-- [SuperLogin Demo](https://github.com/colinskow/superlogin-demo)
-  A full-stack demo of how to integrate SuperLogin and Express with AngularJS and CouchDB.
-
-- [SuperLogin-client](https://github.com/micky2be/superlogin-client)
-  Helps you easily integrate a SuperLogin backend into your Javascript applications.
-
 ## How It Works
 
 Simply authenticate yourself with SuperLogin using any supported strategy and you will be issued a temporary access token and password. Then include the access token and password in an Authorization Bearer header on every request to access protected endpoints. The same credentials will authenticate you on any CouchDB or Cloudant database you have been authorized to use.
-
-Session storage is handled by Redis for production environments, but SuperLogin includes a memory adapter for testing purposes. When you logout or the token expires, your session is invalidated and those credentials are also removed from any database you had access to.
 
 ## Quick Start
 

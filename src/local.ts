@@ -3,7 +3,6 @@ import { Authenticator } from 'passport';
 import { Config } from './types/config';
 import { Strategy as LocalStrategy } from 'passport-local';
 import { Request } from 'express';
-import { SlUserDoc } from './types/typings';
 import { User } from './user';
 
 const BearerStrategy = require('passport-http-bearer-sl').Strategy;
