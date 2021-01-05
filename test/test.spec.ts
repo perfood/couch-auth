@@ -32,6 +32,14 @@ describe('SuperLogin', function () {
   };
   const invalidNewUser = { ...newUser, email: 'blah@example' };
 
+  const emptyNewUser = {
+    name: '',
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  };
+
   const newUser2 = {
     name: 'Kewler Uzer',
     username: 'kewleruzer',
@@ -89,6 +97,27 @@ describe('SuperLogin', function () {
         .catch(err => {
           expect(err.status).to.equal(400);
           console.log('Rejected user with invalid email');
+        });
+    });
+  });
+
+  it('should reject a new user without any data', () => {
+    console.log('setup ok');
+    return previous.then(() => {
+      return request
+        .post(server + '/auth/register')
+        .send(emptyNewUser)
+        .then(() => {
+          return Promise.reject('invalid email should have been rejected');
+        })
+        .catch(err => {
+          //console.log('Body: ' + err.response.body);
+          //console.log('clientError: ', err.response.clientError);
+          expect(err.response.clientError).to.be.true;
+          expect(err.response.serverError).to.be.false;
+          expect(err.response.body.validationErrors).to.exist;
+          expect(err.status).to.equal(400);
+          console.log('Rejected empty user');
         });
     });
   });
