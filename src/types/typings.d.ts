@@ -130,3 +130,5 @@ export interface SlUser {
 export interface SlRequest extends Request {
   user: SlUser;
 }
+
+export type SlAction = (a: SlUserDoc, b: string) => SlUserDoc;

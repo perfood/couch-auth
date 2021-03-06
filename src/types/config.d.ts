@@ -86,8 +86,8 @@ export interface LocalConfig {
   emailUsername: boolean;
   /** Also return the username when creating a session */
   sendNameAndUUID?: boolean;
-  /** If a number is set here, the token for password reset will be shortened */
-  tokenLengthOnReset?: boolean | number;
+  /** If a number > 0 is set here, the token for password reset will be shortened */
+  tokenLengthOnReset?: number;
   // Custom names for the username and password fields in your sign-in form
   usernameField?: string;
   passwordField?: string;
@@ -252,7 +252,7 @@ export interface ProviderConfig {
 export interface Config {
   testMode?: Partial<TestConfig>;
   security?: Partial<SecurityConfig>;
-  local?: Partial<LocalConfig>;
+  local: Partial<LocalConfig>;
   dbServer: DBServerConfig;
   mailer?: MailerConfig;
   emails?: TemplateConfig;

@@ -4,7 +4,7 @@ import { defaultConfig } from './default.config';
 import { mergeConfig } from '../util';
 
 export class ConfigHelper {
-  public config: Partial<Config> = defaultConfig;
+  public config: Config = defaultConfig;
 
   constructor(data: Partial<Config> = {}) {
     // Some extra default settings if no config object is specified

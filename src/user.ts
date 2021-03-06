@@ -15,6 +15,7 @@ import {
   HashResult,
   LocalHashObj,
   SessionObj,
+  SlAction,
   SlLoginSession,
   SlRefreshSession,
   SlRequest,
@@ -50,8 +51,8 @@ export class User {
   private dbAuth: DBAuth;
   private userDbManager: DbManager;
   private session: Session;
-  private onCreateActions;
-  private onLinkActions;
+  private onCreateActions: SlAction[];
+  private onLinkActions: SlAction[];
   private hasher: Hashing;
 
   passwordConstraints;
@@ -64,7 +65,7 @@ export class User {
   changePasswordModel: Sofa.AsyncOptions;
 
   constructor(
-    protected config: Partial<Config>,
+    protected config: Config,
     protected userDB: DocumentScope<SlUserDoc>,
     couchAuthDB: DocumentScope<CouchDbAuthDoc>,
     protected mailer: Mailer,
@@ -94,7 +95,7 @@ export class User {
     );
 
     // the validation functions are public
-    this.validateUsername = async function (username) {
+    this.validateUsername = async function (username: string) {
       if (!username) {
         return;
       }
@@ -232,9 +233,8 @@ export class User {
    * Does the same thing as onCreate, but is called every time a user links a new provider, or their profile information is refreshed.
    * This allows you to process profile information and, for example, create a master profile.
    * If an object called profile exists inside the user doc it will be passed to the client along with session information at each login.
-   * @param {Function} fn
    */
-  onLink(fn) {
+  onLink(fn: SlAction) {
     if (typeof fn === 'function') {
       this.onLinkActions.push(fn);
     } else {
@@ -249,24 +249,15 @@ export class User {
     }
   }
 
-  processTransformations(fnArray, userDoc, provider) {
-    let promise;
-    fnArray.forEach(fn => {
-      if (!promise) {
-        promise = fn.call(null, userDoc, provider);
-      } else {
-        if (!promise.then || typeof promise.then !== 'function') {
-          throw new Error('onCreate function must return a promise');
-        }
-        promise.then(newUserDoc => {
-          return fn.call(null, newUserDoc, provider);
-        });
-      }
-    });
-    if (!promise) {
-      promise = Promise.resolve(userDoc);
+  async processTransformations(
+    fnArray: SlAction[],
+    userDoc: SlUserDoc,
+    provider: string
+  ): Promise<SlUserDoc> {
+    for (const fn of fnArray) {
+      userDoc = await fn.call(null, userDoc, provider);
     }
-    return promise;
+    return userDoc;
   }
 
   /**
@@ -357,7 +348,7 @@ export class User {
     newUser = await this.addUserDBs(newUser as SlUserDoc);
     const finalNewUser = await this.processTransformations(
       this.onCreateActions,
-      newUser,
+      newUser as SlUserDoc,
       'local'
     );
     const result = await this.userDB.insert(finalNewUser);
@@ -376,11 +367,11 @@ export class User {
   /**
    * Creates a new user following authentication from an OAuth provider.
    * If the user already exists it will update the profile.
-   * @param {string} provider the name of the provider in lowercase, (e.g. 'facebook')
+   * @param provider the name of the provider in lowercase, (e.g. 'facebook')
    * @param {any} auth credentials supplied by the provider
    * @param {any} profile the profile supplied by the provider
    */
-  async socialAuth(provider, auth, profile): Promise<SlUserDoc> {
+  async socialAuth(provider: string, auth, profile): Promise<SlUserDoc> {
     let user: Partial<SlUserDoc>;
     let newAccount = false;
     // This used to be consumed by `.nodeify` from Bluebird. I hope `callbackify` works just as well...
@@ -436,7 +427,7 @@ export class User {
     }
     const finalUser = await this.processTransformations(
       newAccount ? this.onCreateActions : this.onLinkActions,
-      user,
+      user as SlUserDoc,
       provider
     );
     await this.userDB.insert(finalUser);
@@ -472,7 +463,7 @@ export class User {
    * @param {string} user_id
    * @param {string} provider
    */
-  unlink(user_id, provider) {
+  unlink(user_id, provider): Promise<SlUserDoc> {
     return this.userDbManager.unlink(user_id, provider);
   }
 
@@ -540,7 +531,7 @@ export class User {
     // Inject the list of userDBs
     if (typeof user.personalDBs === 'object') {
       const userDBs = {};
-      let publicURL;
+      let publicURL: string;
       if (this.config.dbServer.publicURL) {
         const dbObj = url.parse(this.config.dbServer.publicURL);
         dbObj.auth = newSession.token + ':' + newSession.password;
@@ -653,7 +644,7 @@ export class User {
     return user;
   }
 
-  async changePasswordSecure(login: string, form, req?) {
+  async changePasswordSecure(login: string, form, req?): Promise<void> {
     req = req || {};
     const ChangePasswordModel = Model(this.changePasswordModel);
     const changePasswordForm = new ChangePasswordModel(form);
@@ -695,47 +686,35 @@ export class User {
       );
     }
     if (req.user && req.user.key) {
-      return this.logoutOthers(req.user.key);
-    } else {
-      return;
+      await this.logoutOthers(req.user.key);
     }
   }
 
-  forgotUsername(email: string, req: Partial<Request>) {
+  async forgotUsername(email: string, req: Partial<Request>): Promise<void> {
     if (!email || !email.match(EMAIL_REGEXP)) {
-      return Promise.reject({ error: 'invalid email', status: 400 });
+      throw { error: 'invalid email', status: 400 };
     }
     req = req || {};
-    let user: SlUserDoc;
-    return this.userDbManager
-      .getUserBy('email', email)
-      .then(user => {
-        if (!user) {
-          return Promise.reject({
-            error: 'User not found',
-            status: 404
-          });
-        }
-      })
-      .then(() => {
-        return this.mailer.sendEmail(
-          'forgotUsername',
-          user.email || user.unverifiedEmail.email,
-          { user: user, req: req }
-        );
-      })
-      .then(() => {
-        this.emitter.emit('forgot-username', user);
-        return Promise.resolve(user);
-      })
-      .catch(err => {
-        this.emitter.emit('forgot-username-attempt', email);
-        if (err.status === 404) {
-          return Promise.resolve();
-        } else {
-          return Promise.reject(err);
-        }
-      });
+    try {
+      const user = await this.userDbManager.getUserBy('email', email);
+      if (!user) {
+        throw {
+          error: 'User not found',
+          status: 404
+        };
+      }
+      await this.mailer.sendEmail(
+        'forgotUsername',
+        user.email || user.unverifiedEmail.email,
+        { user: user, req: req }
+      );
+      this.emitter.emit('forgot-username', user);
+    } catch (err) {
+      this.emitter.emit('forgot-username-attempt', email);
+      if (err.status !== 404) {
+        throw err;
+      }
+    }
   }
 
   async changePassword(
@@ -743,7 +722,7 @@ export class User {
     newPassword: string,
     userDoc: SlUserDoc,
     req
-  ) {
+  ): Promise<void> {
     req = req || {};
     if (!userDoc) {
       try {
@@ -768,68 +747,54 @@ export class User {
     this.emitter.emit('password-change', userDoc);
   }
 
-  private sendModifiedPasswordEmail(user, req) {
+  private async sendModifiedPasswordEmail(user: SlUserDoc, req): Promise<void> {
     if (this.config.local.sendPasswordChangedEmail) {
-      return this.mailer.sendEmail(
+      await this.mailer.sendEmail(
         'modifiedPassword',
         user.email || user.unverifiedEmail.email,
         { user: user, req: req }
       );
-    } else {
-      return Promise.resolve();
     }
   }
 
-  forgotPassword(email: string, req: Partial<Request>) {
+  async forgotPassword(email: string, req: Partial<Request>): Promise<void> {
     if (!email || !email.match(EMAIL_REGEXP)) {
       return Promise.reject({ error: 'invalid email', status: 400 });
     }
     req = req || {};
-    let user: SlUserDoc, token, tokenHash;
-    return this.userDbManager
-      .getUserBy('email', email)
-      .then(res => {
-        if (!res) {
-          return Promise.reject({
-            error: 'User not found',
-            status: 404
-          });
-        }
-        user = res;
-        token = URLSafeUUID();
-        if (this.config.local.tokenLengthOnReset) {
-          token = token.substring(0, this.config.local.tokenLengthOnReset);
-        }
-        tokenHash = hashToken(token);
-        user.forgotPassword = {
-          token: tokenHash, // Store secure hashed token
-          issued: Date.now(),
-          expires: Date.now() + this.config.security.tokenLife * 1000
+    try {
+      const user = await this.userDbManager.getUserBy('email', email);
+      if (!user) {
+        throw {
+          error: 'User not found',
+          status: 404
         };
-        return user;
-      })
-      .then(finalUser => {
-        return this.userDB.insert(finalUser);
-      })
-      .then(() => {
-        return this.mailer.sendEmail(
-          'forgotPassword',
-          user.email || user.unverifiedEmail.email,
-          { user: user, req: req, token: token }
-        );
-      })
-      .then(() => {
-        this.emitter.emit('forgot-password', user);
-        return Promise.resolve(user.forgotPassword);
-      })
-      .catch(err => {
-        this.emitter.emit('forgot-password-attempt', email);
-        if (err.status === 404) {
-          return Promise.resolve();
-        } else {
-          return Promise.reject(err);
-        }
-      });
+      }
+      let token = URLSafeUUID();
+      if (this.config.local.tokenLengthOnReset) {
+        token = token.substring(0, this.config.local.tokenLengthOnReset);
+      }
+      const tokenHash = hashToken(token);
+      user.forgotPassword = {
+        token: tokenHash, // Store secure hashed token
+        issued: Date.now(),
+        expires: Date.now() + this.config.security.tokenLife * 1000
+      };
+      await this.userDB.insert(user);
+      await this.mailer.sendEmail(
+        'forgotPassword',
+        user.email || user.unverifiedEmail.email,
+        { user: user, req: req, token: token }
+      );
+      this.emitter.emit('forgot-password', user);
+    } catch (err) {
+      this.emitter.emit('forgot-password-attempt', email);
+      if (err.status === 404) {
+        return Promise.resolve();
+      } else {
+        return Promise.reject(err);
+      }
+    }
   }
 
   verifyEmail(token: string) {

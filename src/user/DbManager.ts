@@ -27,7 +27,10 @@ export class DbManager {
     });
   }
 
-  /** returns the `SlUserDoc`, if found, else `null`. */
+  /**
+   * returns the `SlUserDoc`, if found, else `null`.
+   * Todo: rejecting with 404 might be better!
+   */
   getUserBy(
     identifier: '_id' | 'email' | 'key',
     login: string
