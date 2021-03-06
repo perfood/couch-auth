@@ -176,7 +176,7 @@ describe('SuperLogin', function () {
 
   it('should access a protected endpoint', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .get(server + '/auth/session')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -191,7 +191,7 @@ describe('SuperLogin', function () {
 
   it('should require a role', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .get(server + '/user')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -206,7 +206,7 @@ describe('SuperLogin', function () {
 
   it('should deny access when a required role is not present', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .get(server + '/admin')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -226,7 +226,7 @@ describe('SuperLogin', function () {
     const spySendMail = sinon.spy(app.superlogin.mailer, 'sendEmail');
 
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .post(server + '/auth/forgot-password')
           .send({ email: newUser.email })
@@ -245,7 +245,7 @@ describe('SuperLogin', function () {
   it('should reset the password', function () {
     return previous.then(function () {
       return findUser(newUser.username).then(() => {
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .post(server + '/auth/password-reset')
             .send({
@@ -265,7 +265,7 @@ describe('SuperLogin', function () {
 
   it('should logout the user upon password reset', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .get(server + '/auth/session')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -285,7 +285,7 @@ describe('SuperLogin', function () {
 
   it('should login with the new password', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .post(server + '/auth/login')
           .send({ username: newUser.username, password: 'newpass' })
@@ -308,7 +308,7 @@ describe('SuperLogin', function () {
 
   it('should refresh the session', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .post(server + '/auth/refresh')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -329,7 +329,7 @@ describe('SuperLogin', function () {
   it('should change the password', function () {
     return previous.then(function () {
       return findUser(newUser.username).then(function (resetUser) {
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .post(server + '/auth/password-change')
             .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -350,7 +350,7 @@ describe('SuperLogin', function () {
 
   it('should logout the user', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .post(server + '/auth/logout')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -362,7 +362,7 @@ describe('SuperLogin', function () {
             resolve();
           });
       }).then(function () {
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .get(server + '/auth/session')
             .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -379,7 +379,7 @@ describe('SuperLogin', function () {
   it('should login after creating a new user', function () {
     return previous.then(function () {
       app.config.security.loginOnRegistration = true;
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .post(server + '/auth/register')
           .send(newUser2)
@@ -396,7 +396,7 @@ describe('SuperLogin', function () {
   it('should validate a username', function () {
     return previous
       .then(function () {
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .get(server + '/auth/validate-username/idontexist')
             .end(function (error, res) {
@@ -407,7 +407,7 @@ describe('SuperLogin', function () {
         });
       })
       .then(function () {
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .get(server + '/auth/validate-username/kewluzer')
             .end(function (error, res) {
@@ -422,7 +422,7 @@ describe('SuperLogin', function () {
   it('should validate an email', function () {
     return previous
       .then(function () {
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .get(server + '/auth/validate-email/nobody@example.com')
             .end(function (error, res) {
@@ -433,7 +433,7 @@ describe('SuperLogin', function () {
         });
       })
       .then(() => {
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
           request
             .get(server + '/auth/validate-email/nobody@example')
             .end((err, res) => {
@@ -443,7 +443,7 @@ describe('SuperLogin', function () {
         });
       })
       .then(function () {
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .get(server + '/auth/validate-username/kewluzer@example.com')
             .end(function (error, res) {

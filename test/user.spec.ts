@@ -187,7 +187,7 @@ describe('User Model', async function () {
   });
 
   it('should save a new user', function () {
-    const emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise<void>(function (resolve) {
       emitter.once('signup', function (user) {
         expect(isUUID(hyphenizeUUID(user._id))).to.be.true;
         expect(user.key).to.equal('superuser');
@@ -294,8 +294,8 @@ describe('User Model', async function () {
   let sessionKey, sessionPass, firstExpires;
 
   it('should generate a new session for the user', function () {
-    const emitterPromise = new Promise(function (resolve) {
-      emitter.once('login', function (session) {
+    const emitterPromise = new Promise<void>(resolve => {
+      emitter.once('login', session => {
         expect(session.user_id).to.equal('superuser');
         resolve();
       });
@@ -339,7 +339,7 @@ describe('User Model', async function () {
   });
 
   it('should refresh a session', function () {
-    const emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise<void>(function (resolve) {
       emitter.once('refresh', function (session) {
         expect(session.user_id).to.equal('superuser');
         resolve();
@@ -378,7 +378,7 @@ describe('User Model', async function () {
   });
 
   it('should log out of a session', function () {
-    const emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise<void>(function (resolve) {
       emitter.once('logout', function (user_id) {
         expect(user_id).to.equal('superuser');
         resolve();
@@ -419,7 +419,7 @@ describe('User Model', async function () {
   });
 
   it('should log the user out of all sessions', function () {
-    const emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise<void>(function (resolve) {
       emitter.once('logout-all', function (user_id) {
         expect(user_id).to.equal('superuser');
         resolve();
@@ -471,7 +471,7 @@ describe('User Model', async function () {
   });
 
   it('should verify the email', function () {
-    const emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise<void>(function (resolve) {
       emitter.once('email-verified', function (user) {
         expect(user.key).to.equal('superuser');
         resolve();
@@ -497,7 +497,7 @@ describe('User Model', async function () {
   let spySendMail;
 
   it('should generate a password reset token', function () {
-    const emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise<void>(function (resolve) {
       emitter.once('forgot-password', function (user) {
         expect(user.key).to.equal('superuser');
         resolve();
@@ -536,7 +536,7 @@ describe('User Model', async function () {
   });
 
   it('should not reset the password', function () {
-    new Promise(function (resolve) {
+    new Promise<void>(function (resolve) {
       emitter.once('email-changed', function (user) {
         expect(user.key).to.equal('superuser');
         resolve();
@@ -568,7 +568,7 @@ describe('User Model', async function () {
   });
 
   it('should reset the password', function () {
-    const emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise<void>(function (resolve) {
       emitter.once('password-reset', function (user) {
         expect(user.key).to.equal('superuser');
         resolve();
@@ -607,7 +607,7 @@ describe('User Model', async function () {
   });
 
   it('should change the password', function () {
-    const emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise<void>(function (resolve) {
       emitter.once('password-change', function (user) {
         expect(user.key).to.equal('superuser');
         resolve();
@@ -643,7 +643,7 @@ describe('User Model', async function () {
   });
 
   it('should change the email', function () {
-    const emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise<void>(function (resolve) {
       emitter.once('email-changed', function (user) {
         expect(user.key).to.equal('superuser');
         resolve();
@@ -671,7 +671,7 @@ describe('User Model', async function () {
   });
 
   it('should create a new account from facebook auth', function () {
-    const emitterPromise = new Promise(function (resolve) {
+    const emitterPromise = new Promise<void>(function (resolve) {
       emitter.once('signup', function (user) {
         expect(user.email).to.equal('misterx@example.com');
         resolve();
