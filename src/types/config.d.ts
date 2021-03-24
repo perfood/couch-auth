@@ -1,4 +1,5 @@
 import { Sofa } from '@sl-nx/sofa-model';
+import Mail from 'nodemailer/lib/mailer';
 
 export interface TestConfig {
   /** Use a stub transport so no email is actually sent. Default: false */
@@ -157,10 +158,17 @@ export interface MailerConfig {
   fromEmail: string;
   /** Use this if you want to specify a custom Nodemailer transport. Defaults to SMTP or sendmail. */
   transport?: any;
-  /** The options object that will be passed into your transport. These should usually be your SMTP settings.
+  /**
+   * The options object that will be passed into your transport.
+   * These should usually be your SMTP settings.
    * If this is left blank, it will default to sendmail.
    */
   options?: MailOptions;
+  /**
+   * Additional message fields, see https://nodemailer.com/message/
+   * Don't use for to, from, subject, html and text -> it will be overridden.
+   */
+  messageConfig?: Mail.Options;
 }
 /**
  * Customize the templates for the emails that SuperLogin sends out. Otherwise,

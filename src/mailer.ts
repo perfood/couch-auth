@@ -64,11 +64,14 @@ export class Mailer {
           templateName
       );
     }
-    const mailOptions = {
+    let mailOptions: Mail.Options = {
       from: this.config.mailer.fromEmail,
       to: email,
       subject: subject
     };
+    if (this.config.mailer.messageConfig) {
+      mailOptions = { ...this.config.mailer.messageConfig, ...mailOptions };
+    }
 
     for (let i = 0; i < formats.length; i++) {
       mailOptions[formats[i]] = renderedTemplates[i];
