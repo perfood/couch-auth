@@ -1,5 +1,26 @@
 ## Change Log
 
+#### couchdb-auth (1.0.0)
+
+The schema for the database IDs has been migrated to UUIDs:
+
+- no more PII in document or database IDs
+- previous `_id` in `sl-users` is now the field `key`
+- a uuid is used for the personal DBs and as `_id` in `sl-users`
+
+No external session cache is used:
+
+- removed `redis` and other adapters
+- marked `session` as deprecated: It simply checks whether the entry in `_users` exists
+
+- IP addresses are no longer saved in the `sl-users` docs
+- `lockedUntil` and `activityLog` have been removed
+- prevent name guessing via `forgot-password`, `register`, `change-email` and `login`
+  - only fully available if `requireEmailConfirm` and `emailUsername` are `true`
+- new config options:
+  - more than 10 hashing iterations (`security.iterations`)
+  - disabling of routes (`security.disabledRoutes`)
+
 #### Cloudant IAM (0.13)
 
 Use Cloudant Library for compatibility with IAM auth instead of `user:password` (downgraded nano)
