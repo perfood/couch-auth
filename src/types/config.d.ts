@@ -24,6 +24,10 @@ export interface SecurityConfig {
   sessionLife: number;
   // The amount of time a password reset token is valid for
   tokenLife: number;
+  /** The maximum number of entries in the activity log in each user doc.
+   * Use 0 or undefined to disable completely
+   */
+  userActivityLogSize?: number;
   /** If `true`, the user will be logged in automatically after registering. Default: `false` */
   loginOnRegistration: boolean;
   /** If `true`, the user will be logged in automatically after resetting the

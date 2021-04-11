@@ -14,7 +14,8 @@ module.exports = {
     couchAuthDB: 'sl_test-keys'
   },
   security: {
-    disabledRoutes: []
+    disabledRoutes: [],
+    userActivityLogSize: 10
   },
   local: {
     sendConfirmEmail: true,

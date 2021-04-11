@@ -74,28 +74,27 @@ export default function (
     );
 
   if (!disabled.includes('logout'))
-    router.post('/logout', function (
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ) {
-      const sessionToken = getSessionToken(req);
-      if (!sessionToken) {
-        return next({
-          error: 'unauthorized',
-          status: 401
-        });
-      }
-      user.logoutSession(sessionToken).then(
-        function () {
-          res.status(200).json({ ok: true, success: 'Logged out' });
-        },
-        function (err) {
-          console.error('Logout failed');
-          return next(err);
+    router.post(
+      '/logout',
+      function (req: Request, res: Response, next: NextFunction) {
+        const sessionToken = getSessionToken(req);
+        if (!sessionToken) {
+          return next({
+            error: 'unauthorized',
+            status: 401
+          });
         }
-      );
-    });
+        user.logoutSession(sessionToken).then(
+          function () {
+            res.status(200).json({ ok: true, success: 'Logged out' });
+          },
+          function (err) {
+            console.error('Logout failed');
+            return next(err);
+          }
+        );
+      }
+    );
 
   if (!disabled.includes('logout-others'))
     router.post(
@@ -115,116 +114,111 @@ export default function (
     );
 
   if (!disabled.includes('logout-all'))
-    router.post('/logout-all', function (
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ) {
-      const sessionToken = getSessionToken(req);
-      if (!sessionToken) {
-        return next({
-          error: 'unauthorized',
-          status: 401
-        });
-      }
-      user.logoutUser(null, sessionToken).then(
-        function () {
-          res.status(200).json({ success: 'Logged out' });
-        },
-        function (err) {
-          console.error('Logout-all failed');
-          return next(err);
+    router.post(
+      '/logout-all',
+      function (req: Request, res: Response, next: NextFunction) {
+        const sessionToken = getSessionToken(req);
+        if (!sessionToken) {
+          return next({
+            error: 'unauthorized',
+            status: 401
+          });
         }
-      );
-    });
+        user.logoutAll(null, sessionToken).then(
+          function () {
+            res.status(200).json({ success: 'Logged out' });
+          },
+          function (err) {
+            console.error('Logout-all failed');
+            return next(err);
+          }
+        );
+      }
+    );
 
   // Setting up the auth api
   if (!disabled.includes('register'))
-    router.post('/register', function (
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ) {
-      user.createUser(req.body, req).then(
-        function (newUser) {
-          if (!newUser || !config.security.loginOnRegistration) {
-            res.status(200).json({ success: 'Request processed.' });
-          } else if (newUser && config.security.loginOnRegistration) {
-            return user.createSession(newUser._id, 'local', true).then(
-              function (mySession) {
-                res.status(200).json(mySession);
-              },
-              function (err) {
-                return next(err);
-              }
-            );
+    router.post(
+      '/register',
+      function (req: Request, res: Response, next: NextFunction) {
+        user.createUser(req.body, req).then(
+          function (newUser) {
+            if (!newUser || !config.security.loginOnRegistration) {
+              res.status(200).json({ success: 'Request processed.' });
+            } else if (newUser && config.security.loginOnRegistration) {
+              return user.createSession(newUser._id, 'local', true).then(
+                function (mySession) {
+                  res.status(200).json(mySession);
+                },
+                function (err) {
+                  return next(err);
+                }
+              );
+            }
+          },
+          function (err) {
+            return next(err);
           }
-        },
-        function (err) {
-          return next(err);
-        }
-      );
-    });
+        );
+      }
+    );
 
   if (!disabled.includes('forgot-username')) {
-    router.post('/forgot-username', function (
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ) {
-      user.forgotUsername(req.body.email, req).then(
-        function () {
-          res.status(200).json({ success: 'Request processed.' });
-        },
-        function (err) {
-          return next(err);
-        }
-      );
-    });
+    router.post(
+      '/forgot-username',
+      function (req: Request, res: Response, next: NextFunction) {
+        user.forgotUsername(req.body.email, req).then(
+          function () {
+            res.status(200).json({ success: 'Request processed.' });
+          },
+          function (err) {
+            return next(err);
+          }
+        );
+      }
+    );
   }
 
   if (!disabled.includes('forgot-password'))
-    router.post('/forgot-password', function (
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ) {
-      user.forgotPassword(req.body.email, req).then(
-        function () {
-          res.status(200).json({ success: 'Request processed.' });
-        },
-        function (err) {
-          return next(err);
-        }
-      );
-    });
+    router.post(
+      '/forgot-password',
+      function (req: Request, res: Response, next: NextFunction) {
+        user.forgotPassword(req.body.email, req).then(
+          function () {
+            res.status(200).json({ success: 'Request processed.' });
+          },
+          function (err) {
+            return next(err);
+          }
+        );
+      }
+    );
 
   if (!disabled.includes('password-reset'))
-    router.post('/password-reset', function (
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ) {
-      user.resetPassword(req.body, req).then(
-        function (currentUser) {
-          if (config.security.loginOnPasswordReset) {
-            return user.createSession(currentUser._id, 'local', true).then(
-              function (mySession) {
-                res.status(200).json(mySession);
-              },
-              function (err) {
-                return next(err);
-              }
-            );
-          } else {
-            res.status(200).json({ success: 'Password successfully reset.' });
+    router.post(
+      '/password-reset',
+      function (req: Request, res: Response, next: NextFunction) {
+        user.resetPassword(req.body, req).then(
+          function (currentUser) {
+            if (config.security.loginOnPasswordReset) {
+              return user.createSession(currentUser._id, 'local', true).then(
+                function (mySession) {
+                  res.status(200).json(mySession);
+                },
+                function (err) {
+                  return next(err);
+                }
+              );
+            } else {
+              res.status(200).json({ success: 'Password successfully reset.' });
+            }
+          },
+          function (err) {
+            return next(err);
           }
-        },
-        function (err) {
-          return next(err);
-        }
-      );
-    });
+        );
+      }
+    );
 
   if (!disabled.includes('password-change'))
     router.post(
@@ -262,88 +256,87 @@ export default function (
     );
 
   if (!disabled.includes('confirm-email'))
-    router.get('/confirm-email/:token', function (
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ) {
-      const redirectURL = config.local.confirmEmailRedirectURL;
-      if (!req.params.token) {
-        const err = { error: 'Email verification token required' };
-        if (redirectURL) {
-          return res
-            .status(201)
-            .redirect(redirectURL + '?error=' + encodeURIComponent(err.error));
-        }
-        return res.status(400).send(err);
-      }
-      user.verifyEmail(req.params.token).then(
-        function () {
+    router.get(
+      '/confirm-email/:token',
+      function (req: Request, res: Response, next: NextFunction) {
+        const redirectURL = config.local.confirmEmailRedirectURL;
+        if (!req.params.token) {
+          const err = { error: 'Email verification token required' };
           if (redirectURL) {
-            return res.status(201).redirect(redirectURL + '?success=true');
+            return res
+              .status(201)
+              .redirect(
+                redirectURL + '?error=' + encodeURIComponent(err.error)
+              );
           }
-          res.status(200).send({ ok: true, success: 'Email verified' });
-        },
-        function (err) {
-          if (redirectURL) {
-            let query = '?error=' + encodeURIComponent(err.error);
-            if (err.message) {
-              query += '&message=' + encodeURIComponent(err.message);
+          return res.status(400).send(err);
+        }
+        user.verifyEmail(req.params.token).then(
+          function () {
+            if (redirectURL) {
+              return res.status(201).redirect(redirectURL + '?success=true');
             }
-            return res.status(201).redirect(redirectURL + query);
+            res.status(200).send({ ok: true, success: 'Email verified' });
+          },
+          function (err) {
+            if (redirectURL) {
+              let query = '?error=' + encodeURIComponent(err.error);
+              if (err.message) {
+                query += '&message=' + encodeURIComponent(err.message);
+              }
+              return res.status(201).redirect(redirectURL + query);
+            }
+            return next(err);
           }
-          return next(err);
-        }
-      );
-    });
+        );
+      }
+    );
 
   if (!disabled.includes('validate-username'))
-    router.get('/validate-username/:username', function (
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ) {
-      if (!req.params.username) {
-        return next({ error: 'Username required', status: 400 });
-      }
-      user.validateUsername(req.params.username).then(
-        function (err_msg) {
-          if (!err_msg) {
-            res.status(200).json({ ok: true });
-          } else {
-            res.status(409).json({ error: err_msg });
-          }
-        },
-        function (err) {
-          return next(err);
+    router.get(
+      '/validate-username/:username',
+      function (req: Request, res: Response, next: NextFunction) {
+        if (!req.params.username) {
+          return next({ error: 'Username required', status: 400 });
         }
-      );
-    });
+        user.validateUsername(req.params.username).then(
+          function (err_msg) {
+            if (!err_msg) {
+              res.status(200).json({ ok: true });
+            } else {
+              res.status(409).json({ error: err_msg });
+            }
+          },
+          function (err) {
+            return next(err);
+          }
+        );
+      }
+    );
 
   if (!disabled.includes('validate-email'))
-    router.get('/validate-email/:email', function (
-      req: Request,
-      res: Response,
-      next: NextFunction
-    ) {
-      if (!req.params.email) {
-        return next({ error: 'Email required', status: 400 });
-      }
-      user.validateEmail(req.params.email).then(
-        function (err) {
-          if (!err) {
-            res.status(200).json({ ok: true });
-          } else if (err === ValidErr.emailInvalid) {
-            res.status(400).json({ error: ValidErr.emailInvalid });
-          } else {
-            res.status(409).json({ error: 'Email already in use' });
-          }
-        },
-        function (err) {
-          return next(err);
+    router.get(
+      '/validate-email/:email',
+      function (req: Request, res: Response, next: NextFunction) {
+        if (!req.params.email) {
+          return next({ error: 'Email required', status: 400 });
         }
-      );
-    });
+        user.validateEmail(req.params.email).then(
+          function (err) {
+            if (!err) {
+              res.status(200).json({ ok: true });
+            } else if (err === ValidErr.emailInvalid) {
+              res.status(400).json({ error: ValidErr.emailInvalid });
+            } else {
+              res.status(409).json({ error: 'Email already in use' });
+            }
+          },
+          function (err) {
+            return next(err);
+          }
+        );
+      }
+    );
 
   if (!disabled.includes('change-email'))
     router.post(

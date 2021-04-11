@@ -46,10 +46,8 @@ export interface HashResult {
 }
 
 export interface LocalHashObj extends HashResult {
-  /** @deprecated */
   failedLoginAttempts?: number;
   iterations?: number;
-  /** @deprecated */
   lockedUntil?: number;
 }
 
@@ -75,6 +73,35 @@ export interface SessionCollection {
   [session: string]: SessionObj;
 }
 
+/** actions performed by the user and logged via `activityLog` */
+export type UserAction =
+  | 'email-verified'
+  | 'signup'
+  | 'create-social'
+  | 'link-social'
+  | 'login'
+  | 'password-reset'
+  | 'password-change'
+  | 'forgot-password'
+  | 'email-changed'
+  | 'logout'
+  | 'logout-all'
+  | 'refresh';
+
+/** possible events that are emmitted */
+export type UserEvent =
+  | UserAction
+  | 'signup-attempt'
+  | 'forgot-password-attempt'
+  | 'forgot-username-attempt'
+  | 'email-change-attempt'
+  | 'user-db-added';
+export interface UserActivity {
+  timestamp: string;
+  action: UserAction;
+  provider: string;
+}
+
 export interface PasswortResetEntry extends TimeRestricted {
   token: string;
 }
@@ -87,6 +114,7 @@ export interface SlUserDoc extends Document, IdentifiedObj {
   roles: string[];
   providers: string[];
   local: LocalHashObj;
+  activity?: UserActivity[];
   forgotPassword?: PasswortResetEntry;
   unverifiedEmail?: { email: string; token: string };
   signUp: SignUpObj;

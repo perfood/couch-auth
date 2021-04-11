@@ -7,8 +7,9 @@ import {
   USER_REGEXP
 } from '../util';
 import { Config } from '../types/config';
-import { DocumentScope } from '../types/typings';
+import { DocumentScope, UserAction, UserActivity } from '../types/typings';
 import { validate as isUUID } from 'uuid';
+import { Request } from 'express';
 import { SlUserDoc } from '../types/typings';
 
 export class DbManager {
@@ -92,6 +93,32 @@ export class DbManager {
     };
     const results = await this.userDB.find(keyQuery);
     return results.docs.length === 0;
+  }
+
+  /** adds a log entry for the `action` and returns the modified `userDoc` */
+  logActivity(
+    action: UserAction,
+    provider: string,
+    userDoc: SlUserDoc
+  ): SlUserDoc {
+    const logSize = this.config.security?.userActivityLogSize;
+    if (!logSize) {
+      return userDoc;
+    }
+    if (!userDoc.activity || !(userDoc.activity instanceof Array)) {
+      userDoc.activity = [];
+    }
+    const entry: UserActivity = {
+      timestamp: new Date().toISOString(),
+      action: action,
+      provider: provider
+    };
+    console.log('logActivity() - added: ', JSON.stringify(entry));
+    userDoc.activity.unshift(entry);
+    while (userDoc.activity.length > logSize) {
+      userDoc.activity.pop();
+    }
+    return userDoc;
   }
 
   getMatchingIdentifier(login: string): '_id' | 'email' | 'key' {

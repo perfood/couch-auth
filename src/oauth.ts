@@ -284,9 +284,9 @@ export class OAuth {
   private authHandler(req: SlRequest, provider: string, auth, profile) {
     // todo: is this already the UUID here?
     if (req.user && req.user._id && req.user.key) {
-      return this.user.linkSocial(req.user._id, provider, auth, profile);
+      return this.user.linkUserSocial(req.user._id, provider, auth, profile);
     } else {
-      return this.user.socialAuth(provider, auth, profile);
+      return this.user.createUserSocial(provider, auth, profile);
     }
   }
 

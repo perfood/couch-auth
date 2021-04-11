@@ -346,6 +346,11 @@ export class User {
       timestamp: new Date().toISOString()
     };
     newUser = await this.addUserDBs(newUser as SlUserDoc);
+    newUser = this.userDbManager.logActivity(
+      'signup',
+      'local',
+      newUser as SlUserDoc
+    );
     const finalNewUser = await this.processTransformations(
       this.onCreateActions,
       newUser as SlUserDoc,
@@ -371,7 +376,7 @@ export class User {
    * @param {any} auth credentials supplied by the provider
    * @param {any} profile the profile supplied by the provider
    */
-  async socialAuth(provider: string, auth, profile): Promise<SlUserDoc> {
+  async createUserSocial(provider: string, auth, profile): Promise<SlUserDoc> {
     let user: Partial<SlUserDoc>;
     let newAccount = false;
     // This used to be consumed by `.nodeify` from Bluebird. I hope `callbackify` works just as well...
@@ -425,36 +430,39 @@ export class User {
       user._id = removeHyphens(uuidv4());
       user = await this.addUserDBs(user as SlUserDoc);
     }
-    const finalUser = await this.processTransformations(
+    let finalUser = await this.processTransformations(
       newAccount ? this.onCreateActions : this.onLinkActions,
       user as SlUserDoc,
       provider
     );
+    const action = newAccount ? 'signup' : 'create-social';
+    finalUser = this.userDbManager.logActivity(action, provider, finalUser);
     await this.userDB.insert(finalUser);
-    const action = newAccount ? 'signup' : 'link-social';
     this.emitter.emit(action, user, provider);
     return user as SlUserDoc;
   }
 
-  async linkSocial(
+  async linkUserSocial(
     login: string,
     provider: string,
     auth,
     profile
   ): Promise<SlUserDoc> {
-    const userDoc = await this.userDbManager.initLinkSocial(
+    let userDoc = await this.userDbManager.initLinkSocial(
       login,
       provider,
       auth,
       profile
     );
-    const finalUser = await this.processTransformations(
+    userDoc = await this.processTransformations(
       this.onLinkActions,
       userDoc,
       provider
     );
-    await this.userDB.insert(finalUser);
-    return finalUser;
+    userDoc = this.userDbManager.logActivity('link-social', provider, userDoc);
+    await this.userDB.insert(userDoc);
+    this.emitter.emit('link-social', userDoc, provider);
+    return userDoc;
   }
 
   /**
@@ -520,8 +528,9 @@ export class User {
       delete user.local.failedLoginAttempts;
       delete user.local.lockedUntil;
     }
+    const userDoc = this.userDbManager.logActivity('login', provider, user);
     // Clean out expired sessions on login
-    const finalUser = await this.logoutUserSessions(user, Cleanup.expired);
+    const finalUser = await this.logoutUserSessions(userDoc, Cleanup.expired);
     user = finalUser;
     await this.userDB.insert(finalUser);
     newSession.token = newToken.key;
@@ -571,12 +580,13 @@ export class User {
    * - handle error if invalid state occurs that doc is not present.
    */
   async refreshSession(key: string): Promise<SlRefreshSession> {
-    const userDoc = await this.userDbManager.findUserDocBySession(key);
+    let userDoc = await this.userDbManager.findUserDocBySession(key);
     const newExpiration = Date.now() + this.config.security.sessionLife * 1000;
     userDoc.session[key].expires = newExpiration;
     // Clean out expired sessions on refresh
-    const finalUser = await this.logoutUserSessions(userDoc, Cleanup.expired);
-    await this.userDB.insert(finalUser);
+    userDoc = await this.logoutUserSessions(userDoc, Cleanup.expired);
+    userDoc = this.userDbManager.logActivity('refresh', key, userDoc);
+    await this.userDB.insert(userDoc);
     await this.dbAuth.extendKey(key, newExpiration);
 
     const newSession: SlRefreshSession = {
@@ -638,6 +648,7 @@ export class User {
     if (user.unverifiedEmail) {
       user = await this.markEmailAsVerified(user);
     }
+    user = this.userDbManager.logActivity('password-reset', 'local', user);
     await this.userDB.insert(user);
     await this.sendModifiedPasswordEmail(user, req);
     this.emitter.emit('password-reset', user);
@@ -742,7 +753,12 @@ export class User {
       userDoc.providers.push('local');
     }
     userDoc.local = { ...userDoc.local, ...hash };
-    await this.userDB.insert(userDoc);
+    const finalUser = this.userDbManager.logActivity(
+      'password-change',
+      'local',
+      userDoc
+    );
+    await this.userDB.insert(finalUser);
     await this.sendModifiedPasswordEmail(userDoc, req);
     this.emitter.emit('password-change', userDoc);
   }
@@ -763,7 +779,7 @@ export class User {
     }
     req = req || {};
     try {
-      const user = await this.userDbManager.getUserBy('email', email);
+      let user = await this.userDbManager.getUserBy('email', email);
       if (!user) {
         throw {
           error: 'User not found',
@@ -780,6 +796,7 @@ export class User {
         issued: Date.now(),
         expires: Date.now() + this.config.security.tokenLife * 1000
       };
+      user = this.userDbManager.logActivity('forgot-password', 'local', user);
       await this.userDB.insert(user);
       await this.mailer.sendEmail(
         'forgotPassword',
@@ -817,7 +834,7 @@ export class User {
     userDoc.email = userDoc.unverifiedEmail.email;
     delete userDoc.unverifiedEmail;
     this.emitter.emit('email-verified', userDoc);
-    return userDoc;
+    return this.userDbManager.logActivity('email-verified', 'local', userDoc);
   }
 
   async changeEmail(login: string, newEmail: string, req: Partial<SlRequest>) {
@@ -832,7 +849,7 @@ export class User {
         this.config.local.requireEmailConfirm &&
         emailError === ValidErr.exists
       ) {
-        this.emitter.emit('illegal-email-change', login, newEmail);
+        this.emitter.emit('email-change-attempt', login, newEmail);
         return;
       } else {
         throw emailError;
@@ -858,7 +875,12 @@ export class User {
       user.email = newEmail;
     }
     this.emitter.emit('email-changed', user);
-    return this.userDB.insert(user);
+    const finalUser = this.userDbManager.logActivity(
+      'email-changed',
+      req.user.provider,
+      user
+    );
+    return this.userDB.insert(finalUser);
   }
 
   async removeUserDB(
@@ -894,15 +916,16 @@ export class User {
   }
 
   /**
-   * Logs out a user either by his provided login information (uuid, email or
-   * username) or his session_id
+   * Completely logs out a user either by his provided login information (uuid,
+   * email or username) or his session_id
    */
-  async logoutUser(login: string, session_id: string) {
+  async logoutAll(login: string, session_id: string) {
     let user: SlUserDoc;
     if (login) {
       user = await this.getUser(login);
     } else if (session_id) {
       user = await this.userDbManager.findUserDocBySession(session_id);
+      login = session_id;
     }
     if (!user) {
       return Promise.reject({
@@ -911,7 +934,7 @@ export class User {
       });
     }
     await this.logoutUserSessions(user, Cleanup.all);
-    this.emitter.emit('logout', user.key);
+    user = this.userDbManager.logActivity('logout-all', login, user);
     this.emitter.emit('logout-all', user.key);
     return this.userDB.insert(user);
   }
@@ -951,9 +974,11 @@ export class User {
       if (user.session) {
         endSessions = Object.keys(user.session).length;
       }
+
       this.emitter.emit('logout', user.key);
       if (startSessions !== endSessions) {
         // 3) update the sl-doc
+        user = this.userDbManager.logActivity('logout', session_id, user);
         return this.userDB.insert(user);
       } else {
         return false;

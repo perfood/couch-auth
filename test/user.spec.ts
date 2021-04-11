@@ -52,6 +52,7 @@ const userConfigHelper = new Configure({
   security: {
     defaultRoles: ['user'],
     disabledRoutes: [],
+    userActivityLogSize: 3,
     iterations: [
       [0, 10],
       [1596797642, 10000]
@@ -224,6 +225,7 @@ describe('User Model', async function () {
         expect(newUser.local.created >= now).to.be.true;
         expect(newUser.modelTest).to.equal(true);
         expect(newUser.roles[0]).to.equal('user');
+        expect(newUser.activity[0].action).to.equal('signup');
         expect(newUser.onCreate1).to.equal(true);
         expect(newUser.onCreate2).to.equal(true);
         expect(newUser.age).to.equal('32');
@@ -323,6 +325,7 @@ describe('User Model', async function () {
         return userDB.get(superuserUUID);
       })
       .then(function (user) {
+        expect(user.activity[0].action).to.equal('login');
         return emitterPromise;
       });
   });
@@ -442,7 +445,7 @@ describe('User Model', async function () {
       .then(function (session2) {
         sessions[1] = session2.token;
         passes[1] = session2.password;
-        return user.logoutUser(null, sessions[0]);
+        return user.logoutAll(null, sessions[0]);
       })
       .then(function () {
         return Promise.all([
@@ -488,6 +491,7 @@ describe('User Model', async function () {
       })
       .then(function (verifiedUser) {
         expect(verifiedUser.email).to.equal(testUserForm.email);
+        expect(verifiedUser.activity[0].action).to.equal('email-verified');
         return emitterPromise;
       });
   });
@@ -519,6 +523,7 @@ describe('User Model', async function () {
 
         expect(result.forgotPassword.token).to.be.a('string');
         expect(result.forgotPassword.expires).to.be.above(Date.now());
+        expect(result.activity[0].action).to.equal('forgot-password');
 
         expect(spySendMail.callCount).to.equal(1);
 
@@ -591,6 +596,7 @@ describe('User Model', async function () {
       .then(function (userAfterReset) {
         // It should delete the password reset token completely
         expect(userAfterReset.forgotPassword).to.be.undefined;
+        expect(userAfterReset.activity[0].action).to.equal('password-reset');
 
         expect(spySendMail.callCount).to.equal(2);
         const args = spySendMail.getCall(1).args;
@@ -628,6 +634,8 @@ describe('User Model', async function () {
         return userDB.get(superuserUUID);
       })
       .then(function (userAfterChange) {
+        expect(userAfterChange.activity[0].action).to.equal('password-change');
+
         expect(spySendMail.callCount).to.equal(3);
         const args = spySendMail.getCall(2).args;
         expect(args[0]).to.equal('modifiedPassword');
@@ -663,6 +671,7 @@ describe('User Model', async function () {
         return userDB.get(superuserUUID);
       })
       .then(function (userAfterChange) {
+        expect(userAfterChange.activity[0].action).to.equal('email-changed');
         expect(userAfterChange.unverifiedEmail.email).to.equal(
           'superuser2@example.com'
         );
@@ -688,7 +697,7 @@ describe('User Model', async function () {
     return previous
       .then(() => {
         console.log('Authenticating new facebook user');
-        return user.socialAuth('facebook', auth, profile);
+        return user.createUserSocial('facebook', auth, profile);
       })
       .then(newUser => {
         misterxUUID = newUser._id;
@@ -700,6 +709,9 @@ describe('User Model', async function () {
         expect(result.email).to.equal('misterx@example.com');
         expect(result.providers[0]).to.equal('facebook');
         expect(result.facebook.profile.username).to.equal('misterx');
+        expect(result.activity[0].action).to.equal('signup');
+        expect(result.activity[0].provider).to.equal('facebook');
+
         misterxKey = result.key;
         return emitterPromise;
       });
@@ -716,7 +728,7 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Authenticating existing facebook user');
-        return user.socialAuth('facebook', auth, profile);
+        return user.createUserSocial('facebook', auth, profile);
       })
       .then(function () {
         return userDB.get(misterxUUID);
@@ -737,7 +749,7 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Making sure an existing email is rejected');
-        return user.socialAuth('facebook', auth, profile);
+        return user.createUserSocial('facebook', auth, profile);
       })
       .then(
         function () {
@@ -788,10 +800,14 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Linking social profile to existing user');
-        return user.linkSocial('superuser', 'facebook', auth, profile);
+        return user.linkUserSocial('superuser', 'facebook', auth, profile);
       })
       .then(function (theUser) {
         expect(theUser.facebook.profile.username).to.equal('superuser');
+        expect(theUser.activity[0].action).to.equal('link-social');
+        expect(theUser.activity[0].provider).to.equal('facebook');
+        // Test that the activity list is limited to the maximum value
+        expect(theUser.activity.length).to.equal(3);
       });
   });
 
