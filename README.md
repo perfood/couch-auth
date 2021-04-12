@@ -3,21 +3,28 @@
 ![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)
 ![Build Status](https://github.com/sl-nx/superlogin-next/workflows/Build/badge.svg?branch=master)
 
-This is an updated fork of SuperLogin, re-written in TypeScript and developed with Node 12 & CouchDB 3 / Cloudant.
+This is a heavily modified SuperLogin, re-written in TypeScript and developed with Node 12 & CouchDB 3 / Cloudant.
 
-If you've just plugged SuperLogin into your Express Server, it should be backwards compatible - unless you've been
-passing a PouchDB (it now uses [nano](https://github.com/apache/couchdb-nano) or [cloudant](https://www.npmjs.com/package/@cloudant/cloudant) for IAM compatibility instead). There are a few new configuration options and some changes under the hood, for details see the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md).
+If you've just plugged SuperLogin into your Express Server, the current `master` branch or `0.X` release should be mostly backwards compatible. There are a few new configuration options and some changes under the hood, for details see the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md).
 
-[Future changes](https://github.com/sl-nx/superlogin-next/projects/1) will mainly affect improved security (_including modified/ new configuration defaults_) and compatibility with Cloudant. Be sure to always check the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md) also on minor releases before this reaches 1.0.0! Minor breaking changes and necessary config adjustments can and will happen.
+[Upcoming changes](https://github.com/sl-nx/superlogin-next/projects/1) will mainly affect improved security (_including modified/ new configuration defaults_). Be sure to always check the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md) before updating! Things may break and configs might need to be adjusted.
 
-The current status will become the 1.0 branch soon and be maintenance only. A new, more OWASP-compliant and [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry)-ready version is developed in the `minimal` branch:
+The current released status `master` / `0.X` is maintenance only. 
+A new, more lightweigh, OWASP-compliant and [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry)-ready version is developed in the `minimal` branch:
 
-- The adapters will no longer be used. The `session` route becomes deprecated.
-- db and doc ids will no longer include PII, but be UUIDs instead. Requires manual migration via replication.
-- `validate-x` routes and cloudant legacy auth become deprecated.
+- The adapters for session caching will no longer be used. The `session` route becomes deprecated.
+- db and doc ids no longer include PII, but be UUIDs instead. Requires manual migration via replication.
+- `validate-x` routes are deprecated.
 - signup with e-Mail only instead of `username` is preferred: now prevents account-guessing via forgotpass, login or signup
 - no more IP logging
-- `lockedUntil` and `activityLog` functionality has been removed
+- some functionality has been removed (Cloudant legacy auth, `lockedUntil`,...)
+
+When starting a new project or if you have migrated from Superlogin to the new DB format, it's the best idea to install the second latest commit instead of the published version, e.g.:
+
+```
+npm i github:sl-nx/superlogin-next#b6341032779619ed54fc13afea3b0347201314c6
+```
+
 
 Note that I'm no OAuth expert and only actively working on / performing security testing for the `local` email/PW authentication strategy.
 

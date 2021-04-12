@@ -1,6 +1,6 @@
 ## Change Log
 
-#### couchdb-auth (1.0.0)
+#### WIP - minimal branch
 
 The schema for the database IDs has been migrated to UUIDs, changes to `sl-user` - Docs:
 
@@ -24,6 +24,8 @@ Adjustments to config options:
 - disabling of routes (`security.disabledRoutes`)  
 - prevent name guessing via `forgot-password`, `register`, `change-email` and `login`
   - only fully available if `requireEmailConfirm` and `emailUsername` are `true`
+
+And fixed a lot of bugs...
 
 #### Cloudant IAM (0.13)
 
