@@ -17,7 +17,7 @@ No external session cache is used anymore:
 - removed `redis` and the other adapters
 - marked `session` as deprecated: It simply checks whether the entry in `_users` exists. You should handle this by checking the connection to CouchDB instead.
 
-
+Cloudant legacy auth via API-Keys is no longer supported. Use `couchAuthOnCloudant` instead.
 
 Adjustments to config options:
 - more than 10 hashing iterations (`security.iterations`)

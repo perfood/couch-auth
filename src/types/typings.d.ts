@@ -96,6 +96,7 @@ export type UserEvent =
   | 'forgot-username-attempt'
   | 'email-change-attempt'
   | 'user-db-added';
+
 export interface UserActivity {
   timestamp: string;
   action: UserAction;

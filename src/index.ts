@@ -49,7 +49,7 @@ export class SuperLogin extends User {
     let server: CloudantServer | NanoServer;
     if (
       (!userDB && config.dbServer.userDB) ||
-      (!couchAuthDB && config.dbServer.couchAuthDB && !config.dbServer.cloudant)
+      (!couchAuthDB && config.dbServer.couchAuthDB)
     ) {
       server = loadCouchServer(config);
     }
@@ -57,11 +57,7 @@ export class SuperLogin extends User {
     if (!userDB && config.dbServer.userDB) {
       userDB = server.use(config.dbServer.userDB);
     }
-    if (
-      !couchAuthDB &&
-      config.dbServer.couchAuthDB &&
-      !config.dbServer.cloudant
-    ) {
+    if (!couchAuthDB && config.dbServer.couchAuthDB) {
       couchAuthDB = server.use(config.dbServer.couchAuthDB);
     }
     if (!userDB || typeof userDB !== 'object') {

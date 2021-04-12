@@ -110,8 +110,7 @@ const userConfigHelper = new Configure({
     },
     model: {
       _default: {
-        designDocs: ['test'],
-        permissions: ['_reader', '_writer', '_replicator']
+        designDocs: ['test']
       }
     },
     defaultDBs: {

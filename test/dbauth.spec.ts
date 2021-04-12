@@ -107,7 +107,7 @@ describe('DBAuth', () => {
   it('should authorize database keys', function () {
     return previous
       .then(function () {
-        return dbAuth.authorizeKeys('testuser', testDB, ['key1', 'key2']);
+        return dbAuth.authorizeKeys(testDB, ['key1', 'key2']);
       })
       .then(function () {
         return testDB.get('_security');
@@ -121,7 +121,7 @@ describe('DBAuth', () => {
   it('should only authorize keys once', function () {
     return previous
       .then(function () {
-        return dbAuth.authorizeKeys('testuser', testDB, ['key1', 'key2']);
+        return dbAuth.authorizeKeys(testDB, ['key1', 'key2']);
       })
       .then(function () {
         return testDB.get('_security');
@@ -161,7 +161,6 @@ describe('DBAuth', () => {
           'personal',
           ['test'],
           'private',
-          [],
           ['admin_role'],
           ['member_role']
         );

@@ -160,11 +160,8 @@ export class CouchAdapter implements DBAdapter {
    * authorises the passed keys to access the db
    */
   async authorizeKeys(
-    user_id: string,
     db: DocumentScope<any>,
-    keys: Record<string, any> | Array<string> | string,
-    permissions?,
-    roles?
+    keys: Record<string, any> | Array<string> | string
   ) {
     // Check if keys is an object and convert it to an array
     if (typeof keys === 'object' && !(keys instanceof Array)) {

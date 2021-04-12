@@ -113,7 +113,6 @@ export class DbManager {
       action: action,
       provider: provider
     };
-    console.log('logActivity() - added: ', JSON.stringify(entry));
     userDoc.activity.unshift(entry);
     while (userDoc.activity.length > logSize) {
       userDoc.activity.pop();

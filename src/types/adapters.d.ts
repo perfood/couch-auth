@@ -7,11 +7,8 @@ export interface DBAdapter {
   retrieveKey: Function;
   extendKey: (string, number) => Promise<any>;
   authorizeKeys: (
-    user_id: string,
     db: DocumentScope<any>,
-    keys: Record<string, any> | Array<string> | string,
-    permissions?: string[],
-    roles?: string[]
+    keys: Record<string, any> | Array<string> | string
   ) => Promise<any>;
   deauthorizeKeys: (
     db: DocumentScope<any>,

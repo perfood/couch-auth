@@ -1,5 +1,5 @@
 import { Sofa } from '@sl-nx/sofa-model';
-import Mail from 'nodemailer/lib/mailer';
+import Mail, { Address } from 'nodemailer/lib/mailer';
 
 export interface TestConfig {
   /** Use a stub transport so no email is actually sent. Default: false */
@@ -112,12 +112,10 @@ export interface DBServerConfig {
   // This will be the access URL for all your user's personalDBs
   publicURL?: string;
   /**
-   * Set this to `true` if you are using Cloudant with API-v2-keys and Cloudant's role system.
-   * Provide `CLOUDANT_USER` and - unless you're using IAM for authentication - `CLOUDANT_PASS` as environment variables
-   */
-  cloudant?: boolean;
-  /** Use this flag instead if you use Cloudant, but with the
-   *  `_users` - DB and CouchDB's permission system instead */
+   * Uses the CouchDB-compatible `_users` - DB and permission system. See
+   * [Cloudant Docs](https://cloud.ibm.com/docs/Cloudant?topic=Cloudant-work-with-your-account#using-the-_users-database-with-cloudant-nosql-db)
+   * for more details.
+   * */
   couchAuthOnCloudant?: boolean;
   /**
    * If specified together with `cloudant` or `couchAuthOnCloudant`, this IAM api key will be used for authentication
@@ -159,7 +157,7 @@ export interface MailOptions {
 
 export interface MailerConfig {
   /** Email address that all your system emails will be from */
-  fromEmail: string;
+  fromEmail: string | Address;
   /** Use this if you want to specify a custom Nodemailer transport. Defaults to SMTP or sendmail. */
   transport?: any;
   /**
@@ -199,13 +197,13 @@ export interface SecurityRoles {
   members: string[];
 }
 
+export type PersonalDBType = 'private' | 'shared';
+
 export interface PersonalDBSettings {
   /** Array containing name of the design doc files (omitting .js extension), in the directory specified in `designDocDir` */
   designDocs: string[];
-  /** these permissions only work with the Cloudant API */
-  permissions: string[];
   /** defaults to 'private' */
-  type?: 'private' | 'shared';
+  type?: PersonalDBType;
   /** admin roles that will be automatically added to the db's _security object of this specific db. Default: [] */
   adminRoles?: string[];
   /** member roles that will be automatically added to the db's _security object of this specific db. Default: [] */

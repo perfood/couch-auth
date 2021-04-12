@@ -72,11 +72,6 @@ const exampleConfig = {
     // This will be the access URL for all your user's personalDBs
     publicURL: 'https://mydb.example.com',
     /**
-     * Set this to `true` if you are using Cloudant with API-v2-keys and Cloudant's role system.
-     * Provide `CLOUDANT_USER` and - unless you're using IAM for authentication - `CLOUDANT_PASS` as environment variables
-     */
-    cloudant: false,
-    /**
      * If specified together with `cloudant` or `couchAuthOnCloudant`, this IAM api key will be used for authentication
      * instead of legacy basic auth via `user:password`. Do not provide `password` or `CLOUDANT_PASS` if using IAM!
      */
@@ -161,13 +156,10 @@ const exampleConfig = {
       // If your database is not listed below, these default settings will be applied
       _default: {
         // Array containing name of the design doc files (omitting .js extension), in the directory configured below
-        designDocs: ['mydesign'],
-        // these permissions only work with the Cloudant API
-        permissions: ['_reader', '_replicator']
+        designDocs: ['mydesign']
       },
       test: {
         designDocs: ['test'],
-        permissions: ['_reader', '_replicator'],
         // 'private' or 'shared'
         type: 'private',
         // Roles that will be automatically added to the db's _security object of this specific db

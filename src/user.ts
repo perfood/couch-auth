@@ -135,7 +135,6 @@ export class User {
       }
     };
 
-    // SofaModelOptions
     const userModel: Sofa.AsyncOptions = {
       async: true,
       whitelist: ['name', 'username', 'email', 'password', 'confirmPassword'],
@@ -492,36 +491,30 @@ export class User {
       throw { error: 'Bad Request', status: 400 };
     }
     const user_uid = user._id;
-    const token = await this.generateSession(user_uid, user.roles);
+    const token = this.generateSession(user_uid, user.roles, provider);
     const password = token.password;
-    const newToken = token;
-    newToken.provider = provider;
+    token.provider = provider;
     await this.dbAuth.storeKey(
       user.key,
-      newToken.key,
+      token.key,
       password,
-      newToken.expires,
+      token.expires,
       user.roles,
       provider
     );
     // authorize the new session across all dbs
     if (user.personalDBs) {
-      await this.dbAuth.authorizeUserSessions(
-        user_uid,
-        user.personalDBs,
-        newToken.key,
-        user.roles
-      );
+      await this.dbAuth.authorizeUserSessions(user.personalDBs, token.key);
     }
     if (!user.session) {
       user.session = {};
     }
     const newSession: Partial<SlLoginSession> = {
-      issued: newToken.issued,
-      expires: newToken.expires,
+      issued: token.issued,
+      expires: token.expires,
       provider: provider
     };
-    user.session[newToken.key] = newSession as SessionObj;
+    user.session[token.key] = newSession as SessionObj;
     // Clear any failed login attempts
     if (provider === 'local') {
       if (!user.local) user.local = {};
@@ -533,7 +526,7 @@ export class User {
     const finalUser = await this.logoutUserSessions(userDoc, Cleanup.expired);
     user = finalUser;
     await this.userDB.insert(finalUser);
-    newSession.token = newToken.key;
+    newSession.token = token.key;
     newSession.password = password;
     newSession.user_id = user.key;
     newSession.roles = user.roles;
@@ -842,7 +835,7 @@ export class User {
     if (!req.user) {
       req.user = { provider: 'local' };
     }
-    newEmail = newEmail.toLowerCase().trim(); // todo: use Sofa Model, merge with config!
+    newEmail = newEmail.toLowerCase().trim();
     const emailError = await this.validateEmail(newEmail);
     if (emailError) {
       if (
@@ -1092,32 +1085,40 @@ export class User {
     throw Session.invalidMsg;
   }
 
-  generateSession(user_uid: string, roles: string[]) {
-    return this.dbAuth.getApiKey().then(key => {
-      const now = Date.now();
-      return Promise.resolve({
-        _id: user_uid,
-        key: key.key,
-        password: key.password,
-        issued: now,
-        expires: now + this.config.security.sessionLife * 1000,
-        roles: roles
-      });
-    });
+  generateSession(user_uid: string, roles: string[], provider: string) {
+    const key = this.dbAuth.getApiKey();
+    const now = Date.now();
+    return {
+      ...key,
+      _id: user_uid,
+      issued: now,
+      expires: now + this.config.security.sessionLife * 1000,
+      roles,
+      provider
+    };
   }
 
-  /** todo: why this method?? Also existed in Colin's version. */
+  /**
+   * Associates a new database with the user's account. Will also authenticate
+   * all existing sessions with the new database. If the optional fields are not
+   * specified, they will be taken from `userDBs.model.{dbName}` or
+   * `userDBs.model._default` in your config.
+   * @param login  the `key`, `email` or `_id` (user_uid) of the user
+   * @param dbName the name of the database. For a shared db, this is the actual
+   *               path. For a private db userDBs.privatePrefix will be prepended,
+   *               and ${user_uid} appended.
+   * @param type 'private' (default) or 'shared'
+   * @param designDocs the name of the designDoc (if any) that will be seeded.
+   */
   addUserDB(
-    login: string, // todo: either pass uid or use find here
+    login: string,
     dbName: string,
-    type: string,
-    designDocs?,
-    permissions?: string[]
+    type: 'private' | 'shared' = 'private',
+    designDocs?
   ) {
     let userDoc: SlUserDoc;
-    const dbConfig = this.dbAuth.getDBConfig(dbName, type || 'private');
+    const dbConfig = this.dbAuth.getDBConfig(dbName, type);
     dbConfig.designDocs = designDocs || dbConfig.designDocs || '';
-    dbConfig.permissions = permissions || dbConfig.permissions;
     return this.getUser(login)
       .then(result => {
         if (!result) {
@@ -1129,7 +1130,6 @@ export class User {
           dbName,
           dbConfig.designDocs,
           dbConfig.type,
-          dbConfig.permissions,
           dbConfig.adminRoles,
           dbConfig.memberRoles
         );
@@ -1139,10 +1139,6 @@ export class User {
           userDoc.personalDBs = {};
         }
         delete dbConfig.designDocs;
-        // If permissions is specified explicitly it will be saved, otherwise will be taken from defaults every session
-        if (!permissions) {
-          delete dbConfig.permissions;
-        }
         delete dbConfig.adminRoles;
         delete dbConfig.memberRoles;
         userDoc.personalDBs[finalDBName] = dbConfig;
@@ -1169,12 +1165,10 @@ export class User {
               userDBName,
               dbConfig.designDocs,
               type,
-              dbConfig.permissions,
               dbConfig.adminRoles,
               dbConfig.memberRoles
             )
             .then(finalDBName => {
-              delete dbConfig.permissions;
               delete dbConfig.adminRoles;
               delete dbConfig.memberRoles;
               delete dbConfig.designDocs;
