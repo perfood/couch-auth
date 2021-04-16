@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
     "allowJs": true,
-    "module": "commonjs",
-    "esModuleInterop": true,
+    "module": "ES2020",
     "allowSyntheticDefaultImports": true,
     "target": "ES2019",
     "lib": ["ES2020"],
@@ -10,7 +9,7 @@
     "moduleResolution": "node",
     "sourceMap": false,
     "declaration": true,
-    "outDir": "lib"
+    "outDir": "esm"
   },
   "include": ["src/**/*"]
 }
