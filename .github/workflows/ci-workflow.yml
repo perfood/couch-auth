@@ -24,6 +24,7 @@ jobs:
         with:
           couchdb-version: '3.1'
       - run: npm ci
+      - run: npm run lint
       - run: npm run build
       - run: npm test
         env:

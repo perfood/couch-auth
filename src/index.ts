@@ -1,20 +1,20 @@
 'use strict';
-import { addProvidersToDesignDoc, loadCouchServer } from './util';
-import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
-import { DocumentScope, ServerScope as NanoServer } from 'nano';
-import express, { Router } from 'express';
-import { Authenticator } from 'passport';
 import { ServerScope as CloudantServer } from '@cloudant/cloudant';
-import { Config } from './types/config';
-import { ConfigHelper } from './config/configure';
 import events from 'events';
-import loadRoutes from './routes';
+import express, { Router } from 'express';
+import { DocumentScope, ServerScope as NanoServer } from 'nano';
+import { Authenticator } from 'passport';
+import { ConfigHelper } from './config/configure';
+import seed from './design/seed';
 import localConfig from './local';
 import { Mailer } from './mailer';
 import { Middleware } from './middleware';
 import { OAuth } from './oauth';
-import seed from './design/seed';
+import loadRoutes from './routes';
+import { Config } from './types/config';
+import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
 import { User } from './user';
+import { addProvidersToDesignDoc, loadCouchServer } from './util';
 
 export class SuperLogin extends User {
   router: Router;
@@ -100,5 +100,3 @@ export class SuperLogin extends User {
     }
   }
 }
-
-module.exports = SuperLogin;

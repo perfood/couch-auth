@@ -1,10 +1,8 @@
-'use strict';
-const express = require('express');
-const http = require('http');
-const bodyParser = require('body-parser');
-const morgan = require('morgan');
-
-const SuperLogin = require('../lib/index');
+import bodyParser from 'body-parser';
+import express from 'express';
+import http from 'http';
+import morgan from 'morgan';
+import { SuperLogin } from '../lib/index';
 
 function start(config) {
   const app = express();
@@ -44,12 +42,12 @@ function start(config) {
 
   const server = http.createServer(app).listen(app.get('port'));
 
-  app.shutdown = function () {
+  app['shutdown'] = function () {
     server.close();
   };
 
-  app.config = superlogin.config;
-  app.superlogin = superlogin;
+  app['config'] = superlogin.config;
+  app['superlogin'] = superlogin;
 
   return app;
 }

@@ -1,20 +1,20 @@
-import { addProvidersToDesignDoc, getDBURL, hyphenizeUUID } from '../src/util';
 import chai, { expect } from 'chai';
-import { CouchDbAuthDoc, DocumentScope, SlUserDoc } from '../src/types/typings';
-import { validate as isUUID, v4 as uuidv4 } from 'uuid';
-import { ConfigHelper as Configure } from '../src/config/configure';
 import events from 'events';
-import { Mailer } from '../src/mailer';
 import nano from 'nano';
 import path from 'path';
-import request from 'superagent';
-import seed from '../src/design/seed';
 import sinon from 'sinon';
+import request from 'superagent';
+import { v4 as uuidv4, validate as isUUID } from 'uuid';
+import { ConfigHelper as Configure } from '../src/config/configure';
+import seed from '../src/design/seed';
+import { Mailer } from '../src/mailer';
+import { CouchDbAuthDoc, DocumentScope, SlUserDoc } from '../src/types/typings';
 import { User } from '../src/user';
+import { addProvidersToDesignDoc, getDBURL, hyphenizeUUID } from '../src/util';
+import { config } from './test.config';
 chai.use(require('sinon-chai'));
 
-const config = require('./test.config.js');
-const dbUrl = getDBURL(config.dbServer);
+const dbUrl = getDBURL(config.dbServer as any);
 const couch = nano({ url: dbUrl, parseUrl: false });
 
 const emitter = new events.EventEmitter();

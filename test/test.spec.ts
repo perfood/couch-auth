@@ -1,9 +1,10 @@
 import chai, { expect } from 'chai';
-import { getDBURL } from '../lib/util';
 import nano from 'nano';
+import sinon from 'sinon';
 import request from 'superagent';
 import seed from '../lib/design/seed';
-import sinon from 'sinon';
+import { getDBURL } from '../lib/util';
+import { config } from './test.config';
 chai.use(require('sinon-chai'));
 
 describe('SuperLogin', function () {
@@ -18,7 +19,6 @@ describe('SuperLogin', function () {
   let expireCompare;
   let resetToken = null;
 
-  const config = require('./test.config');
   const server = 'http://localhost:5000';
   const dbUrl = getDBURL(config.dbServer);
   const couch = nano({ url: dbUrl, parseUrl: false });
