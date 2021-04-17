@@ -1,15 +1,16 @@
 'use strict';
-import {
-  arrayUnion,
-  EMAIL_REGEXP,
-  getExpiredSessions,
-  getSessions,
-  hashToken,
-  hyphenizeUUID,
-  removeHyphens,
-  URLSafeUUID,
-  USER_REGEXP
-} from './util';
+import Model, { Sofa } from '@sl-nx/sofa-model';
+import merge from 'deepmerge';
+import { EventEmitter } from 'events';
+import { Request } from 'express';
+import { DocumentScope } from 'nano';
+import url from 'url';
+import { v4 as uuidv4 } from 'uuid';
+import { DBAuth } from './dbauth';
+import { Hashing } from './hashing';
+import { Mailer } from './mailer';
+import { Session } from './session';
+import { Config } from './types/config';
 import {
   CouchDbAuthDoc,
   HashResult,
@@ -22,19 +23,18 @@ import {
   SlUserDoc,
   SlUserNew
 } from './types/typings';
-import Model, { Sofa } from '@sl-nx/sofa-model';
-import { Config } from './types/config';
-import { DBAuth } from './dbauth';
 import { DbManager } from './user/DbManager';
-import { DocumentScope } from 'nano';
-import { EventEmitter } from 'events';
-import { Hashing } from './hashing';
-import { Mailer } from './mailer';
-import merge from 'deepmerge';
-import { Request } from 'express';
-import { Session } from './session';
-import url from 'url';
-import { v4 as uuidv4 } from 'uuid';
+import {
+  arrayUnion,
+  EMAIL_REGEXP,
+  getExpiredSessions,
+  getSessions,
+  hashToken,
+  hyphenizeUUID,
+  removeHyphens,
+  URLSafeUUID,
+  USER_REGEXP
+} from './util';
 
 enum Cleanup {
   'expired' = 'expired',
@@ -77,22 +77,7 @@ export class User {
     this.hasher = new Hashing(config);
     this.session = new Session(this.hasher);
     this.userDbManager = new DbManager(userDB, config);
-
-    // Token valid for 24 hours by default
-    // Session token life
-    this.passwordConstraints = {
-      presence: true,
-      length: {
-        minimum: 6,
-        message: 'must be at least 6 characters'
-      },
-      matches: 'confirmPassword'
-    };
-    const additionalConstraints = config.local.passwordConstraints;
-    this.passwordConstraints = merge(
-      this.passwordConstraints,
-      additionalConstraints ? additionalConstraints : {}
-    );
+    this.passwordConstraints = config.local.passwordConstraints;
 
     // the validation functions are public
     this.validateUsername = async function (username: string) {

@@ -27,8 +27,8 @@ describe('SuperLogin', function () {
     name: 'Kewl Uzer',
     username: 'kewluzer',
     email: 'kewluzer@example.com',
-    password: '1s3cret',
-    confirmPassword: '1s3cret'
+    password: '123s3cret',
+    confirmPassword: '123s3cret'
   };
   const invalidNewUser = { ...newUser, email: 'blah@example' };
 
@@ -44,8 +44,8 @@ describe('SuperLogin', function () {
     name: 'Kewler Uzer',
     username: 'kewleruzer',
     email: 'kewleruzer@example.com',
-    password: '1s3cret',
-    confirmPassword: '1s3cret'
+    password: '123s3cret',
+    confirmPassword: '123s3cret'
   };
 
   const findUser = key =>
@@ -86,7 +86,6 @@ describe('SuperLogin', function () {
   });
 
   it('should reject a new user with an invalid email', () => {
-    console.log('setup ok');
     return previous.then(() => {
       return request
         .post(server + '/auth/register')
@@ -101,8 +100,39 @@ describe('SuperLogin', function () {
     });
   });
 
+  it('should reject a new user without matching passwords', () => {
+    return previous.then(() => {
+      return request
+        .post(server + '/auth/register')
+        .send({ ...newUser, confirmPassword: 'something else' })
+        .then(() => {
+          return Promise.reject(
+            'different confirmPassword should have been rejected'
+          );
+        })
+        .catch(err => {
+          expect(err.status).to.equal(400);
+          console.log('Rejected user with different confirmPassword');
+        });
+    });
+  });
+
+  it('should reject a new user with a too short password', () => {
+    return previous.then(() => {
+      return request
+        .post(server + '/auth/register')
+        .send({ ...newUser, password: 'abc', confirmPassword: 'abc' })
+        .then(() => {
+          return Promise.reject('too short password should have been rejected');
+        })
+        .catch(err => {
+          expect(err.status).to.equal(400);
+          console.log('Rejected user with too short password');
+        });
+    });
+  });
+
   it('should reject a new user without any data', () => {
-    console.log('setup ok');
     return previous.then(() => {
       return request
         .post(server + '/auth/register')
@@ -250,8 +280,8 @@ describe('SuperLogin', function () {
             .post(server + '/auth/password-reset')
             .send({
               token: resetToken,
-              password: 'newpass',
-              confirmPassword: 'newpass'
+              password: 'newpass1',
+              confirmPassword: 'newpass1'
             })
             .then(res => {
               expect(res.status).to.equal(200);
@@ -288,7 +318,7 @@ describe('SuperLogin', function () {
       return new Promise<void>(function (resolve, reject) {
         request
           .post(server + '/auth/login')
-          .send({ username: newUser.username, password: 'newpass' })
+          .send({ username: newUser.username, password: 'newpass1' })
           .then(res => {
             accessToken = res.body.token;
             accessPass = res.body.password;
@@ -334,7 +364,7 @@ describe('SuperLogin', function () {
             .post(server + '/auth/password-change')
             .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
             .send({
-              currentPassword: 'newpass',
+              currentPassword: 'newpass1',
               newPassword: 'newpass2',
               confirmPassword: 'newpass2'
             })

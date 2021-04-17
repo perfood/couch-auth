@@ -21,6 +21,14 @@ export const defaultConfig: Config = {
     ]
   },
   local: {
+    passwordConstraints: {
+      presence: true,
+      length: {
+        minimum: 8,
+        message: 'must be at least 8 characters'
+      },
+      matches: 'confirmPassword'
+    },
     usernameField: 'username',
     passwordField: 'password',
     emailUsername: true,

@@ -19,8 +19,8 @@ No external session cache is used anymore:
 
 Cloudant legacy auth via API-Keys is no longer supported. Use `couchAuthOnCloudant` instead.
 
-Adjustments to config options:
-- more secure defaults, see `src/config/default.config.ts` for details.
+Adjustments to config options, see `src/config/default.config.ts` for the new defaults and `src/types/config.d.ts` for all available options.
+- made the defaults more secure
 - more than 10 hashing iterations (`security.iterations`)
 - disabling of routes (`security.disabledRoutes`)  
 - prevent name guessing via `forgot-password`, `register`, `change-email` and `login`

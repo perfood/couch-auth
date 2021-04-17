@@ -99,13 +99,14 @@ export interface LocalConfig {
   /** Custom passwort field in your login form. Default: `'password'`. */
   passwordField?: string;
   /**
-   * override default constraints (processed by sofa-model).
+   * Override default constraints (which are: must match `confirmPassword`, at least length 8).
+   * The constraints are processed by [validatejs](https://validatejs.org/#validate).
    */
-  passwordConstraints?: PasswordConstraints;
+  passwordConstraints?: Record<string, any>;
 }
 
+/** Configure the CouchDB compatible server where all your databases are stored on */
 export interface DBServerConfig {
-  // The CouchDB compatible server where all your databases are stored on
   protocol: 'https://' | 'http://';
   host: string;
   user?: string;
@@ -125,13 +126,14 @@ export interface DBServerConfig {
    */
   iamApiKey?: string;
   /**
-   * The name for the database that stores all your user information.
-   * This is distinct from CouchDB's _user database. Default: 'sl-users'.
-   * Alternatively you can pass in a `nano` instance to the SuperLogin constructor and leave this blank */
+   * The name for the database that stores user information like email, hashed passwords, sessions,...
+   * This is _distinct_ from CouchDB's _user database. Default: `'sl-users'`.
+   * Alternatively, you can pass in a `nano` instance to the SuperLogin constructor and leave this blank */
   userDB?: string;
-  /** defaults to CouchDB's _users database. Each session generates the user a unique login and password.
-   * This is not used when `cloudant` is true, but can be used with
-   * `couchStyleAuth` on Cloudant as well. */
+  /**
+   * defaults to CouchDB's _users database. Each session generates the user a unique login and password
+   * according to the [CouchDB Users Documents format](https://docs.couchdb.org/en/stable/intro/security.html#users-documents).
+   */
   couchAuthDB?: string;
   /** Directory for the DDocs of user-DBs, as specified by `userDB.designDocs` */
   designDocDir?: string;
