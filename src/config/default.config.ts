@@ -1,7 +1,10 @@
-import { Config } from '../types/config';
 import path from 'path';
+import { Config } from '../types/config';
 
-// These are the default settings that will be used if you don't override them in your config
+/**
+ * These are the default settings that will be used if you don't override them
+ * in your config
+ */
 export const defaultConfig: Config = {
   security: {
     defaultRoles: ['user'],
@@ -12,6 +15,7 @@ export const defaultConfig: Config = {
     disabledRoutes: [
       'validate-username',
       'validate-email',
+      'unlink',
       'session',
       'forgot-username'
     ]
@@ -20,24 +24,19 @@ export const defaultConfig: Config = {
     usernameField: 'username',
     passwordField: 'password',
     emailUsername: true,
-    emailLogin: true
-    /** // todo: activate like this!
-    requireEmailConfirm: true,
-    sendConfirmEmail: true,
-    requirePasswordOnEmailChange: false,
-    sendPasswordChangedEmail: true,
+    emailLogin: true,
     usernameLogin: false,
     uuidLogin: false,
-    emailLogin: true,
-    emailUsername: true
-    */
+    requireEmailConfirm: true,
+    sendConfirmEmail: true,
+    requirePasswordOnEmailChange: true,
+    sendPasswordChangedEmail: true
   },
   dbServer: {
     protocol: 'http://',
     host: 'localhost:5984',
     designDocDir: path.join(__dirname, '/designDocs'),
     userDB: 'sl_users',
-    // CouchDB's _users database. Each session generates the user a unique login and password. This is not used with Cloudant.
     couchAuthDB: '_users'
   },
   emails: {

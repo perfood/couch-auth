@@ -68,23 +68,24 @@ export interface LocalConfig {
   requireEmailConfirm: boolean;
   /**
    * Requires the correct `password` to be sent in the body in order to change
-   * the email. */
+   * the email. Default: `true` */
   requirePasswordOnEmailChange: boolean;
   /**
-   * send a confirmation E-Mail to the user after the password has
-   * successfully been changed or resetted. */
+   * Sends a confirmation E-Mail to the user after the password has
+   * succesfully been changed or resetted. Default: `true`.
+   */
   sendPasswordChangedEmail: boolean;
   /** If this is set, the user will be redirected to this location after confirming email instead of JSON response */
   confirmEmailRedirectURL?: string;
-  /** allow to also login with the username. Default: false */
+  /** allow to also login with the username. Default: `false` */
   usernameLogin: boolean;
-  /** allow to also login with the UUID. Default: false */
+  /** allow to also login with the UUID. Default: `false` */
   uuidLogin: boolean;
-  /** allow to login via E-Mail. Default: true */
+  /** allow to login via E-Mail. Default: `true` */
   emailLogin: boolean;
   /**
    * only require email for signup and use a randomly generated `key` for the
-   * username for compatibility reasons. Default: true
+   * username for compatibility reasons. Default: `true`
    * If `false`, the `signup`-route will be vulnerable to name guessing, so you
    * should only disable this option if your usernames are public anyways.
    */
@@ -93,8 +94,9 @@ export interface LocalConfig {
   sendNameAndUUID?: boolean;
   /** If a number > 0 is set here, the token for password reset will be shortened */
   tokenLengthOnReset?: number;
-  // Custom names for the username and password fields in your sign-in form
+  /** Custom username field in your login form. Default: `'username'`. */
   usernameField?: string;
+  /** Custom passwort field in your login form. Default: `'password'`. */
   passwordField?: string;
   /**
    * override default constraints (processed by sofa-model).
