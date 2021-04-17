@@ -260,7 +260,7 @@ export class User {
     this.emitter.emit('signup-attempt', existingUser, 'local');
   }
 
-  async createUser(form, req = undefined): Promise<void | SlUserDoc> {
+  async createUser(form, req?): Promise<void | SlUserDoc> {
     req = req || {};
     let finalUserModel = this.userModel;
     const newUserModel = this.config.userModel;
@@ -282,6 +282,7 @@ export class User {
     const UserModel = Model(finalUserModel);
     const user = new UserModel(form);
     let newUser: Partial<SlUserNew>;
+    let hasError = false;
     try {
       newUser = await user.process();
     } catch (err) {
@@ -297,15 +298,34 @@ export class User {
           err.email.splice(inUseIdx, 1);
         }
         if (err.email.length === 0 && Object.keys(err).length === 1) {
-          return this.handleEmailExists(form.email);
+          this.handleEmailExists(form.email);
+          hasError = true;
+        }
+      } else {
+        throw {
+          error: 'Validation failed',
+          validationErrors: err,
+          status: 400
+        };
+      }
+    }
+
+    return new Promise(async (resolve, reject) => {
+      newUser = await this.prepareNewUser(newUser);
+      if (!this.config.security.loginOnRegistration) {
+        resolve(hasError ? undefined : (newUser as SlUserDoc));
+      }
+      if (!hasError) {
+        const finalUser = await this.insertNewUserDocument(newUser, req);
+        this.emitter.emit('signup', finalUser, 'local');
+        if (this.config.security.loginOnRegistration) {
+          resolve(finalUser);
         }
       }
-      throw {
-        error: 'Validation failed',
-        validationErrors: err,
-        status: 400
-      };
-    }
+    });
+  }
+
+  private async prepareNewUser(newUser: Partial<SlUserNew>) {
     const uid = uuidv4();
     // todo: remove, this is just for backwards compat...
     if (this.config.local.sendNameAndUUID) {
@@ -329,6 +349,10 @@ export class User {
       provider: 'local',
       timestamp: new Date().toISOString()
     };
+    return newUser;
+  }
+
+  private async insertNewUserDocument(newUser: Partial<SlUserNew>, req?) {
     newUser = await this.addUserDBs(newUser as SlUserDoc);
     newUser = this.userDbManager.logActivity(
       'signup',
@@ -346,10 +370,12 @@ export class User {
       await this.mailer.sendEmail(
         'confirmEmail',
         newUser.unverifiedEmail.email,
-        { req: req, user: newUser }
+        {
+          req: req,
+          user: newUser
+        }
       );
     }
-    this.emitter.emit('signup', newUser, 'local');
     return newUser as SlUserDoc;
   }
 
@@ -1048,7 +1074,7 @@ export class User {
 
   /**
    * Confirms the user:password that has been passed as Bearer Token
-   * Todo: maybe just look in superlogin-users or try to access DB?
+   * Todo: Should ensure that sessions aren't discarded on CouchDB error!
    */
   async confirmSession(key: string, password: string) {
     try {
@@ -1062,11 +1088,13 @@ export class User {
         delete token.type;
         delete token._rev;
         delete token.password_scheme;
-        return this.session.confirmToken(token, password);
+        return await this.session.confirmToken(token, password);
       } else {
         this.dbAuth.removeKeys(key);
       }
-    } catch {}
+    } catch {
+      await this.session.confirmToken({}, password);
+    }
     throw Session.invalidMsg;
   }
 

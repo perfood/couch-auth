@@ -3,7 +3,7 @@ import nano from 'nano';
 import sinon from 'sinon';
 import request from 'superagent';
 import seed from '../lib/design/seed';
-import { getDBURL } from '../lib/util';
+import { getDBURL, timeoutPromise } from '../lib/util';
 import { config } from './test.config';
 chai.use(require('sinon-chai'));
 
@@ -161,7 +161,7 @@ describe('SuperLogin', function () {
           expect(res.status).to.equal(200);
           expect(res.body.success).to.equal('Request processed.');
           console.log('User created');
-          return Promise.resolve();
+          return timeoutPromise(500);
         });
     });
   });
@@ -496,7 +496,7 @@ describe('SuperLogin', function () {
     });
   }
 
-  it('should respond unauthorized if a user logs in and no password is set', function () {
+  it('should respond unauthorized on login if no password is set', function () {
     return previous
       .then(function () {
         return userDB.insert({
@@ -513,7 +513,7 @@ describe('SuperLogin', function () {
       });
   });
 
-  it('should respond unauthorized if the password is wrong', function () {
+  it('should respond unauthorized on login if the password is wrong', function () {
     return previous
       .then(function () {
         return attemptLogin('kewluzer', 'wrong');
@@ -521,6 +521,18 @@ describe('SuperLogin', function () {
       .then(function (result: any) {
         expect(result.status).to.equal(401);
         expect(result.message).to.equal('Invalid username or password');
+        return Promise.resolve();
+      });
+  });
+
+  it('should respond unauthorized on login if data is missing', function () {
+    return previous
+      .then(function () {
+        return attemptLogin(undefined, 'test');
+      })
+      .then(function (result: any) {
+        expect(result.status).to.equal(401);
+        expect(result.message).to.equal('Missing credentials');
         return Promise.resolve();
       });
   });

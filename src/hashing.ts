@@ -1,6 +1,7 @@
-import { HashResult, LocalHashObj } from './types/typings';
-import { Config } from './types/config';
 import pwdModule from '@sl-nx/couch-pwd';
+import { Config } from './types/config';
+import { HashResult, LocalHashObj } from './types/typings';
+import { URLSafeUUID } from './util';
 
 const pwd = new pwdModule();
 
@@ -20,13 +21,19 @@ export function hashCouchPassword(password: string): Promise<HashResult> {
 export class Hashing {
   hashers = [];
   times: number[] = [];
+  dummyHashObject: LocalHashObj = { iterations: 10 };
+
   constructor(config: Partial<Config>) {
-    if (config.security?.iterations) {
+    const iterationPairs = config.security?.iterations;
+    if (iterationPairs) {
       for (const pair of config.security.iterations) {
         this.times.push(pair[0]);
         this.hashers.push(new pwdModule(pair[1]));
       }
     }
+    this.hashUserPassword(URLSafeUUID()).then(dummy => {
+      this.dummyHashObject = dummy;
+    });
   }
 
   private getHasherForTimestamp(ts: number = undefined) {
@@ -63,16 +70,15 @@ export class Hashing {
   }
 
   verifyUserPassword(hashObj: LocalHashObj, pw: string): Promise<boolean> {
-    const salt = hashObj.salt;
-    const derived_key = hashObj.derived_key;
-    const t = hashObj.created;
-
-    if (!salt || !derived_key) {
-      return Promise.reject(false);
+    const salt = hashObj.salt ?? this.dummyHashObject.salt;
+    const derived_key = hashObj.derived_key ?? this.dummyHashObject.derived_key;
+    let created = hashObj.created;
+    if (!hashObj.salt && !hashObj.derived_key) {
+      created = this.dummyHashObject.created;
     }
 
     return new Promise((resolve, reject) => {
-      const hasher = this.getHasherForTimestamp(t);
+      const hasher = this.getHasherForTimestamp(created);
       hasher.hash(pw, salt, (err, hash) => {
         if (err) {
           return reject(err);

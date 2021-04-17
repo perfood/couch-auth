@@ -1,12 +1,12 @@
 'use strict';
-import { Config, DBServerConfig } from './types/config';
-import { DocumentScope, ServerScope, SlUserDoc } from './types/typings';
 import cloudant from '@cloudant/cloudant';
 import crypto from 'crypto';
-import nano from 'nano';
 import { Request } from 'express';
+import nano from 'nano';
 import URLSafeBase64 from 'urlsafe-base64';
 import { v4 as uuidv4 } from 'uuid';
+import { Config, DBServerConfig } from './types/config';
+import { DocumentScope, ServerScope, SlUserDoc } from './types/typings';
 
 // regexp from https://emailregex.com/
 export const EMAIL_REGEXP = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
@@ -253,4 +253,12 @@ export function isUserFacingError(errObj: any) {
 
 export function replaceAt(str: string, idx: number, repl: string) {
   return str.substring(0, idx) + repl + str.substring(idx + 1, str.length);
+}
+
+export function timeoutPromise(duration) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve(true);
+    }, duration);
+  });
 }

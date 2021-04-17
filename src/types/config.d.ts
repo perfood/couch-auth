@@ -28,7 +28,11 @@ export interface SecurityConfig {
    * Use 0 or undefined to disable completely
    */
   userActivityLogSize?: number;
-  /** If `true`, the user will be logged in automatically after registering. Default: `false` */
+  /**
+   * If `true`, the user will be logged in automatically after registering.
+   * Default: `false`. Note that setting this to `true` will make your app
+   * vulnerable to name guessing via the registration route.
+   */
   loginOnRegistration: boolean;
   /** If `true`, the user will be logged in automatically after resetting the
    * password. default: `false` */
@@ -39,9 +43,9 @@ export interface SecurityConfig {
    * number of iterations for pbkdf2 password hashing, starting with the
    * supplied dates. The first entry is the timestamp, the second number the
    * number of iterations that should be used from this timestamp until the
-   * next timestamp in the array. Default: `undefined`
+   * next timestamp in the array. Default: `undefined` uses only 10 iterations.
    */
-  iterations?: number[][];
+  iterations?: [number, number][];
 }
 
 export interface LengthConstraint {

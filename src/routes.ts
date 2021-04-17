@@ -1,15 +1,14 @@
 'use strict';
+import { NextFunction, Request, Response, Router } from 'express';
+import { Authenticator } from 'passport';
+import { Config } from './types/config';
+import { SlRequest } from './types/typings';
+import { User, ValidErr } from './user';
 import {
   capitalizeFirstLetter,
   getSessionToken,
   isUserFacingError
 } from './util';
-import { NextFunction, Request, Response, Router } from 'express';
-import { User, ValidErr } from './user';
-
-import { Authenticator } from 'passport';
-import { Config } from './types/config';
-import { SlRequest } from './types/typings';
 
 export default function (
   config: Partial<Config>,
@@ -386,9 +385,7 @@ export default function (
    */
   router.use(function (err, req: Request, res: Response, next: NextFunction) {
     const isExpected = isUserFacingError(err);
-    if (isExpected) {
-      console.warn(JSON.stringify(err));
-    } else {
+    if (!isExpected) {
       const errLog =
         typeof err === 'string' ? err : err.reason ? err.reason : err.message;
       console.error(errLog);

@@ -10,7 +10,12 @@ import seed from '../src/design/seed';
 import { Mailer } from '../src/mailer';
 import { CouchDbAuthDoc, DocumentScope, SlUserDoc } from '../src/types/typings';
 import { User } from '../src/user';
-import { addProvidersToDesignDoc, getDBURL, hyphenizeUUID } from '../src/util';
+import {
+  addProvidersToDesignDoc,
+  getDBURL,
+  hyphenizeUUID,
+  timeoutPromise
+} from '../src/util';
 import { config } from './test.config';
 chai.use(require('sinon-chai'));
 
@@ -209,7 +214,9 @@ describe('User Model', async function () {
         return user.createUser(testUserForm, req);
       })
       .then(newUser => {
-        console.log('User created');
+        return timeoutPromise(500).then(() => newUser);
+      })
+      .then(newUser => {
         superuserUUID = newUser._id;
         createdDBs.push('test_usertest$' + superuserUUID);
         return userDB.get(superuserUUID);
@@ -949,7 +956,7 @@ describe('User Model', async function () {
 
   it('should create a new user in userEmail mode', function () {
     return previous
-      .then(function () {
+      .then(() => {
         userConfig.local.emailUsername = true;
         // Don't create any more userDBs
         delete userConfig.userDBs.defaultDBs;
@@ -957,9 +964,10 @@ describe('User Model', async function () {
         user = new User(userConfig, userDB, keysDB, mailer, emitter);
         return user.createUser(emailUserForm, req);
       })
-      .then(function (newUser) {
+      .then(newUser => {
         expect(newUser.unverifiedEmail.email).to.equal(emailUserForm.email);
         expect(newUser.key).to.exist;
+        return timeoutPromise(500);
       });
   });
 
@@ -969,7 +977,7 @@ describe('User Model', async function () {
         return user.createUser(emailUserForm, req);
       })
       .then(
-        function (newUser) {
+        function () {
           throw 'Should not have created the user!';
         },
         function (err) {

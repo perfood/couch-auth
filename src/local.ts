@@ -1,8 +1,8 @@
 'use strict';
-import { Authenticator } from 'passport';
-import { Config } from './types/config';
-import { Strategy as LocalStrategy } from 'passport-local';
 import { Request } from 'express';
+import { Authenticator } from 'passport';
+import { Strategy as LocalStrategy } from 'passport-local';
+import { Config } from './types/config';
 import { User } from './user';
 
 const BearerStrategy = require('passport-http-bearer-sl').Strategy;
@@ -48,35 +48,30 @@ export default function (
       (req: Request, username: string, password: string, done: Function) => {
         user.getUser(username).then(
           theuser => {
-            if (theuser) {
-              if (!theuser.local || !theuser.local.derived_key) {
+            const invalid = !theuser?.local?.derived_key;
+            const hashInput = invalid ? {} : theuser.local;
+            user.verifyPassword(hashInput, password).then(
+              () => {
+                // Prevent time based attack -> still do a hashing round
+                if (invalid) {
+                  return done(null, false, invalidResponse());
+                }
+                // Check if the email has been confirmed if it is required
+                if (config.local.requireEmailConfirm && !theuser.email) {
+                  return done(null, false, {
+                    message: 'You must confirm your email address.'
+                  });
+                }
+                // Success!!!
+                return done(null, theuser);
+              },
+              err => {
+                if (err !== false) {
+                  console.warn('LocalStrategy rejected with: ', err);
+                }
                 return done(null, false, invalidResponse());
               }
-              user.verifyPassword(theuser.local, password).then(
-                () => {
-                  // Check if the email has been confirmed if it is required
-                  if (config.local.requireEmailConfirm && !theuser.email) {
-                    return done(null, false, {
-                      message: 'You must confirm your email address.'
-                    });
-                  }
-                  // Success!!!
-                  return done(null, theuser);
-                },
-                err => {
-                  if (!err) {
-                    // Password didn't authenticate
-                    return done(null, false, invalidResponse());
-                  } else {
-                    // Hashing function threw an error
-                    return done(err);
-                  }
-                }
-              );
-            } else {
-              // user not found
-              return done(null, false, invalidResponse());
-            }
+            );
           },
           err => {
             // Database threw an error
