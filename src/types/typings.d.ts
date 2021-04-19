@@ -1,15 +1,15 @@
 import {
-  Document,
-  DocumentScope as NanoDocumentScope,
-  ServerScope as NanoServerScope,
-  IdentifiedDocument,
-  MaybeRevisionedDocument
-} from 'nano';
-import {
   DocumentScope as CloudantDocumentScope,
   ServerScope as CloudantServerScope
 } from '@cloudant/cloudant';
 import { Request } from 'express';
+import {
+  Document,
+  DocumentScope as NanoDocumentScope,
+  IdentifiedDocument,
+  MaybeRevisionedDocument,
+  ServerScope as NanoServerScope
+} from 'nano';
 
 export type ServerScope = NanoServerScope | CloudantServerScope;
 export type DocumentScope<D> = NanoDocumentScope<D> | CloudantDocumentScope<D>;
@@ -95,7 +95,8 @@ export type UserEvent =
   | 'forgot-password-attempt'
   | 'forgot-username-attempt'
   | 'email-change-attempt'
-  | 'user-db-added';
+  | 'user-db-added'
+  | 'user-deleted';
 
 export interface UserActivity {
   timestamp: string;

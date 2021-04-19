@@ -93,10 +93,5 @@ export class SuperLogin extends User {
     this.requireRole = middleware.requireRole.bind(middleware);
     this.requireAnyRole = middleware.requireAnyRole.bind(middleware);
     this.requireAllRoles = middleware.requireAllRoles.bind(middleware);
-
-    // Inherit emitter
-    for (const key in emitter) {
-      this[key] = emitter[key];
-    }
   }
 }

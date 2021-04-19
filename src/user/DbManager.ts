@@ -1,3 +1,11 @@
+import { validate as isUUID } from 'uuid';
+import { Config } from '../types/config';
+import {
+  DocumentScope,
+  SlUserDoc,
+  UserAction,
+  UserActivity
+} from '../types/typings';
 import {
   capitalizeFirstLetter,
   EMAIL_REGEXP,
@@ -6,11 +14,6 @@ import {
   removeHyphens,
   USER_REGEXP
 } from '../util';
-import { Config } from '../types/config';
-import { DocumentScope, UserAction, UserActivity } from '../types/typings';
-import { validate as isUUID } from 'uuid';
-import { Request } from 'express';
-import { SlUserDoc } from '../types/typings';
 
 export class DbManager {
   constructor(
@@ -120,9 +123,12 @@ export class DbManager {
     return userDoc;
   }
 
-  getMatchingIdentifier(login: string): '_id' | 'email' | 'key' {
+  getMatchingIdentifier(
+    login: string,
+    allowUUID = false
+  ): '_id' | 'email' | 'key' {
     if (
-      this.config.local.uuidLogin &&
+      (allowUUID || this.config.local.uuidLogin) &&
       [32, 36].includes(login.length) &&
       !login.includes('@')
     ) {
@@ -138,8 +144,8 @@ export class DbManager {
     return undefined;
   }
 
-  getUser(login: string): Promise<SlUserDoc | null> {
-    const identifier = this.getMatchingIdentifier(login);
+  getUser(login: string, allowUUId = false): Promise<SlUserDoc | null> {
+    const identifier = this.getMatchingIdentifier(login, allowUUId);
     if (!identifier) {
       console.log('no matching identifier for login: ', login);
       return Promise.reject({ error: 'Bad request', status: 400 });

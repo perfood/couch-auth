@@ -2,6 +2,10 @@
 
 #### WIP - minimal branch
 
+-`superlogin.emitter` must be used to listen to events, e.g. `superlogin.emitter.on('signup', () => {..})`
+instead of listening directly on `superlogin`.
+- added `request-deletion` - route (enabled by default).
+
 The schema for the database IDs has been migrated to UUIDs, changes to `sl-user` - Docs:
 
 - no more PII in document or database IDs

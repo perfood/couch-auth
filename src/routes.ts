@@ -337,6 +337,27 @@ export default function (
       }
     );
 
+  if (!disabled.includes('request-deletion'))
+    router.post(
+      '/request-deletion',
+      passport.authenticate('bearer', { session: false }),
+      (req: Request, res: Response, next: NextFunction) => {
+        loginLocal(req, res, next);
+      },
+      (req: SlRequest, res: Response, next: NextFunction) => {
+        if (req.body.reason && typeof req.body.reason !== 'string') {
+          return res.sendStatus(400);
+        }
+        res.status(200).json({
+          ok: true,
+          success: 'deletion requested'
+        });
+        user.removeUser(req.user._id, true, req.body.reason).catch(err => {
+          console.warn('request-deletion: failed for ', req.user._id, err);
+        });
+      }
+    );
+
   if (!disabled.includes('change-email'))
     router.post(
       '/change-email',

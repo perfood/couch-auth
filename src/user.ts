@@ -69,7 +69,7 @@ export class User {
     protected userDB: DocumentScope<SlUserDoc>,
     couchAuthDB: DocumentScope<CouchDbAuthDoc>,
     protected mailer: Mailer,
-    protected emitter: EventEmitter
+    public emitter: EventEmitter
   ) {
     this.dbAuth = new DBAuth(config, userDB, couchAuthDB);
     this.onCreateActions = [];
@@ -248,8 +248,8 @@ export class User {
    * retrieves by email (default) or username or uuid if the config options are
    * set. Rejects if no valid format.
    */
-  getUser(login: string): Promise<SlUserDoc | null> {
-    return this.userDbManager.getUser(login);
+  getUser(login: string, allowUUID = false): Promise<SlUserDoc | null> {
+    return this.userDbManager.getUser(login, allowUUID);
   }
 
   async handleEmailExists(email: string): Promise<void> {
@@ -1056,20 +1056,21 @@ export class User {
     return userDoc;
   }
 
-  async removeUser(login: string, destroyDBs) {
+  async removeUser(login: string, destroyDBs = false, reason?: string) {
     const promises = [];
-    const userDoc = await this.getUser(login);
+    const userDoc = await this.getUser(login, true);
     const user = await this.logoutUserSessions(userDoc, Cleanup.all);
-    if (destroyDBs !== true || !user.personalDBs) {
-      return Promise.resolve();
+    if (destroyDBs && user.personalDBs) {
+      Object.keys(user.personalDBs).forEach(userdb => {
+        if (user.personalDBs[userdb].type === 'private') {
+          promises.push(this.dbAuth.removeDB(userdb));
+        }
+      });
+      await Promise.all(promises);
     }
-    Object.keys(user.personalDBs).forEach(userdb => {
-      if (user.personalDBs[userdb].type === 'private') {
-        promises.push(this.dbAuth.removeDB(userdb));
-      }
-    });
-    await Promise.all(promises);
-    return this.userDB.destroy(user._id, user._rev);
+
+    await this.userDB.destroy(user._id, user._rev);
+    this.emitter.emit('user-deleted', user, reason);
   }
 
   /**

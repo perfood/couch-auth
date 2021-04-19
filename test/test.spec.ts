@@ -47,6 +47,7 @@ describe('SuperLogin', function () {
     password: '123s3cret',
     confirmPassword: '123s3cret'
   };
+  let newUser2Bearer;
 
   const findUser = key =>
     userDB
@@ -417,6 +418,7 @@ describe('SuperLogin', function () {
             expect(res.status).to.equal(200);
             expect(res.body.token).to.be.string;
             console.log('User created and logged in');
+            newUser2Bearer = res.body.token + ':' + res.body.password;
             resolve();
           });
       });
@@ -535,5 +537,34 @@ describe('SuperLogin', function () {
         expect(result.message).to.equal('Missing credentials');
         return Promise.resolve();
       });
+  });
+
+  it('should delete a user', () => {
+    const emitterPromise = new Promise<void>(function (resolve) {
+      app.superlogin.emitter.on('user-deleted', function (user, reason) {
+        expect(user.key).to.equal(newUser2.username);
+        expect(reason).to.equal('boring');
+        resolve();
+      });
+    });
+
+    return previous.then(() => {
+      const deletionForm = {
+        password: newUser2.password,
+        username: newUser2.username,
+        reason: 'boring'
+      };
+      const requestPromise = new Promise<void>(resolve => {
+        request
+          .post(server + '/auth/request-deletion')
+          .set('Authorization', 'Bearer ' + newUser2Bearer)
+          .send(deletionForm)
+          .end(function (error, res) {
+            expect(res.status).to.equal(200);
+            resolve();
+          });
+      });
+      return Promise.all([requestPromise, emitterPromise]);
+    });
   });
 });
