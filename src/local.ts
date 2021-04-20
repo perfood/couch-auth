@@ -15,9 +15,12 @@ export default function (
   // API token strategy
   passport.use(
     new BearerStrategy((tokenPass: string, done: Function) => {
+      if (!tokenPass || typeof tokenPass !== 'string') {
+        return done(null, false, { message: 'invalid token' });
+      }
       const parse = tokenPass.split(':');
       if (parse.length < 2) {
-        done(null, false, { message: 'invalid token' });
+        return done(null, false, { message: 'invalid token' });
       }
       const token = parse[0];
       const password = parse[1];

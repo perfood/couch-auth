@@ -1058,8 +1058,8 @@ export class User {
 
   async removeUser(login: string, destroyDBs = false, reason?: string) {
     const promises = [];
-    const userDoc = await this.getUser(login, true);
-    const user = await this.logoutUserSessions(userDoc, Cleanup.all);
+    let user = await this.getUser(login, true);
+    user = await this.logoutUserSessions(user, Cleanup.all);
     if (destroyDBs && user.personalDBs) {
       Object.keys(user.personalDBs).forEach(userdb => {
         if (user.personalDBs[userdb].type === 'private') {
