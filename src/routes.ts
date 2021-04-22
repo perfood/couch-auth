@@ -375,10 +375,9 @@ export default function (
           : req.user._id;
         user.changeEmail(login, req.body.newEmail, req).then(
           function () {
-            const info = config.local.requireEmailConfirm
-              ? 'change requested'
-              : 'changed';
-            res.status(200).json({ ok: true, success: `Email ${info}` });
+            res
+              .status(200)
+              .json({ ok: true, success: 'Email change requested' });
           },
           function (err) {
             return next(err);

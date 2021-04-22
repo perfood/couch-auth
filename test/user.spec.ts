@@ -507,24 +507,27 @@ describe('User Model', async function () {
   let spySendMail;
 
   it('should generate a password reset token', function () {
-    const emitterPromise = new Promise<void>(function (resolve) {
+    const emitterPromise = new Promise<any>(function (resolve) {
       emitter.once('forgot-password', function (user) {
         expect(user.key).to.equal('superuser');
-        resolve();
+        resolve(user);
       });
     });
 
     spySendMail = sinon.spy(mailer, 'sendEmail');
 
     return previous
-      .then(function () {
-        console.log('Generating password reset token');
-        return user.forgotPassword(testUserForm.email, req);
-      })
-      .then(function () {
-        return userDB.get(superuserUUID);
-      })
-      .then(function (result) {
+      .then(() =>
+        Promise.all([
+          user
+            .forgotPassword(testUserForm.email, req)
+            .then(() => userDB.get(superuserUUID)),
+          emitterPromise
+        ])
+      )
+      .then(results => {
+        const result = results[1];
+        expect(results[0]._id).to.equal(results[1]._id);
         resetTokenHashed = result.forgotPassword.token; // hashed token stored in db
 
         expect(result.forgotPassword.token).to.be.a('string');
@@ -542,7 +545,6 @@ describe('User Model', async function () {
 
         resetToken = args[2].token; // keep unhashed token emailed to user.
         expect(resetTokenHashed).to.not.equal(resetToken);
-        return emitterPromise;
       });
   });
 
@@ -657,15 +659,15 @@ describe('User Model', async function () {
   });
 
   it('should change the email', function () {
-    const emitterPromise = new Promise<void>(function (resolve) {
-      emitter.once('email-changed', function (user) {
+    const emitterPromise = new Promise<any>(resolve => {
+      emitter.once('email-changed', user => {
         expect(user.key).to.equal('superuser');
-        resolve();
+        resolve(user);
       });
     });
 
     return previous
-      .then(function () {
+      .then(() => {
         console.log('Changing the email');
         return user.changeEmail(
           testUserForm.username,
@@ -673,15 +675,14 @@ describe('User Model', async function () {
           req
         );
       })
-      .then(function () {
-        return userDB.get(superuserUUID);
-      })
-      .then(function (userAfterChange) {
+      .then(() => emitterPromise)
+      .then(() => userDB.get(superuserUUID))
+      .then(userAfterChange => {
         expect(userAfterChange.activity[0].action).to.equal('email-changed');
         expect(userAfterChange.unverifiedEmail.email).to.equal(
           'superuser2@example.com'
         );
-        return emitterPromise;
+        return Promise.resolve();
       });
   });
 

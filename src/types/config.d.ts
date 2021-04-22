@@ -60,14 +60,15 @@ export interface PasswordConstraints {
 
 export interface LocalConfig {
   /**
-   * Send out a confirmation email after each user signs up with local login. Defaul: `true`
+   * Send out a confirmation email after each user signs up with local login.
+   * Default: `true`. Must be `true` if `requireEmailConfirm` is `true`.
    */
   sendConfirmEmail: boolean;
   /**
    * Also require the email be confirmed before the user can change his email.
    * changed email is updated. Default: `true`. If set, both `change-email` and
    * `signup` requests will return the same generic answer also if the email is
-   * already taken.
+   * already taken. If `false`, `change-email` is vulnerable to name guessing.
    */
   requireEmailConfirm: boolean;
   /**

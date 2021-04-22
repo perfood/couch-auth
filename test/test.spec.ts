@@ -255,20 +255,24 @@ describe('SuperLogin', function () {
 
   it('should generate a forgot password token', function () {
     const spySendMail = sinon.spy(app.superlogin.mailer, 'sendEmail');
+    const emitterPromise = new Promise<void>(resolve => {
+      app.superlogin.emitter.on('forgot-password', () => {
+        resolve();
+      });
+    });
 
-    return previous.then(function () {
-      return new Promise<void>(function (resolve, reject) {
+    return previous.then(() => {
+      return Promise.all([
         request
           .post(server + '/auth/forgot-password')
-          .send({ email: newUser.email })
-          .then(res => {
-            expect(res.status).to.equal(200);
-            // keep unhashed token emailed to user.
-            const sendEmailArgs = spySendMail.getCall(0).args;
-            resetToken = sendEmailArgs[2].token;
-            console.log('Password token successfully generated.');
-            resolve();
-          });
+          .send({ email: newUser.email }),
+        emitterPromise
+      ]).then(res => {
+        expect(res[0].status).to.equal(200);
+        const sendEmailArgs = spySendMail.getCall(0).args;
+        resetToken = sendEmailArgs[2].token;
+        console.log('Password token successfully generated.');
+        return Promise.resolve();
       });
     });
   });

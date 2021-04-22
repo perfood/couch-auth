@@ -316,39 +316,63 @@ Take a look at [`config.example.js`](https://github.com/sl-nx/superlogin-next/bl
 
 ##### `POST /register`
 
-Creates a new account with a username and password. Required fields are: `username`, `email`, `password` and `confirmPassword`. `name` is optional. Any additional fields you want to include need to be white listed under `userModel` in your config. See [`config.example.js`](https://github.com/sl-nx/superlogin-next/blob/master/config.example.js) for details.
+Creates a new account with a username and password. Required fields are: 
+`username`, `email`, `password` and `confirmPassword`. `name` is optional. 
+Any additional fields you want to include need to be white listed under 
+`userModel` in your config. See `src/config/default.config.ts`, 
+`config.example.js` or `src/types/config.d.ts` for details.
 
-If `local.sendConfirmEmail` is true, a confirmation email will be sent with a verify link. If `local.requireEmailConfirm` is true, the user will not be able to login until the confirmation is complete. If `security.loginOnRegistration` is true a session will be automatically created and sent as the response.
+If `local.sendConfirmEmail` is true (_recommended_), a confirmation email will 
+be sent with a verification link. If `local.requireEmailConfirm` is true, 
+(_recommended_) the user will not be able to login until the confirmation is 
+complete. If `security.loginOnRegistration` is true (_discouraged_), a session will 
+be automatically created and sent as the response.
 
 ##### `POST /login`
 
-Include `username` and `password` fields to authenticate and initiate a session. The field names can be customized in your config under `local.usernameField` and `local.passwordField`.
+Include `username` and `password` fields to authenticate and initiate a session. 
+The field names can be customized in your config under `local.usernameField` 
+and `local.passwordField`.
 
 ##### `GET /confirm-email/{token}`
 
-This link is included in the confirmation email, and will mark the user as confirmed. If `local.confirmEmailRedirectURL` is specified in your config, it will redirect to that location with `?success=true` if successful or `error={error}&message={msg}` if it failed. Otherwise it will generate a standard JSON response.
+This link is included in the confirmation email, and will mark the user as 
+confirmed. If `local.confirmEmailRedirectURL` is specified in your config, it 
+will redirect to that location with `?success=true` if successful or 
+`error={error}&message={msg}` if it failed. Otherwise it will generate a 
+standard JSON response.
 
 ##### `POST /refresh`
 
-Authentication token required. Extends the life of your current token and returns updated token information. The only field that will change is `expires`. Token life is configurable under `security.sessionLife` and is measured in seconds.
+Authentication token required. Extends the life of your current token and 
+returns updated token information. The only field that will change is `expires`.
+Token life is configurable under `security.sessionLife` and is measured in 
+seconds.
 
 ##### `POST /logout`
 
-Authentication required. Logs out the current session and deauthorizes the token on all user databases.
+Authentication required. Logs out the current session and deauthorizes the token
+on all user databases.
 
 ##### `POST /logout-others`
 
-Authentication required. Logs out and deauthorizes all user sessions except the current one.
+Authentication required. Logs out and deauthorizes all user sessions except the 
+current one.
 
 ##### `POST /logout-all`
 
-Authentication required. Logs out every session the user has open and deauthorizes the user completely on all databases.
+Authentication required. Logs out every session the user has open and 
+deauthorizes the user completely on all databases.
 
 ##### `POST /forgot-password`
 
-Include `email` field to send the forgot password email containing a password reset token. The life of the token can be set under `security.tokenLife` (in seconds).
+Include `email` field to send the forgot password email containing a password 
+reset token. The life of the token can be set under `security.tokenLife` (in 
+seconds).
 
-Have the email template redirect back to you're app where you're app presents U.I. to gather a new password and then `POST` to `/password-reset` with the forgot-password `token` and new password
+Have the email template redirect back to you're app where you're app presents 
+U.I. to gather a new password and then `POST` to `/password-reset` with the 
+forgot-password `token` and new password
 
 ##### `POST /password-reset`
 
@@ -360,9 +384,13 @@ Authentication required. Changes the user's password or creates one if it doesn'
 
 ##### `GET /validate-username/{username}`
 
+**Deprecated**
+
 Checks a username to make sure it is correctly formed and not already in use. Responds with status 200 if successful, or status 409 if unsuccessful.
 
 ##### `GET /validate-email/{email}`
+
+**Deprecated**
 
 Checks an email to make sure it is valid and not already in use. Responds with status 200 if successful, or status 409 if unsuccessful.
 
@@ -370,7 +398,13 @@ Checks an email to make sure it is valid and not already in use. Responds with s
 
 Authentication required. Changes the user's email. Required field: `newEmail`.
 
+Note: The server returns an answer once the email has been verified as valid and
+whether this email already exists in the DB, not waiting for the update of the 
+email to complete.
+
 ##### `GET /session`
+
+**Deprecated**. Attempt to access the (user's) CouchDB `/` instead.
 
 Returns information on the current session if it is valid. Otherwise you will get a 401 unauthorized response.
 

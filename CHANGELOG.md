@@ -2,6 +2,8 @@
 
 #### WIP - minimal branch
 
+- `change-email` now resolves with `200: change requested`
+
 -`superlogin.emitter` must be used to listen to events, e.g. `superlogin.emitter.on('signup', () => {..})`
 instead of listening directly on `superlogin`.
 - added `request-deletion` - route (enabled by default).

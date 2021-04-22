@@ -777,45 +777,56 @@ export class User {
     }
   }
 
-  async forgotPassword(email: string, req: Partial<Request>): Promise<void> {
+  public async forgotPassword(
+    email: string,
+    req: Partial<Request>
+  ): Promise<void> {
     if (!email || !email.match(EMAIL_REGEXP)) {
       return Promise.reject({ error: 'invalid email', status: 400 });
     }
     req = req || {};
     try {
-      let user = await this.userDbManager.getUserBy('email', email);
+      const user = await this.userDbManager.getUserBy('email', email);
       if (!user) {
         throw {
-          error: 'User not found',
+          error: 'User not found', // not sent as response.
           status: 404
         };
       }
-      let token = URLSafeUUID();
-      if (this.config.local.tokenLengthOnReset) {
-        token = token.substring(0, this.config.local.tokenLengthOnReset);
-      }
-      const tokenHash = hashToken(token);
-      user.forgotPassword = {
-        token: tokenHash, // Store secure hashed token
-        issued: Date.now(),
-        expires: Date.now() + this.config.security.tokenLife * 1000
-      };
-      user = this.userDbManager.logActivity('forgot-password', 'local', user);
-      await this.userDB.insert(user);
-      await this.mailer.sendEmail(
-        'forgotPassword',
-        user.email || user.unverifiedEmail.email,
-        { user: user, req: req, token: token }
-      );
-      this.emitter.emit('forgot-password', user);
+      this.completeForgotPassRequest(user, req).catch(err => {
+        this.emitter.emit('forgot-password-attempt', email);
+        console.warn('forgot-password: failed for ', user._id, ' with: ', err);
+      });
     } catch (err) {
       this.emitter.emit('forgot-password-attempt', email);
-      if (err.status === 404) {
-        return Promise.resolve();
-      } else {
+      if (err.status !== 404) {
         return Promise.reject(err);
       }
     }
+  }
+
+  private async completeForgotPassRequest(
+    user: SlUserDoc,
+    req: Partial<Request>
+  ) {
+    let token = URLSafeUUID();
+    if (this.config.local.tokenLengthOnReset) {
+      token = token.substring(0, this.config.local.tokenLengthOnReset);
+    }
+    const tokenHash = hashToken(token);
+    user.forgotPassword = {
+      token: tokenHash, // Store secure hashed token
+      issued: Date.now(),
+      expires: Date.now() + this.config.security.tokenLife * 1000
+    };
+    user = this.userDbManager.logActivity('forgot-password', 'local', user);
+    await this.userDB.insert(user);
+    await this.mailer.sendEmail(
+      'forgotPassword',
+      user.email || user.unverifiedEmail.email,
+      { user: user, req: req, token: token }
+    );
+    this.emitter.emit('forgot-password', user);
   }
 
   verifyEmail(token: string) {
@@ -841,24 +852,11 @@ export class User {
     return this.userDbManager.logActivity('email-verified', 'local', userDoc);
   }
 
-  async changeEmail(login: string, newEmail: string, req: Partial<SlRequest>) {
-    req = req || {};
-    if (!req.user) {
-      req.user = { provider: 'local' };
-    }
-    newEmail = newEmail.toLowerCase().trim();
-    const emailError = await this.validateEmail(newEmail);
-    if (emailError) {
-      if (
-        this.config.local.requireEmailConfirm &&
-        emailError === ValidErr.exists
-      ) {
-        this.emitter.emit('email-change-attempt', login, newEmail);
-        return;
-      } else {
-        throw emailError;
-      }
-    }
+  private async completeEmailChange(
+    login: string,
+    newEmail: string,
+    req: Partial<SlRequest>
+  ) {
     const user = await this.getUser(login);
     if (!user) {
       throw { error: 'Bad Request', status: 400 }; // should exist.
@@ -878,13 +876,38 @@ export class User {
     } else {
       user.email = newEmail;
     }
-    this.emitter.emit('email-changed', user);
     const finalUser = this.userDbManager.logActivity(
       'email-changed',
       req.user.provider,
       user
     );
-    return this.userDB.insert(finalUser);
+    await this.userDB.insert(finalUser);
+    this.emitter.emit('email-changed', user);
+  }
+
+  public async changeEmail(
+    login: string,
+    newEmail: string,
+    req: Partial<SlRequest>
+  ) {
+    req = req || {};
+    if (!req.user) {
+      req.user = { provider: 'local' };
+    }
+    newEmail = newEmail.toLowerCase().trim();
+    const emailError = await this.validateEmail(newEmail);
+    if (emailError) {
+      this.emitter.emit('email-change-attempt', login, newEmail);
+      if (
+        this.config.local.requireEmailConfirm &&
+        emailError === ValidErr.exists
+      ) {
+        return;
+      } else {
+        throw emailError;
+      }
+    }
+    this.completeEmailChange(login, newEmail, req);
   }
 
   async removeUserDB(
