@@ -281,11 +281,12 @@ export class User {
     }
     const UserModel = Model(finalUserModel);
     const user = new UserModel(form);
-    let newUser: Partial<SlUserNew>;
+    let newUser: Partial<SlUserNew> = {};
     let hasError = false;
     try {
       newUser = await user.process();
     } catch (err) {
+      hasError = true;
       if (
         err.email &&
         this.config.local.emailUsername &&
@@ -296,10 +297,9 @@ export class User {
         );
         if (inUseIdx >= 0) {
           err.email.splice(inUseIdx, 1);
-        }
-        if (err.email.length === 0 && Object.keys(err).length === 1) {
-          this.handleEmailExists(form.email);
-          hasError = true;
+          if (err.email.length === 0) {
+            this.handleEmailExists(form.email);
+          }
         }
       } else {
         throw {
@@ -312,7 +312,7 @@ export class User {
 
     return new Promise(async (resolve, reject) => {
       newUser = await this.prepareNewUser(newUser);
-      if (!this.config.security.loginOnRegistration) {
+      if (hasError || !this.config.security.loginOnRegistration) {
         resolve(hasError ? undefined : (newUser as SlUserDoc));
       }
       if (!hasError) {
@@ -342,7 +342,7 @@ export class User {
       };
       delete newUser.email;
     }
-    newUser.local = await this.hashPassword(newUser.password);
+    newUser.local = await this.hashPassword(newUser.password ?? URLSafeUUID());
     delete newUser.password;
     delete newUser.confirmPassword;
     newUser.signUp = {
@@ -487,7 +487,6 @@ export class User {
 
   /**
    * Creates a new session for a user. provider is the name of the provider. (eg. 'local', 'facebook', twitter.)
-   * req is used to log the IP if provided.
    */
   async createSession(
     login: string,
@@ -498,7 +497,7 @@ export class User {
       ? await this.userDbManager.getUserByUUID(login)
       : await this.getUser(login);
     if (!user) {
-      console.log('createSession - could not retrieve: ', login);
+      console.warn('createSession - could not retrieve: ', login);
       throw { error: 'Bad Request', status: 400 };
     }
     const user_uid = user._id;

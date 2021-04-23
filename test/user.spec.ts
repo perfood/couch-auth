@@ -42,6 +42,9 @@ let superuserUUID;
 let testUserUUID;
 let misterxUUID;
 let misterxKey;
+let resetToken;
+let resetTokenHashed;
+let spySendMail;
 
 const emailUserForm = {
   name: 'Awesome',
@@ -299,6 +302,32 @@ describe('User Model', async function () {
       });
   });
 
+  it('should emit and send and email if trying to register again', () => {
+    spySendMail = sinon.spy(mailer, 'sendEmail');
+    const emitterPromise = new Promise<void>(resolve => {
+      emitter.once('signup-attempt', () => {
+        console.log('emitter: got attempt.');
+        resolve();
+      });
+    });
+
+    return previous
+      .then(() => {
+        userConfig.local.requireEmailConfirm = true;
+        userConfig.local.emailUsername = true;
+        const formWithoutUsername = { ...testUserForm };
+        delete formWithoutUsername.username;
+        return Promise.all([user.createUser(testUserForm), emitterPromise]);
+      })
+      .then(res => {
+        userConfig.local.requireEmailConfirm = false;
+        userConfig.local.emailUsername = false;
+        expect(res[0]).to.equal(undefined);
+        expect(spySendMail.callCount).to.equal(1);
+        return Promise.resolve();
+      });
+  });
+
   let sessionKey, sessionPass, firstExpires;
 
   it('should generate a new session for the user', function () {
@@ -502,10 +531,6 @@ describe('User Model', async function () {
       });
   });
 
-  let resetToken;
-  let resetTokenHashed;
-  let spySendMail;
-
   it('should generate a password reset token', function () {
     const emitterPromise = new Promise<any>(function (resolve) {
       emitter.once('forgot-password', function (user) {
@@ -513,8 +538,6 @@ describe('User Model', async function () {
         resolve(user);
       });
     });
-
-    spySendMail = sinon.spy(mailer, 'sendEmail');
 
     return previous
       .then(() =>
@@ -534,9 +557,8 @@ describe('User Model', async function () {
         expect(result.forgotPassword.expires).to.be.above(Date.now());
         expect(result.activity[0].action).to.equal('forgot-password');
 
-        expect(spySendMail.callCount).to.equal(1);
-
-        const args = spySendMail.getCall(0).args;
+        expect(spySendMail.callCount).to.equal(2);
+        const args = spySendMail.getCall(1).args;
         expect(args[0]).to.equal('forgotPassword');
         expect(args[1]).to.equal(testUserForm.email);
         console.log('got args user._id');
@@ -606,8 +628,8 @@ describe('User Model', async function () {
         expect(userAfterReset.forgotPassword).to.be.undefined;
         expect(userAfterReset.activity[0].action).to.equal('password-reset');
 
-        expect(spySendMail.callCount).to.equal(2);
-        const args = spySendMail.getCall(1).args;
+        expect(spySendMail.callCount).to.equal(3);
+        const args = spySendMail.getCall(2).args;
         expect(args[0]).to.equal('modifiedPassword');
         expect(args[1]).to.equal(testUserForm.email);
         expect(args[2].user._id).to.equal(superuserUUID);
@@ -644,8 +666,8 @@ describe('User Model', async function () {
       .then(function (userAfterChange) {
         expect(userAfterChange.activity[0].action).to.equal('password-change');
 
-        expect(spySendMail.callCount).to.equal(3);
-        const args = spySendMail.getCall(2).args;
+        expect(spySendMail.callCount).to.equal(4);
+        const args = spySendMail.getCall(3).args;
         expect(args[0]).to.equal('modifiedPassword');
         expect(args[1]).to.equal(testUserForm.email);
         expect(args[2].user.key).to.equal(testUserForm.username);
