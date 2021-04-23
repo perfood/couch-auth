@@ -1,4 +1,21 @@
 'use strict';
+import Model, { Sofa } from '@sl-nx/sofa-model';
+import merge from 'deepmerge';
+import { EventEmitter } from 'events';
+import { Request } from 'express';
+import { DocumentScope } from 'nano';
+import url from 'url';
+import { ConfigHelper } from './config/configure';
+import { DBAuth } from './dbauth';
+import { Mailer } from './mailer';
+import { Session } from './session';
+import {
+  CouchDbAuthDoc,
+  SessionObj,
+  SlRequest,
+  SlSession,
+  SlUserDoc
+} from './types/typings';
 import {
   arrayUnion,
   capitalizeFirstLetter,
@@ -9,24 +26,6 @@ import {
   URLSafeUUID,
   verifyPassword
 } from './util';
-import {
-  CouchDbAuthDoc,
-  SessionObj,
-  SlRequest,
-  SlSession,
-  SlUserDoc
-} from './types/typings';
-import Model, { Sofa } from '@sl-nx/sofa-model';
-
-import { ConfigHelper } from './config/configure';
-import { DBAuth } from './dbauth';
-import { DocumentScope } from 'nano';
-import { EventEmitter } from 'events';
-import { Mailer } from './mailer';
-import merge from 'deepmerge';
-import { Request } from 'express';
-import { Session } from './session';
-import url from 'url';
 
 // regexp from https://emailregex.com/
 const EMAIL_REGEXP = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
@@ -1199,6 +1198,7 @@ export class User {
     if (!req.user) {
       req.user = { provider: 'local' };
     }
+    newEmail = newEmail.toLowerCase().trim();
     const emailError = await this.validateEmail(newEmail);
     if (emailError) {
       throw emailError;
