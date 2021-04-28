@@ -1,8 +1,12 @@
 ## Change Log
 
-#### 0.13.1: Dependency updates and email bug
+#### 0.13.4: Upgrades, email bug
 
 Also lowercasing mails on change-email
+
+#### 0.13.3: Upgrades
+
+#### 0.13.2 Upgrades
 
 #### Cloudant IAM (0.13)
 
