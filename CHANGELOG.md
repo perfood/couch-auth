@@ -1,5 +1,9 @@
 ## Change Log
 
+#### 0.13.1: Dependency updates and email bug
+
+Also lowercasing mails on change-email
+
 #### Cloudant IAM (0.13)
 
 Use Cloudant Library for compatibility with IAM auth instead of `user:password` (downgraded nano)
