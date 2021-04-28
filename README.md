@@ -5,24 +5,22 @@
 
 This is a heavily modified SuperLogin, re-written in TypeScript and developed with Node 12 & CouchDB 3 / Cloudant.
 
-If you've just plugged SuperLogin into your Express Server, the current `master` branch or `0.X` release should be mostly backwards compatible. There are a few new configuration options and some changes under the hood, for details see the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md).
+If you've used SuperLogin before, the `0.13.X` release should be mostly backwards compatible. The version will only receive occasional bugfixes. 
 
-[Upcoming changes](https://github.com/sl-nx/superlogin-next/projects/1) will mainly affect improved security (_including modified/ new configuration defaults_). Be sure to always check the [Changelog](https://github.com/sl-nx/superlogin/blob/master/CHANGELOG.md) before updating! Things may break and configs might need to be adjusted.
+[Upcoming changes](https://github.com/sl-nx/superlogin-next/projects/1) will mainly affect improved security (_including modified/ new configuration defaults_). Be sure to always check the `CHANGELOG.md` before updating! Expect breaking changes until this reaches `1.0.0`.
+A new, more lightweight, OWASP-compliant and [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry)-ready version will be released soon (check the `minimal` branch):
 
-The current released status `master` / `0.X` is maintenance only. 
-A new, more lightweigh, OWASP-compliant and [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry)-ready version is developed in the `minimal` branch:
-
-- The adapters for session caching will no longer be used. The `session` route becomes deprecated.
+- The adapters for session caching will no longer be used.
 - db and doc ids no longer include PII, but be UUIDs instead. Requires manual migration via replication.
-- `validate-x` routes are deprecated.
-- signup with e-Mail only instead of `username` is preferred: now prevents account-guessing via forgotpass, login or signup
+- `validate-x` and `session` routes are deprecated.
+- signup with e-Mail only instead of `username` is preferred: now prevents account-guessing via `forgot-pass`, `login`, `signup` and `change-pass`
 - no more IP logging
 - some functionality has been removed (Cloudant legacy auth, `lockedUntil`,...)
 
-When starting a new project or if you have migrated from Superlogin to the new DB format, it's the best idea to install the second latest commit instead of the published version, e.g.:
+When starting a new project or if you have already migrated to the new DB format, it's the best idea to install the (second) latest commit instead of the published version, e.g.:
 
 ```
-npm i github:sl-nx/superlogin-next#b6341032779619ed54fc13afea3b0347201314c6
+npm i github:sl-nx/superlogin-next#0b66433
 ```
 
 
@@ -54,18 +52,14 @@ User authentication is often the hardest part of building any web app, especiall
 - [Routes](#routes)
 - [Event Emitter](#event-emitter)
 - [Main API](#main-api)
-- [Releases](#releases)
 
 ## Features
 
-- Ideal authentication and security solution for modern APIs and Single Page Apps
-- Supports local login with username and password using best security practices
+- Authentication solution for APIs, sPAs and Offline-First CouchDB powered Apps
+- Supports local login with username/email and password using best security practices
 - Sends system emails for account confirmation, password reset, or anything else you want to configure
 - Add any [Passport](http://passportjs.org) OAuth2 strategy with literally just a couple lines of code
-- Facebook, WindowsLive, Google, Github, and LinkedIn integration fully tested
 - Link multiple authentication strategies to the same account for user convenience
-- 100% cookie free, which means that [CSRF](<https://www.owasp.org/index.php/Cross-Site_Request_Forgery_(CSRF)_Prevention_Cheat_Sheet>) attacks are impossible against your app
-- Fast and massively scalable with a Redis session store
 - Provides seamless token access to both your CouchDB server (or Cloudant) and your private API
 - Manages permissions on an unlimited number of private or shared user databases and seeds them with the correct design documents
 
@@ -80,7 +74,7 @@ Here's a simple minimalist configuration that will get you up and running right 
 First:
 
 ```
-npm install superlogin
+npm install @sl-nx/superlogin-next
 ```
 
 Then...
@@ -90,7 +84,7 @@ var express = require('express');
 var http = require('http');
 var bodyParser = require('body-parser');
 var logger = require('morgan');
-var SuperLogin = require('superlogin');
+var { SuperLogin } = require('@sl-nx/superlogin-next');
 
 var app = express();
 app.set('port', process.env.PORT || 3000);
@@ -102,8 +96,8 @@ var config = {
   dbServer: {
     protocol: 'http://',
     host: 'localhost:5984',
-    user: '',
-    password: '',
+    user: 'admin',
+    password: 'password',
     userDB: 'sl-users',
     couchAuthDB: '_users'
   },
@@ -171,7 +165,7 @@ If your user document contains a field called `profile`, this will automatically
 
 You can also use the same token and password combination to access your personal database. But as soon as you log out your session that access will be revoked.
 
-**Note:** Session tokens for your API will be unusable as soon as they expire. However, there is no mechanism to automatically revoke expired credentials with CouchDB. Whenever a user logs in, logs out, or refreshes the session, SuperLogin will automatically clean up any expired credentials for that user. For additional security, periodically run `superlogin.removeExpiredKeys()` either with `setInterval` or a cron job. This will deauthorize every single expired credential that exists in the system.
+**Note:** Session tokens for your API will be unusable as soon as they expire. However, there is no mechanism to automatically revoke expired credentials with CouchDB. Whenever a user logs in, logs out, or refreshes the session, SuperLogin will automatically clean up any expired credentials for that user. But you **have to** periodically run `superlogin.removeExpiredKeys()`, e.g. with `setInterval` or a cron job. This will deauthorize every single expired credential.
 
 ## Securing Your Routes
 
@@ -208,26 +202,22 @@ Middleware that makes sure the user possesses ALL of the specified `requiredRole
 
 ## Database Security
 
-If you are using [Cloudant](https://cloudant.com), then your databases are secure by default and all you have to do is ensure the correct permissions are specified under `userDBs.model` in your config.
+When using CouchDB, you should block anonymous reads across all databases by setting `require_valid_user` to `true` under `[couch_httpd_auth]` in your CouchDB config.
 
-If, however, you are using regular CouchDB, you should block anonymous reads across all databases you can set `require_valid_user` to `true` under `[couch_httpd_auth]` in your CouchDB config.
-Note that for CouchDB versions `< 3`, Admin Party is default and all your databases are readable and writable by the public until you implement the correct security measures. It is your responsibility to study up on [best security practices](http://blog.mattwoodward.com/2012/03/definitive-guide-to-couchdb.html) and apply them.
+For CouchDB versions `< 3`, Admin Party is default and all your databases are readable and writable by the public until you implement the correct security measures. 
 
-SuperLogin also allows you to specify default `_security` roles for members and admins in the `userDBs` section of your config file. See [`config.example.js`](https://github.com/sl-nx/superlogin-next/blob/master/config.example.js) for details.
+SuperLogin also allows you to specify default `_security` roles for members and admins in the `userDBs` section of your config file. See `config.example.js` for details.
 
 ## CouchDB Document Update Validation
 
-CouchDB can save your API a lot of traffic by handling both reads and writes. CouchDB provides the [validate_doc_update function](http://guide.couchdb.org/draft/validation.html) to approve or disapprove what gets written. However, since your CouchDB users are temporary random API keys, you have no idea which user is requesting to write. SuperLogin has inserted the original `user_id` into `userCtx.roles[0]`, prefixed by `user:` (e.g. `user:superman`).
+CouchDB provides the [validate_doc_update function](http://guide.couchdb.org/draft/validation.html) to approve or disapprove what gets written. However, since your CouchDB users are temporary random API keys, you have no idea which user is requesting to write. SuperLogin has inserted the original `user_id` into `userCtx.roles[0]`, prefixed by `user:` (e.g. `user:superman`).
 
-If you are using Cloudant authentication, the prefixed `user_id` is inserted as the first item on the `permissions` array, which will also appear inside `roles` in your `userCtx` object. You will also find all the `roles` from your user doc here.
-
-If you wish to give a user special Cloudant permissions other than the ones specified in your config, you can edit the user doc from the `sl-users` database and under `personalDBs` add an array called `permissions` under the corresponding DB for that user.
 
 ## Adding Providers
 
-You can add support for any Passport OAuth2 strategy to SuperLogin with just a few lines of code. (OAuth1 strategies generally require a cookie-based session to work, so are not currently supported by SuperLogin which is sessionless.)
+You can add support for any Passport OAuth2 strategy to SuperLogin with just a few lines of code. _Maintainers Note: haven't tested this._
 
-##### Configuration
+#### Configuration
 
 The first step is to add credentials to your config file. You can skip the callback URL as it will be generated automatically. Here is how to add support for Dropbox:
 
@@ -248,7 +238,7 @@ providers: {
 
 SuperLogin supports two types of workflows for OAuth2 providers: popup window and client access token.
 
-##### Popup Window Workflow for web browsers (desktop and mobile)
+#### Popup Window Workflow for web browsers (desktop and mobile)
 
 Your client must create a popup window and point it to `/{provider}`, where the user will be directed to authenticate with that provider. After authentication succeeds or fails, it will call a Javascript callback on the parent window called `superlogin.oauthSession`.
 
@@ -261,7 +251,7 @@ superlogin.registerOAuth2('dropbox', DroboxStrategy);
 
 Now, assuming your credentials are valid, you should be able to authenticate with Dropbox by opening a popup window to `/dropbox`. See below in the Routes documentation for more detail.
 
-##### Client Access Token for Cordova / Phonegap and Native Apps
+#### Client Access Token for Cordova / Phonegap and Native Apps
 
 Cordova and most native app frameworks (including iOS and Android) have plugins which authenticate a user with a provider and provide an `access_token` to the client app. All you have to do is post a request to `/{provider}/token` and include your `access_token` in the request body. SuperLogin will respond with a new session or an error message.
 
@@ -308,9 +298,9 @@ It's easy to add custom fields to user documents. When added to a `profile` fiel
 
 ## Advanced Configuration
 
-Take a look at [`config.example.js`](https://github.com/sl-nx/superlogin-next/blob/master/config.example.js) for a complete tour of all available configuration options. You'll find a lot of cool hidden features there that aren't documented here.
+Take a look at `config.example.js` or `src/types/config.d.ts` for a complete tour of all available configuration options. You'll find a lot of cool hidden features there that aren't documented here.
 
-`/config/default.config.js` contains a list of default settings that will be assumed if you don't specify anything.
+`src/config/default.config.ts` contains a list of default settings that will be assumed if you don't specify anything.
 
 ## Routes
 
@@ -404,7 +394,7 @@ email to complete.
 
 ##### `GET /session`
 
-**Deprecated**. Attempt to access the (user's) CouchDB `/` instead.
+**Deprecated**. Simply attempt to access the (user's) CouchDB `/` instead.
 
 Returns information on the current session if it is valid. Otherwise you will get a 401 unauthorized response.
 
@@ -502,7 +492,7 @@ A `nano` instance that gives direct access to the SuperLogin users database
 
 ##### `superlogin.couchAuthDB`
 
-A `nano` instance that gives direct access to the CouchDB authentication (`_users`) database. (Not used with Cloudant.)
+A `nano` instance that gives direct access to the CouchDB authentication (`_users`) database.
 
 ##### `superlogin.registerProvider(provider, configFunction)`
 
@@ -632,10 +622,3 @@ Renders an email and sends it out. Server settings are specified under `mailer` 
 - `email`: the email address that the email
 - `locals`: local variables that will be passed into the ejs template to be rendered
 
-##### `superlogin.quitRedis()`
-
-Quits Redis if that is the session adapter you are using. This is useful for cleanup when your server shuts down.
-
-## Releases
-
-Moved to [CHANGELOG.md](https://github.com/sl-nx/superlogin-next/blob/master/CHANGELOG.md)
