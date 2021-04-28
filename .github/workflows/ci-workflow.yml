@@ -7,22 +7,24 @@ on:
       - master
       - release
       - dev
+      - minimal
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix: 
+        node-version: [12, 14]
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v2
         with:
-          node-version: 12
-      - uses: 'cobot/couchdb-action@master'
+          node-version: ${{ matrix.node-version }}
+      - uses: 'iamssen/couchdb-github-action@master'
         with:
-          couchdb version: '2.3.1'
-      - uses: zhulik/redis-action@1.1.0
-        with:
-          redis version: '5'
+          couchdb-version: '3.1'
       - run: npm ci
+      - run: npm run lint
       - run: npm run build
       - run: npm test
         env:

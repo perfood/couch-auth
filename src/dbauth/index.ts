@@ -1,4 +1,5 @@
 'use strict';
+import { Config, PersonalDBSettings, PersonalDBType } from '../types/config';
 import {
   CouchDbAuthDoc,
   DocumentScope,
@@ -7,37 +8,20 @@ import {
   SlUserDoc
 } from '../types/typings';
 import { getSessions, loadCouchServer, toArray, URLSafeUUID } from '../util';
-import { CloudantAdapter } from './cloudant';
-import { ConfigHelper } from '../config/configure';
 import { CouchAdapter } from './couchdb';
-import { PersonalDBSettings } from '../types/config';
 import seed from '../design/seed';
 
 export class DBAuth {
-  #adapter: CouchAdapter | CloudantAdapter;
-  #config: ConfigHelper;
-  #userDB: DocumentScope<SlUserDoc>;
-  #server: ServerScope;
+  adapter: CouchAdapter;
+  couch: ServerScope;
 
   constructor(
-    config: ConfigHelper,
-    userDB: DocumentScope<SlUserDoc>,
+    private config: Partial<Config>,
+    private userDB: DocumentScope<SlUserDoc>,
     couchAuthDB?: DocumentScope<CouchDbAuthDoc>
   ) {
-    this.#config = config;
-    this.#userDB = userDB;
-    this.#server = loadCouchServer(config.config);
-
-    const cloudant = this.#config.getItem('dbServer.cloudant');
-    if (cloudant) {
-      this.#adapter = new CloudantAdapter(this.#config.config);
-    } else {
-      this.#adapter = new CouchAdapter(
-        couchAuthDB,
-        this.#server,
-        this.#config.config
-      );
-    }
+    this.couch = loadCouchServer(config);
+    this.adapter = new CouchAdapter(couchAuthDB, this.couch, this.config);
   }
 
   storeKey(
@@ -48,7 +32,7 @@ export class DBAuth {
     roles: string[],
     provider: string
   ) {
-    return this.#adapter.storeKey(
+    return this.adapter.storeKey(
       username,
       key,
       password,
@@ -59,76 +43,52 @@ export class DBAuth {
   }
 
   /**
-   * Step 1) During deauthorization: Removes the keys of format org.couchdb.user:TOKEN from the `_users` - database,
-   * if they are present. If this step fails, the user hasn't been deauthorized!
+   * Step 1) During deauthorization: Removes the keys of format
+   * org.couchdb.user:TOKEN from the `_users` - database, if they are present.
+   * If this step fails, the user hasn't been deauthorized!
    */
   removeKeys(keys) {
-    return this.#adapter.removeKeys(keys);
+    return this.adapter.removeKeys(keys);
   }
 
   retrieveKey(key: string) {
-    return this.#adapter.retrieveKey(key);
+    return this.adapter.retrieveKey(key) as Promise<CouchDbAuthDoc>;
   }
 
-  /** generates a random token and password (CouchDB) or retrieves from Cloudant */
+  extendKey(key: string, newExpiration: number) {
+    return this.adapter.extendKey(key, newExpiration);
+  }
+
+  /** generates a random token and password */
   getApiKey() {
-    if (this.#config.getItem('dbServer.cloudant')) {
-      return (this.#adapter as CloudantAdapter).getAPIKey();
-    } else {
-      let token = URLSafeUUID();
-      // Make sure our token doesn't start with illegal characters
-      while (token[0] === '_' || token[0] === '-') {
-        token = URLSafeUUID();
-      }
-      return Promise.resolve({
-        key: token,
-        password: URLSafeUUID()
-      });
+    let token = URLSafeUUID();
+    // Make sure our token doesn't start with illegal characters
+    while (token[0] === '_' || token[0] === '-') {
+      token = URLSafeUUID();
     }
+    return {
+      key: token,
+      password: URLSafeUUID()
+    };
   }
 
-  authorizeKeys(
-    user_id: string,
+  async authorizeKeys(
     db: DocumentScope<any>,
-    keys: Record<string, any> | Array<string> | string,
-    permissions?,
-    roles?
+    keys: Record<string, any> | Array<string> | string
   ) {
-    return this.#adapter.authorizeKeys(user_id, db, keys, permissions, roles);
+    return this.adapter.authorizeKeys(db, keys);
   }
 
   /** removes the keys from the security doc of the db */
   deauthorizeKeys(db: DocumentScope<any>, keys: string[] | string) {
-    return this.#adapter.deauthorizeKeys(db, keys);
+    return this.adapter.deauthorizeKeys(db, keys);
   }
 
-  authorizeUserSessions(
-    user_id: string,
-    personalDBs,
-    sessionKeys: string[] | string,
-    roles: string[]
-  ) {
+  authorizeUserSessions(personalDBs, sessionKeys: string[] | string) {
     const promises = [];
     Object.keys(personalDBs).forEach(personalDB => {
-      let permissions = personalDBs[personalDB].permissions;
-      if (!permissions) {
-        permissions =
-          this.#config.getItem(
-            'userDBs.model.' + personalDBs[personalDB].name + '.permissions'
-          ) ||
-          this.#config.getItem('userDBs.model._default.permissions') ||
-          [];
-      }
-      const db = this.#server.use(personalDB);
-      promises.push(
-        this.authorizeKeys(
-          user_id,
-          db,
-          toArray(sessionKeys),
-          permissions,
-          roles
-        )
-      );
+      const db = this.couch.use(personalDB);
+      promises.push(this.authorizeKeys(db, toArray(sessionKeys)));
     });
     return Promise.all(promises);
   }
@@ -138,26 +98,23 @@ export class DBAuth {
     dbName: string,
     designDocs?: any[],
     type?: string,
-    permissions?: any,
     adminRoles?: string[],
     memberRoles?: string[]
-  ) {
+  ): Promise<string> {
     const promises = [];
     adminRoles = adminRoles || [];
     memberRoles = memberRoles || [];
     // Create and the database and seed it if a designDoc is specified
-    const prefix = this.#config.getItem('userDBs.privatePrefix')
-      ? this.#config.getItem('userDBs.privatePrefix') + '_'
+    const prefix = this.config.userDBs.privatePrefix
+      ? this.config.userDBs.privatePrefix + '_'
       : '';
 
-    // Make sure we have a legal database name
-    let username = userDoc._id;
-    username = this.getLegalDBName(username);
+    // new in 2.0: use uuid instead of username
     const finalDBName =
-      type === 'shared' ? dbName : prefix + dbName + '$' + username;
+      type === 'shared' ? dbName : prefix + dbName + '$' + userDoc._id;
     await this.createDB(finalDBName);
-    const newDB = this.#server.db.use(finalDBName);
-    await this.#adapter.initSecurity(newDB, adminRoles, memberRoles);
+    const newDB = this.couch.db.use(finalDBName);
+    await this.adapter.initSecurity(newDB, adminRoles, memberRoles);
     // Seed the design docs
     if (designDocs && designDocs instanceof Array) {
       designDocs.forEach(ddName => {
@@ -182,15 +139,7 @@ export class DBAuth {
       }
     }
     if (keysToAuthorize.length > 0) {
-      promises.push(
-        this.authorizeKeys(
-          userDoc._id,
-          newDB,
-          keysToAuthorize,
-          permissions,
-          userDoc.roles
-        )
-      );
+      promises.push(this.authorizeKeys(newDB, keysToAuthorize));
     }
     await Promise.all(promises);
     return finalDBName;
@@ -208,7 +157,7 @@ export class DBAuth {
     const userDocs = {};
     const expiredKeys = [];
     // query a list of expired keys by user
-    const results = await this.#userDB.view('auth', 'expiredKeys', {
+    const results = await this.userDB.view('auth', 'expiredKeys', {
       endkey: Date.now(),
       include_docs: true
     });
@@ -244,7 +193,7 @@ export class DBAuth {
         userUpdates.push(userDocs[user]);
       });
       // 3. save the changes to the SL-doc
-      await this.#userDB.bulk({ docs: userUpdates });
+      await this.userDB.bulk({ docs: userUpdates });
     }
     return expiredKeys;
   }
@@ -259,7 +208,7 @@ export class DBAuth {
     keys = toArray(keys);
     if (userDoc.personalDBs && typeof userDoc.personalDBs === 'object') {
       Object.keys(userDoc.personalDBs).forEach(personalDB => {
-        const db = this.#server.use(personalDB);
+        const db = this.couch.use(personalDB);
         promises.push(this.deauthorizeKeys(db, keys));
       });
       return Promise.all(promises);
@@ -273,7 +222,7 @@ export class DBAuth {
       return null;
     }
     let designDoc;
-    let designDocDir = this.#config.getItem('userDBs.designDocDir');
+    let designDocDir = this.config.userDBs.designDocDir;
     if (!designDocDir) {
       designDocDir = __dirname;
     }
@@ -288,24 +237,23 @@ export class DBAuth {
     return designDoc;
   }
 
-  getDBConfig(dbName, type?): PersonalDBSettings & IdentifiedObj {
-    const dbConfig: any = {
+  getDBConfig(
+    dbName: string,
+    type?: PersonalDBType
+  ): PersonalDBSettings & IdentifiedObj {
+    const dbConfig: Partial<PersonalDBSettings & IdentifiedObj> = {
       name: dbName
     };
     dbConfig.adminRoles =
-      this.#config.getItem('userDBs.defaultSecurityRoles.admins') || [];
+      this.config.userDBs?.defaultSecurityRoles?.admins || [];
     dbConfig.memberRoles =
-      this.#config.getItem('userDBs.defaultSecurityRoles.members') || [];
-    const dbConfigRef = 'userDBs.model.' + dbName;
-    if (this.#config.getItem(dbConfigRef)) {
-      dbConfig.permissions =
-        this.#config.getItem(dbConfigRef + '.permissions') || [];
-      dbConfig.designDocs =
-        this.#config.getItem(dbConfigRef + '.designDocs') || [];
-      dbConfig.type =
-        type || this.#config.getItem(dbConfigRef + '.type') || 'private';
-      const dbAdminRoles = this.#config.getItem(dbConfigRef + '.adminRoles');
-      const dbMemberRoles = this.#config.getItem(dbConfigRef + '.memberRoles');
+      this.config.userDBs?.defaultSecurityRoles?.members || [];
+    const dbConfigRef = this.config.userDBs?.model[dbName];
+    if (dbConfigRef) {
+      dbConfig.designDocs = dbConfigRef.designDocs || [];
+      dbConfig.type = type || dbConfigRef.type || 'private';
+      const dbAdminRoles = dbConfigRef.adminRoles;
+      const dbMemberRoles = dbConfigRef.memberRoles;
       if (dbAdminRoles && dbAdminRoles instanceof Array) {
         dbAdminRoles.forEach(role => {
           if (role && dbConfig.adminRoles.indexOf(role) === -1) {
@@ -320,13 +268,11 @@ export class DBAuth {
           }
         });
       }
-    } else if (this.#config.getItem('userDBs.model._default')) {
-      dbConfig.permissions =
-        this.#config.getItem('userDBs.model._default.permissions') || [];
+    } else if (this.config.userDBs.model?._default) {
       // Only add the default design doc to a private database
       if (!type || type === 'private') {
         dbConfig.designDocs =
-          this.#config.getItem('userDBs.model._default.designDocs') || [];
+          this.config.userDBs.model._default.designDocs || [];
       } else {
         dbConfig.designDocs = [];
       }
@@ -334,12 +280,12 @@ export class DBAuth {
     } else {
       dbConfig.type = type || 'private';
     }
-    return dbConfig;
+    return dbConfig as PersonalDBSettings & IdentifiedObj;
   }
 
   async createDB(dbName: string) {
     try {
-      await this.#server.db.create(dbName);
+      await this.couch.db.create(dbName);
     } catch (err) {
       if (err.statusCode === 412) {
         return false; // already exists
@@ -350,28 +296,6 @@ export class DBAuth {
   }
 
   removeDB(dbName: string) {
-    return this.#server.db.destroy(dbName);
-  }
-
-  private getLegalDBName(input: string) {
-    input = input.toLowerCase();
-    let output = encodeURIComponent(input);
-    output = output.replace(/\./g, '%2E');
-    output = output.replace(/!/g, '%21');
-    output = output.replace(/~/g, '%7E');
-    output = output.replace(/\*/g, '%2A');
-    output = output.replace(/'/g, '%27');
-    output = output.replace(/\(/g, '%28');
-    output = output.replace(/\)/g, '%29');
-    output = output.replace(/\-/g, '%2D');
-    output = output.toLowerCase();
-    output = output.replace(/(%..)/g, function (esc) {
-      esc = esc.substr(1);
-      return '(' + esc + ')';
-    });
-    return output;
+    return this.couch.db.destroy(dbName);
   }
 }
-
-// Escapes any characters that are illegal in a CouchDB database name using percent codes inside parenthesis
-// Example: 'My.name@example.com' => 'my(2e)name(40)example(2e)com'

@@ -1,21 +1,22 @@
 'use strict';
-const seed = require('./../lib/design/seed').default;
-const request = require('superagent');
-const expect = require('chai').expect;
-const nano = require('nano');
-const ConfigHelper = require('../lib/config/configure').ConfigHelper;
-const DBAuth = require('../lib/dbauth').DBAuth;
-const util = require('../lib/util.js');
-const config = require('./test.config.js');
+import { expect } from 'chai';
+import nano from 'nano';
+import request from 'superagent';
+import { ConfigHelper } from '../src/config/configure';
+import { DBAuth } from '../src/dbauth';
+import seed from '../src/design/seed';
+import { CouchDbAuthDoc, DocumentScope, SlUserDoc } from '../src/types/typings';
+import { getDBURL } from '../src/util';
+import { config } from './test.config';
 
-const dbUrl = util.getDBURL(config.dbServer);
+const dbUrl = getDBURL(config.dbServer as any);
 const couch = nano({ url: dbUrl, parseUrl: false });
 
 couch.db.create('cane_test_users');
 couch.db.create('cane_test_keys');
 couch.db.create('cane_test_test');
-const userDB = couch.db.use('cane_test_users');
-const keysDB = couch.db.use('cane_test_keys');
+const userDB: DocumentScope<SlUserDoc> = couch.db.use('cane_test_users');
+const keysDB: DocumentScope<CouchDbAuthDoc> = couch.db.use('cane_test_keys');
 const testDB = couch.db.use('cane_test_test');
 
 const userDesign = require('../lib/design/user-design');
@@ -25,10 +26,9 @@ const testUser = {
   roles: ['admin', 'user']
 };
 
-const userConfig = new ConfigHelper({
-  test: true,
-  confirmEmail: true,
-  emailFrom: 'noreply@example.com',
+const userConfigHelper = new ConfigHelper({
+  //confirmEmail: true,
+  //emailFrom: 'noreply@example.com',
   dbServer: {
     protocol: config.dbServer.protocol,
     host: config.dbServer.host,
@@ -41,7 +41,7 @@ const userConfig = new ConfigHelper({
   }
 });
 
-const dbAuth = new DBAuth(userConfig, userDB, keysDB);
+const dbAuth = new DBAuth(userConfigHelper.config, userDB, keysDB);
 
 describe('DBAuth', () => {
   let key, previous;
@@ -107,7 +107,7 @@ describe('DBAuth', () => {
   it('should authorize database keys', function () {
     return previous
       .then(function () {
-        return dbAuth.authorizeKeys('testuser', testDB, ['key1', 'key2']);
+        return dbAuth.authorizeKeys(testDB, ['key1', 'key2']);
       })
       .then(function () {
         return testDB.get('_security');
@@ -121,7 +121,7 @@ describe('DBAuth', () => {
   it('should only authorize keys once', function () {
     return previous
       .then(function () {
-        return dbAuth.authorizeKeys('testuser', testDB, ['key1', 'key2']);
+        return dbAuth.authorizeKeys(testDB, ['key1', 'key2']);
       })
       .then(function () {
         return testDB.get('_security');
@@ -146,7 +146,7 @@ describe('DBAuth', () => {
 
   it('should create a new user database', function () {
     const userDoc = {
-      _id: 'TEST.user-31@cool.com',
+      _id: '006a2325759840edb2710adc3670b80f',
       session: {
         key1: { expires: Date.now() + 50000 },
         key2: { expires: Date.now() + 50000 }
@@ -156,18 +156,18 @@ describe('DBAuth', () => {
     return previous
       .then(function () {
         return dbAuth.addUserDB(
+          // @ts-ignore
           userDoc,
           'personal',
           ['test'],
           'private',
-          [],
           ['admin_role'],
           ['member_role']
         );
       })
       .then(async function (finalDBName) {
         expect(finalDBName).to.equal(
-          'test_personal$test(2e)user(2d)31(40)cool(2e)com'
+          'test_personal$006a2325759840edb2710adc3670b80f'
         );
         newDB = couch.db.use(finalDBName);
         // console.log('DB created, retrieving security doc.');
@@ -188,7 +188,7 @@ describe('DBAuth', () => {
         expect(design.views.mytest.map).to.be.a('string');
       })
       .finally(() =>
-        couch.db.destroy('test_personal$test(2e)user(2d)31(40)cool(2e)com')
+        couch.db.destroy('test_personal$006a2325759840edb2710adc3670b80f')
       );
   });
 
@@ -229,7 +229,8 @@ describe('DBAuth', () => {
         // Save the users
         promises.push(userDB.bulk({ docs: [user1, user2] }));
         // Add their personal dbs
-        promises.push(dbAuth.addUserDB(user1, 'expiretest'));
+        // @ts-ignore
+        promises.push(dbAuth.addUserDB(user1, 'expiretest')); // @ts-ignore
         promises.push(dbAuth.addUserDB(user2, 'expiretest'));
         // Store the keys
         promises.push(

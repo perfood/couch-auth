@@ -5,121 +5,107 @@ import { EventEmitter } from 'events';
 import { Request } from 'express';
 import { DocumentScope } from 'nano';
 import url from 'url';
-import { ConfigHelper } from './config/configure';
+import { v4 as uuidv4 } from 'uuid';
 import { DBAuth } from './dbauth';
+import { Hashing } from './hashing';
 import { Mailer } from './mailer';
 import { Session } from './session';
+import { Config } from './types/config';
 import {
   CouchDbAuthDoc,
+  HashResult,
+  LocalHashObj,
   SessionObj,
+  SlAction,
+  SlLoginSession,
+  SlRefreshSession,
   SlRequest,
-  SlSession,
-  SlUserDoc
+  SlUserDoc,
+  SlUserNew
 } from './types/typings';
+import { DbManager } from './user/DbManager';
 import {
   arrayUnion,
-  capitalizeFirstLetter,
+  EMAIL_REGEXP,
   getExpiredSessions,
   getSessions,
-  hashPassword,
   hashToken,
+  hyphenizeUUID,
+  removeHyphens,
   URLSafeUUID,
-  verifyPassword
+  USER_REGEXP
 } from './util';
 
-// regexp from https://emailregex.com/
-const EMAIL_REGEXP = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-const USER_REGEXP = /^[a-z0-9_-]{3,16}$/;
 enum Cleanup {
   'expired' = 'expired',
   'other' = 'other',
   'all' = 'all'
 }
+export enum ValidErr {
+  'exists' = 'already in use',
+  'emailInvalid' = 'invalid email',
+  'userInvalid' = 'invalid username'
+}
 
 export class User {
-  #dbAuth: DBAuth;
-  #session: Session;
-  #onCreateActions;
-  #onLinkActions;
-
-  // config flags
-  tokenLife: number;
-  sessionLife: number;
-  useDbFallback: boolean;
-  emailUsername: boolean;
+  private dbAuth: DBAuth;
+  private userDbManager: DbManager;
+  private session: Session;
+  private onCreateActions: SlAction[];
+  private onLinkActions: SlAction[];
+  private hasher: Hashing;
 
   passwordConstraints;
   // validation funs. todo: implement via bind...
   validateUsername: Function;
   validateEmail: Function;
-  validateEmailUsername: Function;
 
   userModel: Sofa.AsyncOptions;
   resetPasswordModel: Sofa.AsyncOptions;
   changePasswordModel: Sofa.AsyncOptions;
 
   constructor(
-    protected config: ConfigHelper,
+    protected config: Config,
     protected userDB: DocumentScope<SlUserDoc>,
     couchAuthDB: DocumentScope<CouchDbAuthDoc>,
     protected mailer: Mailer,
-    protected emitter: EventEmitter
+    public emitter: EventEmitter
   ) {
-    const dbAuth = new DBAuth(config, userDB, couchAuthDB);
-    this.#dbAuth = dbAuth;
-    this.#session = new Session(config);
-    this.#onCreateActions = [];
-    this.#onLinkActions = [];
-
-    // Token valid for 24 hours by default
-    // Forget password token life
-    this.tokenLife = config.getItem('security.tokenLife') || 86400;
-    // Session token life
-    this.sessionLife = config.getItem('security.sessionLife') || 86400;
-    this.useDbFallback = config.getItem('session.dbFallback');
-
-    const emailUsername = config.getItem('local.emailUsername');
-    this.passwordConstraints = {
-      presence: true,
-      length: {
-        minimum: 6,
-        message: 'must be at least 6 characters'
-      },
-      matches: 'confirmPassword'
-    };
-    const additionalConstraints = config.getItem('local.passwordConstraints');
-    this.passwordConstraints = merge(
-      this.passwordConstraints,
-      additionalConstraints ? additionalConstraints : {}
-    );
+    this.dbAuth = new DBAuth(config, userDB, couchAuthDB);
+    this.onCreateActions = [];
+    this.onLinkActions = [];
+    this.hasher = new Hashing(config);
+    this.session = new Session(this.hasher);
+    this.userDbManager = new DbManager(userDB, config);
+    this.passwordConstraints = config.local.passwordConstraints;
 
     // the validation functions are public
-    this.validateUsername = async function (username) {
+    this.validateUsername = async function (username: string) {
       if (!username) {
         return;
       }
       if (username.startsWith('_') || !username.match(USER_REGEXP)) {
-        return 'Invalid username';
+        return ValidErr.userInvalid;
       }
       try {
-        const result = await userDB.view('auth', 'username', { key: username });
+        const result = await userDB.view('auth', 'key', { key: username });
         if (result.rows.length === 0) {
           // Pass!
           return;
         } else {
-          return 'already in use';
+          return ValidErr.exists;
         }
       } catch (err) {
         throw new Error(err);
       }
     };
 
-    this.validateEmail = async function (email) {
+    this.validateEmail = async function (email): Promise<string | void> {
       if (!email) {
         return;
       }
       if (!email.match(EMAIL_REGEXP)) {
-        return 'invalid email';
+        return ValidErr.emailInvalid;
       }
       try {
         const result = await userDB.view('auth', 'email', { key: email });
@@ -127,42 +113,19 @@ export class User {
           // Pass!
           return;
         } else {
-          return 'already in use';
+          return ValidErr.exists;
         }
       } catch (err) {
         throw new Error(err);
       }
     };
 
-    this.validateEmailUsername = async function (email) {
-      if (!email) {
-        return;
-      }
-      if (!email.match(EMAIL_REGEXP)) {
-        return 'invalid email';
-      }
-      try {
-        const result = await userDB.view('auth', 'emailUsername', {
-          key: email
-        });
-        if (result.rows.length === 0) {
-          return;
-        } else {
-          return 'already in use';
-        }
-      } catch (err) {
-        throw new Error(err);
-      }
-    };
-
-    // SofaModelOptions
     const userModel: Sofa.AsyncOptions = {
       async: true,
       whitelist: ['name', 'username', 'email', 'password', 'confirmPassword'],
       customValidators: {
         validateEmail: this.validateEmail,
         validateUsername: this.validateUsername,
-        validateEmailUsername: this.validateEmailUsername,
         matches: this.matches
       },
       sanitize: {
@@ -173,8 +136,7 @@ export class User {
       validate: {
         email: {
           presence: true,
-          validateEmail: true,
-          validateEmailUsername: true
+          validateEmail: true
         },
         username: {
           presence: true,
@@ -187,22 +149,17 @@ export class User {
       },
       static: {
         type: 'user',
-        roles: config.getItem('security.defaultRoles'),
+        roles: config.security.defaultRoles,
         providers: ['local']
       },
       rename: {
-        username: '_id'
+        username: 'key'
       }
     };
 
-    if (emailUsername) {
+    if (this.config.local.emailUsername) {
       delete userModel.validate.username;
-      delete userModel.validate.email.validateEmail;
-      delete userModel.rename.username;
-    } else {
-      delete userModel.validate.email.validateEmailUsername;
     }
-
     this.userModel = userModel;
 
     this.resetPasswordModel = {
@@ -233,8 +190,13 @@ export class User {
         }
       }
     };
+  }
 
-    this.emailUsername = emailUsername;
+  hashPassword(pw: string): Promise<HashResult> {
+    return this.hasher.hashUserPassword(pw);
+  }
+  verifyPassword(obj: LocalHashObj, pw: string): Promise<boolean> {
+    return this.hasher.verifyUserPassword(obj, pw);
   }
 
   /**
@@ -245,7 +207,7 @@ export class User {
    */
   onCreate(fn) {
     if (typeof fn === 'function') {
-      this.#onCreateActions.push(fn);
+      this.onCreateActions.push(fn);
     } else {
       throw new TypeError('onCreate: You must pass in a function');
     }
@@ -255,11 +217,10 @@ export class User {
    * Does the same thing as onCreate, but is called every time a user links a new provider, or their profile information is refreshed.
    * This allows you to process profile information and, for example, create a master profile.
    * If an object called profile exists inside the user doc it will be passed to the client along with session information at each login.
-   * @param {Function} fn
    */
-  onLink(fn) {
+  onLink(fn: SlAction) {
     if (typeof fn === 'function') {
-      this.#onLinkActions.push(fn);
+      this.onLinkActions.push(fn);
     } else {
       throw new TypeError('onLink: You must pass in a function');
     }
@@ -272,49 +233,37 @@ export class User {
     }
   }
 
-  processTransformations(fnArray, userDoc, provider) {
-    let promise;
-    fnArray.forEach(fn => {
-      if (!promise) {
-        promise = fn.call(null, userDoc, provider);
-      } else {
-        if (!promise.then || typeof promise.then !== 'function') {
-          throw new Error('onCreate function must return a promise');
-        }
-        promise.then(newUserDoc => {
-          return fn.call(null, newUserDoc, provider);
-        });
-      }
+  async processTransformations(
+    fnArray: SlAction[],
+    userDoc: SlUserDoc,
+    provider: string
+  ): Promise<SlUserDoc> {
+    for (const fn of fnArray) {
+      userDoc = await fn.call(null, userDoc, provider);
+    }
+    return userDoc;
+  }
+
+  /**
+   * retrieves by email (default) or username or uuid if the config options are
+   * set. Rejects if no valid format.
+   */
+  getUser(login: string, allowUUID = false): Promise<SlUserDoc | null> {
+    return this.userDbManager.getUser(login, allowUUID);
+  }
+
+  async handleEmailExists(email: string): Promise<void> {
+    const existingUser = await this.userDbManager.getUserBy('email', email);
+    await this.mailer.sendEmail('signupExistingEmail', email, {
+      user: existingUser
     });
-    if (!promise) {
-      promise = Promise.resolve(userDoc);
-    }
-    return promise;
+    this.emitter.emit('signup-attempt', existingUser, 'local');
   }
 
-  getUser(login) {
-    let query;
-    // todo: here I'd need to make adjustments if I want to be backwards compatible
-    if (this.emailUsername) {
-      query = 'emailUsername';
-    } else {
-      query = EMAIL_REGEXP.test(login) ? 'email' : 'username';
-    }
-    return this.userDB
-      .view('auth', query, { key: login, include_docs: true })
-      .then(results => {
-        if (results.rows.length > 0) {
-          return Promise.resolve(results.rows[0].doc);
-        } else {
-          return Promise.resolve(null);
-        }
-      });
-  }
-
-  createUser(form, req) {
+  async createUser(form, req?): Promise<void | SlUserDoc> {
     req = req || {};
     let finalUserModel = this.userModel;
-    const newUserModel = this.config.getItem('userModel');
+    const newUserModel = this.config.userModel;
     if (typeof newUserModel === 'object') {
       let whitelist;
       if (newUserModel.whitelist) {
@@ -323,325 +272,207 @@ export class User {
           newUserModel.whitelist
         );
       }
-      const addUserModel = this.config.getItem('userModel');
-      finalUserModel = merge(this.userModel, addUserModel ? addUserModel : {});
+      const addUserModel = this.config.userModel;
+      finalUserModel = merge(
+        this.userModel,
+        addUserModel ? (addUserModel as Sofa.AsyncOptions) : {}
+      );
       finalUserModel.whitelist = whitelist || finalUserModel.whitelist;
     }
     const UserModel = Model(finalUserModel);
     const user = new UserModel(form);
-    let newUser;
-    return user
-      .process()
-      .then(result => {
-        newUser = result;
-        if (this.emailUsername) {
-          newUser._id = newUser.email;
+    let newUser: Partial<SlUserNew> = {};
+    let hasError = false;
+    try {
+      newUser = await user.process();
+    } catch (err) {
+      hasError = true;
+      if (
+        err.email &&
+        this.config.local.emailUsername &&
+        this.config.local.requireEmailConfirm
+      ) {
+        const inUseIdx = err.email.findIndex((s: string) =>
+          s.endsWith(ValidErr.exists)
+        );
+        if (inUseIdx >= 0) {
+          err.email.splice(inUseIdx, 1);
+          if (err.email.length === 0) {
+            this.handleEmailExists(form.email);
+          }
         }
-        if (this.config.getItem('local.sendConfirmEmail')) {
-          newUser.unverifiedEmail = {
-            email: newUser.email,
-            token: URLSafeUUID()
-          };
-          delete newUser.email;
-        }
-        return hashPassword(newUser.password);
-      })
-      .catch(err => {
-        console.log('validation failed.');
-        return Promise.reject({
+      } else {
+        throw {
           error: 'Validation failed',
           validationErrors: err,
           status: 400
-        });
-      })
-      .then(hash => {
-        // Store password hash
-        newUser.local = {};
-        newUser.local.salt = hash.salt;
-        newUser.local.derived_key = hash.derived_key;
-        delete newUser.password;
-        delete newUser.confirmPassword;
-        newUser.signUp = {
-          provider: 'local',
-          timestamp: new Date().toISOString(),
-          ip: req.ip
         };
-        return this.addUserDBs(newUser);
-      })
-      .then(newUser => {
-        return this.logActivity(newUser._id, 'signup', 'local', req, newUser);
-      })
-      .then(newUser => {
-        return this.processTransformations(
-          this.#onCreateActions,
-          newUser,
-          'local'
-        );
-      })
-      .then(finalNewUser => {
-        return this.userDB.insert(finalNewUser);
-      })
-      .then(result => {
-        newUser._rev = result.rev;
-        if (!this.config.getItem('local.sendConfirmEmail')) {
-          return Promise.resolve();
+      }
+    }
+
+    return new Promise(async (resolve, reject) => {
+      newUser = await this.prepareNewUser(newUser);
+      if (hasError || !this.config.security.loginOnRegistration) {
+        resolve(hasError ? undefined : (newUser as SlUserDoc));
+      }
+      if (!hasError) {
+        const finalUser = await this.insertNewUserDocument(newUser, req);
+        this.emitter.emit('signup', finalUser, 'local');
+        if (this.config.security.loginOnRegistration) {
+          resolve(finalUser);
         }
-        return this.mailer.sendEmail(
-          'confirmEmail',
-          newUser.unverifiedEmail.email,
-          { req: req, user: newUser }
-        );
-      })
-      .then(() => {
-        this.emitter.emit('signup', newUser, 'local');
-        return Promise.resolve(newUser);
-      });
+      }
+    });
+  }
+
+  private async prepareNewUser(newUser: Partial<SlUserNew>) {
+    const uid = uuidv4();
+    // todo: remove, this is just for backwards compat...
+    if (this.config.local.sendNameAndUUID) {
+      newUser.user_uid = uid;
+    }
+    newUser._id = removeHyphens(uid);
+    if (this.config.local.emailUsername) {
+      newUser.key = await this.userDbManager.generateUsername();
+    }
+    if (this.config.local.sendConfirmEmail) {
+      newUser.unverifiedEmail = {
+        email: newUser.email,
+        token: URLSafeUUID()
+      };
+      delete newUser.email;
+    }
+    newUser.local = await this.hashPassword(newUser.password ?? URLSafeUUID());
+    delete newUser.password;
+    delete newUser.confirmPassword;
+    newUser.signUp = {
+      provider: 'local',
+      timestamp: new Date().toISOString()
+    };
+    return newUser;
+  }
+
+  private async insertNewUserDocument(newUser: Partial<SlUserNew>, req?) {
+    newUser = await this.addUserDBs(newUser as SlUserDoc);
+    newUser = this.userDbManager.logActivity(
+      'signup',
+      'local',
+      newUser as SlUserDoc
+    );
+    const finalNewUser = await this.processTransformations(
+      this.onCreateActions,
+      newUser as SlUserDoc,
+      'local'
+    );
+    const result = await this.userDB.insert(finalNewUser);
+    newUser._rev = result.rev;
+    if (this.config.local.sendConfirmEmail) {
+      await this.mailer.sendEmail(
+        'confirmEmail',
+        newUser.unverifiedEmail.email,
+        {
+          req: req,
+          user: newUser
+        }
+      );
+    }
+    return newUser as SlUserDoc;
   }
 
   /**
-   * Creates a new user following authentication from an OAuth provider. If the user already exists it will update the profile.
-   * @param {string} provider the name of the provider in lowercase, (e.g. 'facebook')
+   * Creates a new user following authentication from an OAuth provider.
+   * If the user already exists it will update the profile.
+   * @param provider the name of the provider in lowercase, (e.g. 'facebook')
    * @param {any} auth credentials supplied by the provider
    * @param {any} profile the profile supplied by the provider
-   * @param {any} req used just to log the user's ip if supplied
    */
-  socialAuth(provider, auth, profile, req) {
-    let user;
+  async createUserSocial(provider: string, auth, profile): Promise<SlUserDoc> {
+    let user: Partial<SlUserDoc>;
     let newAccount = false;
-    let action;
-    let baseUsername;
-    req = req || {};
-    const ip = req.ip;
-    // This used to be consumped by `.nodeify` from Bluebird. I hope `callbackify` works just as well...
-    return Promise.resolve()
-      .then(() => {
-        return this.userDB.view('auth', provider, {
-          key: profile.id,
-          include_docs: true
-        });
-      })
-      .then(results => {
-        if (results.rows.length > 0) {
-          user = results.rows[0].doc;
-          return Promise.resolve();
-        } else {
-          newAccount = true;
-          user = {
-            email: profile.emails ? profile.emails[0].value : undefined,
-            providers: [provider],
-            type: 'user',
-            roles: this.config.getItem('security.defaultRoles'),
-            signUp: {
-              provider: provider,
-              timestamp: new Date().toISOString(),
-              ip: ip
-            }
-          };
-          user[provider] = {};
+    // This used to be consumed by `.nodeify` from Bluebird. I hope `callbackify` works just as well...
+    const results = await this.userDB.view('auth', provider, {
+      key: profile.id,
+      include_docs: true
+    });
 
-          const emailFail = () => {
-            return Promise.reject({
-              error: 'Email already in use',
-              message:
-                'Your email is already in use. Try signing in first and then linking this account.',
-              status: 409
-            });
-          };
-          // Now we need to generate a username
-          if (this.emailUsername) {
-            if (!user.email) {
-              return Promise.reject({
-                error: 'No email provided',
-                message: `An email is required for registration, but ${provider} didn't supply one.`,
-                status: 400
-              });
-            }
-            return this.validateEmailUsername(user.email).then(err => {
-              if (err) {
-                return emailFail();
-              }
-              return Promise.resolve(user.email.toLowerCase());
-            });
-          } else {
-            if (profile.username) {
-              baseUsername = profile.username.toLowerCase();
-            } else {
-              // If a username isn't specified we'll take it from the email
-              if (user.email) {
-                const parseEmail = user.email.split('@');
-                baseUsername = parseEmail[0].toLowerCase();
-              } else if (profile.displayName) {
-                baseUsername = profile.displayName
-                  .replace(/\s/g, '')
-                  .toLowerCase();
-              } else {
-                baseUsername = profile.id.toLowerCase();
-              }
-            }
-            return this.validateEmail(user.email).then(err => {
-              if (err) {
-                return emailFail();
-              }
-              return this.generateUsername(baseUsername);
-            });
-          }
+    if (results.rows.length > 0) {
+      user = results.rows[0].doc;
+    } else {
+      newAccount = true;
+      user = {
+        email: profile.emails ? profile.emails[0].value : undefined,
+        providers: [provider],
+        type: 'user',
+        roles: this.config.security.defaultRoles,
+        signUp: {
+          provider: provider,
+          timestamp: new Date().toISOString()
         }
-      })
-      .then(finalUsername => {
-        if (finalUsername) {
-          user._id = finalUsername;
-        }
-        user[provider].auth = auth;
-        user[provider].profile = profile;
-        if (!user.name) {
-          user.name = profile.displayName;
-        }
-        delete user[provider].profile._raw;
-        if (newAccount) {
-          return this.addUserDBs(user);
-        } else {
-          return Promise.resolve(user);
-        }
-      })
-      .then(userDoc => {
-        action = newAccount ? 'signup' : 'login';
-        return this.logActivity(userDoc._id, action, provider, req, userDoc);
-      })
-      .then(userDoc => {
-        if (newAccount) {
-          return this.processTransformations(
-            this.#onCreateActions,
-            userDoc,
-            provider
-          );
-        } else {
-          return this.processTransformations(
-            this.#onLinkActions,
-            userDoc,
-            provider
-          );
-        }
-      })
-      .then(finalUser => {
-        return this.userDB.insert(finalUser);
-      })
-      .then(() => {
-        if (action === 'signup') {
-          this.emitter.emit('signup', user, provider);
-        }
-        return Promise.resolve(user);
-      });
+      };
+      user[provider] = {};
+      // Now we need to generate a username
+      if (!user.email) {
+        throw {
+          error: 'No email provided',
+          message: `An email is required for registration, but ${provider} didn't supply one.`,
+          status: 400
+        };
+      }
+      const emailCheck = await this.validateEmail(user.email);
+      if (emailCheck) {
+        throw {
+          error: 'Email already in use',
+          message:
+            'Your email is already in use. Try signing in first and then linking this account.',
+          status: 409
+        };
+      }
+      user.key = await this.userDbManager.generateUsername();
+    }
+
+    user[provider].auth = auth;
+    user[provider].profile = profile;
+    if (!user.name) {
+      user.name = profile.displayName;
+    }
+    delete user[provider].profile._raw;
+    if (newAccount) {
+      user._id = removeHyphens(uuidv4());
+      user = await this.addUserDBs(user as SlUserDoc);
+    }
+    let finalUser = await this.processTransformations(
+      newAccount ? this.onCreateActions : this.onLinkActions,
+      user as SlUserDoc,
+      provider
+    );
+    const action = newAccount ? 'signup' : 'create-social';
+    finalUser = this.userDbManager.logActivity(action, provider, finalUser);
+    await this.userDB.insert(finalUser);
+    this.emitter.emit(action, user, provider);
+    return user as SlUserDoc;
   }
 
-  linkSocial(user_id, provider, auth, profile, req) {
-    req = req || {};
-    let user;
-    // Load user doc
-    return Promise.resolve()
-      .then(() => {
-        return this.userDB.view('auth', provider, { key: profile.id });
-      })
-      .then(results => {
-        if (results.rows.length === 0) {
-          return Promise.resolve();
-        } else {
-          if (results.rows[0].id !== user_id) {
-            return Promise.reject({
-              error: 'Conflict',
-              message:
-                'This ' +
-                provider +
-                ' profile is already in use by another account.',
-              status: 409
-            });
-          }
-        }
-      })
-      .then(() => {
-        return this.userDB.get(user_id);
-      })
-      .then(theUser => {
-        user = theUser;
-        // Check for conflicting provider
-        if (user[provider] && user[provider].profile.id !== profile.id) {
-          return Promise.reject({
-            error: 'Conflict',
-            message:
-              'Your account is already linked with another ' +
-              provider +
-              'profile.',
-            status: 409
-          });
-        }
-        // Check email for conflict
-        if (!profile.emails) {
-          return Promise.resolve({ rows: [] });
-        }
-        if (this.emailUsername) {
-          return this.userDB.view('auth', 'emailUsername', {
-            key: profile.emails[0].value
-          });
-        } else {
-          return this.userDB.view('auth', 'email', {
-            key: profile.emails[0].value
-          });
-        }
-      })
-      .then(results => {
-        let passed;
-        if (results.rows.length === 0) {
-          passed = true;
-        } else {
-          passed = true;
-          results.rows.forEach(row => {
-            if (row.id !== user_id) {
-              passed = false;
-            }
-          });
-        }
-        if (!passed) {
-          return Promise.reject({
-            error: 'Conflict',
-            message:
-              'The email ' +
-              profile.emails[0].value +
-              ' is already in use by another account.',
-            status: 409
-          });
-        } else {
-          return Promise.resolve();
-        }
-      })
-      .then(() => {
-        // Insert provider info
-        user[provider] = {};
-        user[provider].auth = auth;
-        user[provider].profile = profile;
-        if (!user.providers) {
-          user.providers = [];
-        }
-        if (user.providers.indexOf(provider) === -1) {
-          user.providers.push(provider);
-        }
-        if (!user.name) {
-          user.name = profile.displayName;
-        }
-        delete user[provider].profile._raw;
-        return this.logActivity(user._id, 'link', provider, req, user);
-      })
-      .then(userDoc => {
-        return this.processTransformations(
-          this.#onLinkActions,
-          userDoc,
-          provider
-        );
-      })
-      .then(finalUser => {
-        return this.userDB.insert(finalUser);
-      })
-      .then(() => {
-        return Promise.resolve(user);
-      });
+  async linkUserSocial(
+    login: string,
+    provider: string,
+    auth,
+    profile
+  ): Promise<SlUserDoc> {
+    let userDoc = await this.userDbManager.initLinkSocial(
+      login,
+      provider,
+      auth,
+      profile
+    );
+    userDoc = await this.processTransformations(
+      this.onLinkActions,
+      userDoc,
+      provider
+    );
+    userDoc = this.userDbManager.logActivity('link-social', provider, userDoc);
+    await this.userDB.insert(userDoc);
+    this.emitter.emit('link-social', userDoc, provider);
+    return userDoc;
   }
 
   /**
@@ -650,134 +481,81 @@ export class User {
    * @param {string} user_id
    * @param {string} provider
    */
-  unlink(user_id, provider) {
-    let user;
-    return this.userDB
-      .get(user_id)
-      .then(theUser => {
-        user = theUser;
-        if (!provider) {
-          return Promise.reject({
-            error: 'Unlink failed',
-            message: 'You must specify a provider to unlink.',
-            status: 400
-          });
-        }
-        // We can only unlink if there are at least two providers
-        if (
-          !user.providers ||
-          !(user.providers instanceof Array) ||
-          user.providers.length < 2
-        ) {
-          return Promise.reject({
-            error: 'Unlink failed',
-            message: "You can't unlink your only provider!",
-            status: 400
-          });
-        }
-        // We cannot unlink local
-        if (provider === 'local') {
-          return Promise.reject({
-            error: 'Unlink failed',
-            message: "You can't unlink local.",
-            status: 400
-          });
-        }
-        // Check that the provider exists
-        if (!user[provider] || typeof user[provider] !== 'object') {
-          return Promise.reject({
-            error: 'Unlink failed',
-            message:
-              'Provider: ' + capitalizeFirstLetter(provider) + ' not found.',
-            status: 404
-          });
-        }
-        delete user[provider];
-        // Remove the unlinked provider from the list of providers
-        user.providers.splice(user.providers.indexOf(provider), 1);
-        return this.userDB.insert(user);
-      })
-      .then(() => {
-        return Promise.resolve(user);
-      });
+  unlink(user_id, provider): Promise<SlUserDoc> {
+    return this.userDbManager.unlink(user_id, provider);
   }
 
   /**
    * Creates a new session for a user. provider is the name of the provider. (eg. 'local', 'facebook', twitter.)
-   * req is used to log the IP if provided.
    */
-  async createSession(user_id: string, provider: string, req: any = {}) {
-    const ip = req.ip;
-    let user = await this.userDB.get(user_id);
-    const token = await this.generateSession(user._id, user.roles);
+  async createSession(
+    login: string,
+    provider: string,
+    byUUID = false
+  ): Promise<SlLoginSession> {
+    let user = byUUID
+      ? await this.userDbManager.getUserByUUID(login)
+      : await this.getUser(login);
+    if (!user) {
+      console.warn('createSession - could not retrieve: ', login);
+      throw { error: 'Bad Request', status: 400 };
+    }
+    const user_uid = user._id;
+    const token = this.generateSession(user_uid, user.roles, provider);
     const password = token.password;
-    const newToken: any = token;
-    newToken.provider = provider;
-    await this.#session.storeToken(newToken);
-    await this.#dbAuth.storeKey(
-      user_id,
-      newToken.key,
+    token.provider = provider;
+    await this.dbAuth.storeKey(
+      user.key,
+      token.key,
       password,
-      newToken.expires,
+      token.expires,
       user.roles,
       provider
     );
     // authorize the new session across all dbs
     if (user.personalDBs) {
-      await this.#dbAuth.authorizeUserSessions(
-        user_id,
-        user.personalDBs,
-        newToken.key,
-        user.roles
-      );
+      await this.dbAuth.authorizeUserSessions(user.personalDBs, token.key);
     }
     if (!user.session) {
       user.session = {};
     }
-    const newSession: Partial<SlSession> = {
-      issued: newToken.issued,
-      expires: newToken.expires,
-      provider: provider,
-      ip: ip
+    const newSession: Partial<SlLoginSession> = {
+      issued: token.issued,
+      expires: token.expires,
+      provider: provider
     };
-    user.session[newToken.key] = newSession as SessionObj;
+    user.session[token.key] = newSession as SessionObj;
     // Clear any failed login attempts
     if (provider === 'local') {
       if (!user.local) user.local = {};
-      user.local.failedLoginAttempts = 0;
+      delete user.local.failedLoginAttempts;
       delete user.local.lockedUntil;
     }
-    const userDoc = await this.logActivity(
-      user._id,
-      'login',
-      provider,
-      req,
-      user
-    );
+    const userDoc = this.userDbManager.logActivity('login', provider, user);
     // Clean out expired sessions on login
     const finalUser = await this.logoutUserSessions(userDoc, Cleanup.expired);
     user = finalUser;
     await this.userDB.insert(finalUser);
-    newSession.token = newToken.key;
+    newSession.token = token.key;
     newSession.password = password;
-    newSession.user_id = user._id;
+    newSession.user_id = user.key;
     newSession.roles = user.roles;
     // Inject the list of userDBs
     if (typeof user.personalDBs === 'object') {
       const userDBs = {};
-      let publicURL;
-      if (this.config.getItem('dbServer.publicURL')) {
-        const dbObj = url.parse(this.config.getItem('dbServer.publicURL'));
+      let publicURL: string;
+      if (this.config.dbServer.publicURL) {
+        const dbObj = url.parse(this.config.dbServer.publicURL);
         dbObj.auth = newSession.token + ':' + newSession.password;
         publicURL = url.format(dbObj);
       } else {
         publicURL =
-          this.config.getItem('dbServer.protocol') +
+          this.config.dbServer.protocol +
           newSession.token +
           ':' +
           newSession.password +
           '@' +
-          this.config.getItem('dbServer.host') +
+          this.config.dbServer.host +
           '/';
       }
       Object.keys(user.personalDBs).forEach(finalDBName => {
@@ -788,199 +566,99 @@ export class User {
     if (user.profile) {
       newSession.profile = user.profile;
     }
-    // New config option: also send name and user-ID
-    if (this.config.getItem('local.sendNameAndUUID')) {
+    if (this.config.local.sendNameAndUUID) {
       if (user.name) {
         newSession.name = user.name;
       }
-      if (user.user_uid) {
-        newSession.user_uid = user.user_uid;
-      }
+      newSession.user_uid = hyphenizeUUID(user._id);
     }
     this.emitter.emit('login', newSession, provider);
-    return newSession;
-  }
-
-  handleFailedLogin(user: SlUserDoc, req: Partial<Request>) {
-    req = req || {};
-    const maxFailedLogins = this.config.getItem('security.maxFailedLogins');
-    if (!maxFailedLogins) {
-      return Promise.resolve();
-    }
-    if (!user.local) {
-      user.local = {};
-    }
-    if (!user.local.failedLoginAttempts) {
-      user.local.failedLoginAttempts = 0;
-    }
-    user.local.failedLoginAttempts++;
-    if (user.local.failedLoginAttempts > maxFailedLogins) {
-      user.local.failedLoginAttempts = 0;
-      user.local.lockedUntil =
-        Date.now() + this.config.getItem('security.lockoutTime') * 1000;
-    }
-    return this.logActivity(user._id, 'failed login', 'local', req, user)
-      .then(finalUser => {
-        return this.userDB.insert(finalUser);
-      })
-      .then(() => {
-        return Promise.resolve(!!user.local.lockedUntil);
-      });
-  }
-
-  logActivity(
-    user_id: string,
-    action: string,
-    provider: string,
-    req: Partial<Request>,
-    userDoc: SlUserDoc,
-    saveDoc?: boolean
-  ): Promise<SlUserDoc> {
-    const logSize = this.config.getItem('security.userActivityLogSize');
-    if (!logSize) {
-      return Promise.resolve(userDoc);
-    }
-    let promise;
-    if (userDoc) {
-      promise = Promise.resolve(userDoc);
-    } else {
-      if (saveDoc !== false) {
-        saveDoc = true;
-      }
-      promise = this.userDB.get(user_id);
-    }
-    return promise.then(theUser => {
-      userDoc = theUser;
-      if (!userDoc.activity || !(userDoc.activity instanceof Array)) {
-        userDoc.activity = [];
-      }
-      const entry = {
-        timestamp: new Date().toISOString(),
-        action: action,
-        provider: provider,
-        ip: req.ip
-      };
-      userDoc.activity.unshift(entry);
-      while (userDoc.activity.length > logSize) {
-        userDoc.activity.pop();
-      }
-      if (saveDoc) {
-        return this.userDB.insert(userDoc).then(() => {
-          return Promise.resolve(userDoc);
-        });
-      } else {
-        return Promise.resolve(userDoc);
-      }
-    });
+    return newSession as SlLoginSession;
   }
 
   /**
    * Extends the life of your current token and returns updated token information.
    * The only field that will change is expires. Expired sessions are removed.
+   * todo:
+   * - handle error if invalid state occurs that doc is not present.
    */
-  refreshSession(key: string): Promise<SlSession> {
-    let newSession;
-    return this.#session
-      .fetchToken(key)
-      .then(oldToken => {
-        newSession = oldToken;
-        newSession.expires = Date.now() + this.sessionLife * 1000;
-        return Promise.all([
-          this.userDB.get(newSession._id),
-          this.#session.storeToken(newSession)
-        ]);
-      })
-      .then(results => {
-        const userDoc = results[0];
-        userDoc.session[key].expires = newSession.expires;
-        // Clean out expired sessions on refresh
-        return this.logoutUserSessions(userDoc, Cleanup.expired);
-      })
-      .then(finalUser => {
-        return this.userDB.insert(finalUser);
-      })
-      .then(() => {
-        delete newSession.password;
-        newSession.token = newSession.key;
-        delete newSession.key;
-        newSession.user_id = newSession._id;
-        delete newSession._id;
-        delete newSession.salt;
-        delete newSession.derived_key;
-        this.emitter.emit('refresh', newSession);
-        return Promise.resolve(newSession);
-      });
+  async refreshSession(key: string): Promise<SlRefreshSession> {
+    let userDoc = await this.userDbManager.findUserDocBySession(key);
+    const newExpiration = Date.now() + this.config.security.sessionLife * 1000;
+    userDoc.session[key].expires = newExpiration;
+    // Clean out expired sessions on refresh
+    userDoc = await this.logoutUserSessions(userDoc, Cleanup.expired);
+    userDoc = this.userDbManager.logActivity('refresh', key, userDoc);
+    await this.userDB.insert(userDoc);
+    await this.dbAuth.extendKey(key, newExpiration);
+
+    const newSession: SlRefreshSession = {
+      ...userDoc.session[key],
+      token: key,
+      user_uid: hyphenizeUUID(userDoc._id),
+      user_id: userDoc.key,
+      roles: userDoc.roles
+    };
+    delete newSession['ip'];
+    this.emitter.emit('refresh', newSession);
+    return newSession;
   }
 
   /**
    * Required form fields: token, password, and confirmPassword
    */
-  resetPassword(form, req: Partial<Request> = undefined): Promise<SlUserDoc> {
+  async resetPassword(
+    form,
+    req: Partial<Request> = undefined
+  ): Promise<SlUserDoc> {
     req = req || {};
     const ResetPasswordModel = Model(this.resetPasswordModel);
     const passwordResetForm = new ResetPasswordModel(form);
-    let user;
-    return passwordResetForm
-      .validate()
-      .then(
-        () => {
-          const tokenHash = hashToken(form.token);
-          return this.userDB.view('auth', 'passwordReset', {
-            key: tokenHash,
-            include_docs: true
-          });
-        },
-        err => {
-          return Promise.reject({
-            error: 'Validation failed',
-            validationErrors: err,
-            status: 400
-          });
-        }
-      )
-      .then(results => {
-        if (!results.rows.length) {
-          return Promise.reject({ status: 400, error: 'Invalid token' });
-        }
-        user = results.rows[0].doc;
-        if (user.forgotPassword.expires < Date.now()) {
-          return Promise.reject({ status: 400, error: 'Token expired' });
-        }
-        return hashPassword(form.password);
-      })
-      .then(hash => {
-        if (!user.local) {
-          user.local = {};
-        }
-        user.local.salt = hash.salt;
-        user.local.derived_key = hash.derived_key;
-        if (user.providers.indexOf('local') === -1) {
-          user.providers.push('local');
-        }
-        // logout user completely
-        return this.logoutUserSessions(user, Cleanup.all);
-      })
-      .then(async userDoc => {
-        user = userDoc;
-        delete user.forgotPassword;
-        if (user.unverifiedEmail) {
-          user = await this.markEmailAsVerified(
-            user,
-            'verified via password reset',
-            req
-          );
-        }
-        return this.logActivity(user._id, 'reset password', 'local', req, user);
-      })
-      .then(finalUser => this.userDB.insert(finalUser))
-      .then(() => this.sendModifiedPasswordEmail(user, req))
-      .then(() => {
-        this.emitter.emit('password-reset', user);
-        return Promise.resolve(user);
-      });
+    let user: SlUserDoc;
+    try {
+      await passwordResetForm.validate();
+    } catch (err) {
+      throw {
+        error: 'Validation failed',
+        validationErrors: err,
+        status: 400
+      };
+    }
+    const tokenHash = hashToken(form.token);
+    const results = await this.userDB.view('auth', 'passwordReset', {
+      key: tokenHash,
+      include_docs: true
+    });
+    if (!results.rows.length) {
+      throw { status: 400, error: 'Invalid token' };
+    }
+    user = results.rows[0].doc;
+    if (user.forgotPassword.expires < Date.now()) {
+      return Promise.reject({ status: 400, error: 'Token expired' });
+    }
+    const hash = await this.hashPassword(form.password);
+
+    if (!user.local) {
+      user.local = {};
+    }
+    user.local = { ...user.local, ...hash };
+    if (user.providers.indexOf('local') === -1) {
+      user.providers.push('local');
+    }
+    // logout user completely
+    user = await this.logoutUserSessions(user, Cleanup.all);
+    delete user.forgotPassword;
+    if (user.unverifiedEmail) {
+      user = await this.markEmailAsVerified(user);
+    }
+    user = this.userDbManager.logActivity('password-reset', 'local', user);
+    await this.userDB.insert(user);
+    await this.sendModifiedPasswordEmail(user, req);
+    this.emitter.emit('password-reset', user);
+    return user;
   }
 
-  async changePasswordSecure(user_id: string, form, req) {
+  async changePasswordSecure(login: string, form, req?): Promise<void> {
     req = req || {};
     const ChangePasswordModel = Model(this.changePasswordModel);
     const changePasswordForm = new ChangePasswordModel(form);
@@ -995,7 +673,10 @@ export class User {
     }
 
     try {
-      const user = await this.userDB.get(user_id);
+      const user = await this.getUser(login);
+      if (!user) {
+        throw { error: 'Bad Request', status: 400 }; // should exist.
+      }
       if (user.local && user.local.salt && user.local.derived_key) {
         // Password is required
         if (!form.currentPassword) {
@@ -1006,7 +687,7 @@ export class User {
             status: 400
           };
         }
-        await verifyPassword(user.local, form.currentPassword);
+        await this.verifyPassword(user.local, form.currentPassword);
       }
       await this.changePassword(user._id, form.newPassword, user, req);
     } catch (err) {
@@ -1019,154 +700,135 @@ export class User {
       );
     }
     if (req.user && req.user.key) {
-      return this.logoutOthers(req.user.key);
-    } else {
-      return;
+      await this.logoutOthers(req.user.key);
     }
   }
 
-  forgotUsername(email: string, req: Partial<Request>) {
+  async forgotUsername(email: string, req: Partial<Request>): Promise<void> {
     if (!email || !email.match(EMAIL_REGEXP)) {
-      return Promise.reject({ error: 'invalid email', status: 400 });
+      throw { error: 'invalid email', status: 400 };
     }
     req = req || {};
-    let user: SlUserDoc;
-    return this.userDB
-      .view('auth', 'email', { key: email, include_docs: true })
-      .then(result => {
-        if (!result.rows.length) {
-          return Promise.reject({
-            error: 'User not found',
-            status: 404
-          });
-        }
-        user = result.rows[0].doc;
-      })
-      .then(() => {
-        return this.mailer.sendEmail(
-          'forgotUsername',
-          user.email || user.unverifiedEmail.email,
-          { user: user, req: req }
-        );
-      })
-      .then(() => {
-        this.emitter.emit('forgot-username', user);
-        return Promise.resolve(user);
-      });
-  }
-
-  changePassword(user_id, newPassword, userDoc, req) {
-    req = req || {};
-    let promise, user;
-    if (userDoc) {
-      promise = Promise.resolve(userDoc);
-    } else {
-      promise = this.userDB.get(user_id);
+    try {
+      const user = await this.userDbManager.getUserBy('email', email);
+      if (!user) {
+        throw {
+          error: 'User not found',
+          status: 404
+        };
+      }
+      await this.mailer.sendEmail(
+        'forgotUsername',
+        user.email || user.unverifiedEmail.email,
+        { user: user, req: req }
+      );
+      this.emitter.emit('forgot-username', user);
+    } catch (err) {
+      this.emitter.emit('forgot-username-attempt', email);
+      if (err.status !== 404) {
+        throw err;
+      }
     }
-    return promise
-      .then(
-        doc => {
-          user = doc;
-          return hashPassword(newPassword);
-        },
-        err => {
-          return Promise.reject({
-            error: 'User not found',
-            status: 404
-          });
-        }
-      )
-      .then(hash => {
-        if (!user.local) {
-          user.local = {};
-        }
-        user.local.salt = hash.salt;
-        user.local.derived_key = hash.derived_key;
-        if (user.providers.indexOf('local') === -1) {
-          user.providers.push('local');
-        }
-        return this.logActivity(
-          user._id,
-          'changed password',
-          'local',
-          req,
-          user
-        );
-      })
-      .then(finalUser => this.userDB.insert(finalUser))
-      .then(() => this.sendModifiedPasswordEmail(user, req))
-      .then(() => {
-        this.emitter.emit('password-change', user);
-      });
   }
 
-  private sendModifiedPasswordEmail(user, req) {
-    if (this.config.getItem('local.sendPasswordChangedEmail')) {
-      return this.mailer.sendEmail(
+  async changePassword(
+    user_id: string,
+    newPassword: string,
+    userDoc: SlUserDoc,
+    req
+  ): Promise<void> {
+    req = req || {};
+    if (!userDoc) {
+      try {
+        userDoc = await this.userDB.get(user_id);
+      } catch (error) {
+        throw {
+          error: 'User not found',
+          status: 404
+        };
+      }
+    }
+    const hash = await this.hashPassword(newPassword);
+    if (!userDoc.local) {
+      userDoc.local = {};
+    }
+    if (userDoc.providers.indexOf('local') === -1) {
+      userDoc.providers.push('local');
+    }
+    userDoc.local = { ...userDoc.local, ...hash };
+    const finalUser = this.userDbManager.logActivity(
+      'password-change',
+      'local',
+      userDoc
+    );
+    await this.userDB.insert(finalUser);
+    await this.sendModifiedPasswordEmail(userDoc, req);
+    this.emitter.emit('password-change', userDoc);
+  }
+
+  private async sendModifiedPasswordEmail(user: SlUserDoc, req): Promise<void> {
+    if (this.config.local.sendPasswordChangedEmail) {
+      await this.mailer.sendEmail(
         'modifiedPassword',
         user.email || user.unverifiedEmail.email,
         { user: user, req: req }
       );
-    } else {
-      return Promise.resolve();
     }
   }
 
-  forgotPassword(email: string, req: Partial<Request>) {
+  public async forgotPassword(
+    email: string,
+    req: Partial<Request>
+  ): Promise<void> {
     if (!email || !email.match(EMAIL_REGEXP)) {
       return Promise.reject({ error: 'invalid email', status: 400 });
     }
     req = req || {};
-    let user: SlUserDoc, token, tokenHash;
-    return this.userDB
-      .view('auth', 'email', { key: email, include_docs: true })
-      .then(result => {
-        if (!result.rows.length) {
-          return Promise.reject({
-            error: 'User not found',
-            status: 404
-          });
-        }
-        user = result.rows[0].doc;
-        token = URLSafeUUID();
-        if (this.config.getItem('local.tokenLengthOnReset')) {
-          token = token.substring(
-            0,
-            this.config.getItem('local.tokenLengthOnReset')
-          );
-        }
-        tokenHash = hashToken(token);
-        user.forgotPassword = {
-          token: tokenHash, // Store secure hashed token
-          issued: Date.now(),
-          expires: Date.now() + this.tokenLife * 1000
+    try {
+      const user = await this.userDbManager.getUserBy('email', email);
+      if (!user) {
+        throw {
+          error: 'User not found', // not sent as response.
+          status: 404
         };
-        return this.logActivity(
-          user._id,
-          'forgot password',
-          'local',
-          req,
-          user
-        );
-      })
-      .then(finalUser => {
-        return this.userDB.insert(finalUser);
-      })
-      .then(() => {
-        return this.mailer.sendEmail(
-          'forgotPassword',
-          user.email || user.unverifiedEmail.email,
-          { user: user, req: req, token: token }
-        ); // Send user the unhashed token
-      })
-      .then(() => {
-        this.emitter.emit('forgot-password', user);
-        return Promise.resolve(user.forgotPassword);
+      }
+      this.completeForgotPassRequest(user, req).catch(err => {
+        this.emitter.emit('forgot-password-attempt', email);
+        console.warn('forgot-password: failed for ', user._id, ' with: ', err);
       });
+    } catch (err) {
+      this.emitter.emit('forgot-password-attempt', email);
+      if (err.status !== 404) {
+        return Promise.reject(err);
+      }
+    }
   }
 
-  verifyEmail(token: string, req: Partial<Request>) {
-    req = req || {};
+  private async completeForgotPassRequest(
+    user: SlUserDoc,
+    req: Partial<Request>
+  ) {
+    let token = URLSafeUUID();
+    if (this.config.local.tokenLengthOnReset) {
+      token = token.substring(0, this.config.local.tokenLengthOnReset);
+    }
+    const tokenHash = hashToken(token);
+    user.forgotPassword = {
+      token: tokenHash, // Store secure hashed token
+      issued: Date.now(),
+      expires: Date.now() + this.config.security.tokenLife * 1000
+    };
+    user = this.userDbManager.logActivity('forgot-password', 'local', user);
+    await this.userDB.insert(user);
+    await this.mailer.sendEmail(
+      'forgotPassword',
+      user.email || user.unverifiedEmail.email,
+      { user: user, req: req, token: token }
+    );
+    this.emitter.emit('forgot-password', user);
+  }
+
+  verifyEmail(token: string) {
     let user: SlUserDoc;
     return this.userDB
       .view('auth', 'verifyEmail', { key: token, include_docs: true })
@@ -1175,22 +837,55 @@ export class User {
           return Promise.reject({ error: 'Invalid token', status: 400 });
         }
         user = result.rows[0].doc;
-        return this.markEmailAsVerified(user, 'verified email', req);
+        return this.markEmailAsVerified(user);
       })
       .then(finalUser => {
         return this.userDB.insert(finalUser);
       });
   }
 
-  private async markEmailAsVerified(userDoc, logInfo, req) {
+  private async markEmailAsVerified(userDoc) {
     userDoc.email = userDoc.unverifiedEmail.email;
     delete userDoc.unverifiedEmail;
     this.emitter.emit('email-verified', userDoc);
-    return await this.logActivity(userDoc._id, logInfo, 'local', req, userDoc);
+    return this.userDbManager.logActivity('email-verified', 'local', userDoc);
   }
 
-  async changeEmail(
-    user_id: string,
+  private async completeEmailChange(
+    login: string,
+    newEmail: string,
+    req: Partial<SlRequest>
+  ) {
+    const user = await this.getUser(login);
+    if (!user) {
+      throw { error: 'Bad Request', status: 400 }; // should exist.
+    }
+    if (this.config.local.sendConfirmEmail) {
+      user.unverifiedEmail = {
+        email: newEmail,
+        token: URLSafeUUID()
+      };
+      const mailType = this.config.emails.confirmEmailChange
+        ? 'confirmEmailChange'
+        : 'confirmEmail';
+      await this.mailer.sendEmail(mailType, user.unverifiedEmail.email, {
+        req: req,
+        user: user
+      });
+    } else {
+      user.email = newEmail;
+    }
+    const finalUser = this.userDbManager.logActivity(
+      'email-changed',
+      req.user.provider,
+      user
+    );
+    await this.userDB.insert(finalUser);
+    this.emitter.emit('email-changed', user);
+  }
+
+  public async changeEmail(
+    login: string,
     newEmail: string,
     req: Partial<SlRequest>
   ) {
@@ -1201,85 +896,30 @@ export class User {
     newEmail = newEmail.toLowerCase().trim();
     const emailError = await this.validateEmail(newEmail);
     if (emailError) {
-      throw emailError;
+      this.emitter.emit('email-change-attempt', login, newEmail);
+      if (
+        this.config.local.requireEmailConfirm &&
+        emailError === ValidErr.exists
+      ) {
+        return;
+      } else {
+        throw emailError;
+      }
     }
-    const user = await this.userDB.get(user_id);
-    if (this.config.getItem('local.sendConfirmEmail')) {
-      user.unverifiedEmail = {
-        email: newEmail,
-        token: URLSafeUUID()
-      };
-      const mailType = this.config.getItem('emails.confirmEmailChange')
-        ? 'confirmEmailChange'
-        : 'confirmEmail';
-      await this.mailer.sendEmail(mailType, user.unverifiedEmail.email, {
-        req: req,
-        user: user
-      });
-    } else {
-      user.email = newEmail;
-    }
-    this.emitter.emit('email-changed', user);
-    const finalUser = await this.logActivity(
-      user._id,
-      'changed email',
-      req.user.provider,
-      req,
-      user
-    );
-    return this.userDB.insert(finalUser);
-  }
-
-  addUserDB(
-    user_id: string,
-    dbName: string,
-    type: string,
-    designDocs,
-    permissions: string[]
-  ) {
-    let userDoc: SlUserDoc;
-    const dbConfig = this.#dbAuth.getDBConfig(dbName, type || 'private');
-    dbConfig.designDocs = designDocs || dbConfig.designDocs || '';
-    dbConfig.permissions = permissions || dbConfig.permissions;
-    return this.userDB
-      .get(user_id)
-      .then(result => {
-        userDoc = result;
-        return this.#dbAuth.addUserDB(
-          userDoc,
-          dbName,
-          dbConfig.designDocs,
-          dbConfig.type,
-          dbConfig.permissions,
-          dbConfig.adminRoles,
-          dbConfig.memberRoles
-        );
-      })
-      .then(finalDBName => {
-        if (!userDoc.personalDBs) {
-          userDoc.personalDBs = {};
-        }
-        delete dbConfig.designDocs;
-        // If permissions is specified explicitly it will be saved, otherwise will be taken from defaults every session
-        if (!permissions) {
-          delete dbConfig.permissions;
-        }
-        delete dbConfig.adminRoles;
-        delete dbConfig.memberRoles;
-        userDoc.personalDBs[finalDBName] = dbConfig;
-        this.emitter.emit('user-db-added', user_id, dbName);
-        return this.userDB.insert(userDoc);
-      });
+    this.completeEmailChange(login, newEmail, req);
   }
 
   async removeUserDB(
-    user_id: string,
+    login: string,
     dbName: string,
     deletePrivate,
     deleteShared
   ) {
     let update = false;
-    const user = await this.userDB.get(user_id);
+    const user = await this.getUser(login);
+    if (!user) {
+      throw { status: 404, error: 'User not found' };
+    }
     if (user.personalDBs && typeof user.personalDBs === 'object') {
       for (const db of Object.keys(user.personalDBs)) {
         if (user.personalDBs[db].name === dbName) {
@@ -1287,96 +927,84 @@ export class User {
           delete user.personalDBs[db];
           update = true;
           if (type === 'private' && deletePrivate) {
-            await this.#dbAuth.removeDB(dbName);
+            await this.dbAuth.removeDB(dbName);
           }
           if (type === 'shared' && deleteShared) {
-            await this.#dbAuth.removeDB(dbName);
+            await this.dbAuth.removeDB(dbName);
           }
         }
       }
     }
     if (update) {
-      this.emitter.emit('user-db-removed', user_id, dbName);
+      this.emitter.emit('user-db-removed', user.key, dbName);
       return this.userDB.insert(user);
     }
   }
 
-  logoutUser(user_id, session_id) {
-    let promise, user;
-    if (user_id) {
-      promise = this.userDB.get(user_id);
-    } else {
-      if (!session_id) {
-        return Promise.reject({
-          error: 'unauthorized',
-          message: 'Either user_id or session_id must be specified',
-          status: 401
-        });
-      }
-      promise = this.userDB
-        .view('auth', 'session', { key: session_id, include_docs: true })
-        .then(results => {
-          if (!results.rows.length) {
-            return Promise.reject({
-              error: 'unauthorized',
-              status: 401
-            });
-          }
-          return Promise.resolve(results.rows[0].doc);
-        });
+  /**
+   * Completely logs out a user either by his provided login information (uuid,
+   * email or username) or his session_id
+   */
+  async logoutAll(login: string, session_id: string) {
+    let user: SlUserDoc;
+    if (login) {
+      user = await this.getUser(login);
+    } else if (session_id) {
+      user = await this.userDbManager.findUserDocBySession(session_id);
+      login = session_id;
     }
-    return promise
-      .then(record => {
-        user = record;
-        user_id = record._id;
-        return this.logoutUserSessions(user, Cleanup.all);
-      })
-      .then(() => {
-        this.emitter.emit('logout', user_id);
-        this.emitter.emit('logout-all', user_id);
-        return this.userDB.insert(user);
+    if (!user) {
+      return Promise.reject({
+        error: 'unauthorized',
+        status: 401
       });
+    }
+    await this.logoutUserSessions(user, Cleanup.all);
+    user = this.userDbManager.logActivity('logout-all', login, user);
+    this.emitter.emit('logout-all', user.key);
+    return this.userDB.insert(user);
   }
 
+  /**
+   * todo: Should I really allow to fail after `removeKeys`?
+   * -> I'd like my `sl-users` to be single source of truth, don't I?
+   */
   async logoutSession(session_id: string) {
-    let user;
     let startSessions = 0;
     let endSessions = 0;
-    const results = await this.userDB.view('auth', 'session', {
-      key: session_id,
-      include_docs: true
-    });
-    if (!results.rows.length) {
+    let user = await this.userDbManager.findUserDocBySession(session_id);
+    if (!user) {
       throw {
         error: 'unauthorized',
         status: 401
       };
     }
-    user = results.rows[0].doc;
     if (user.session) {
       startSessions = Object.keys(user.session).length;
       if (user.session[session_id]) {
         delete user.session[session_id];
       }
     }
-    // 1.) if this fails, the whole logout has failed! Else ok, can clean up later.
-    await this.#dbAuth.removeKeys(session_id);
+    // 1.) if this fails, the whole logout has failed! Else ok, will be cleaned up later.
+    await this.dbAuth.removeKeys(session_id);
+    //console.log('1.) - removed keys for', session_id);
     let caughtError = {};
     try {
-      const removals = [this.#session.deleteTokens(session_id)];
-      if (user) {
-        removals.push(this.#dbAuth.deauthorizeUser(user, session_id));
-      }
-      await Promise.all(removals);
+      // 2) deauthorize from user's dbs
+      await this.dbAuth.deauthorizeUser(user, session_id);
+      //console.log('2.) - deauthorized user for ', session_id);
 
       // Clean out expired sessions
-      const finalUser = await this.logoutUserSessions(user, Cleanup.expired);
-      user = finalUser;
+      user = await this.logoutUserSessions(user, Cleanup.expired);
+      //console.log('3.) - cleaned up for user', user.key);
       if (user.session) {
         endSessions = Object.keys(user.session).length;
       }
-      this.emitter.emit('logout', user._id);
+
+      this.emitter.emit('logout', user.key);
       if (startSessions !== endSessions) {
+        // 3) update the sl-doc
+        user = this.userDbManager.logActivity('logout', session_id, user);
         return this.userDB.insert(user);
       } else {
         return false;
@@ -1400,13 +1028,8 @@ export class User {
   }
 
   async logoutOthers(session_id) {
-    let user;
-    const results = await this.userDB.view('auth', 'session', {
-      key: session_id,
-      include_docs: true
-    });
-    if (results.rows.length) {
-      user = results.rows[0].doc;
+    const user = await this.userDbManager.findUserDocBySession(session_id);
+    if (user) {
       if (user.session && user.session[session_id]) {
         const finalUser = await this.logoutUserSessions(
           user,
@@ -1440,12 +1063,9 @@ export class User {
     }
     if (sessions.length) {
       // 1.) Remove the keys from our couchDB auth database. Must happen first.
-      await this.#dbAuth.removeKeys(sessions);
+      await this.dbAuth.removeKeys(sessions);
       // 2.) Deauthorize keys from each personal database and from session store
-      await Promise.all([
-        this.#dbAuth.deauthorizeUser(userDoc, sessions),
-        this.#session.deleteTokens(sessions)
-      ]);
+      await this.dbAuth.deauthorizeUser(userDoc, sessions);
       if (op === Cleanup.expired || op === Cleanup.other) {
         sessions.forEach(session => {
           delete userDoc.session[session];
@@ -1458,104 +1078,114 @@ export class User {
     return userDoc;
   }
 
-  async removeUser(user_id: string, destroyDBs) {
+  async removeUser(login: string, destroyDBs = false, reason?: string) {
     const promises = [];
-    const userDoc = await this.userDB.get(user_id);
-    const user = await this.logoutUserSessions(userDoc, Cleanup.all);
-    if (destroyDBs !== true || !user.personalDBs) {
-      return Promise.resolve();
+    let user = await this.getUser(login, true);
+    user = await this.logoutUserSessions(user, Cleanup.all);
+    if (destroyDBs && user.personalDBs) {
+      Object.keys(user.personalDBs).forEach(userdb => {
+        if (user.personalDBs[userdb].type === 'private') {
+          promises.push(this.dbAuth.removeDB(userdb));
+        }
+      });
+      await Promise.all(promises);
     }
-    Object.keys(user.personalDBs).forEach(userdb => {
-      if (user.personalDBs[userdb].type === 'private') {
-        promises.push(this.#dbAuth.removeDB(userdb));
-      }
-    });
-    await Promise.all(promises);
-    return this.userDB.destroy(user._id, user._rev);
+
+    await this.userDB.destroy(user._id, user._rev);
+    this.emitter.emit('user-deleted', user, reason);
   }
 
+  /**
+   * Confirms the user:password that has been passed as Bearer Token
+   * Todo: Should ensure that sessions aren't discarded on CouchDB error!
+   */
   async confirmSession(key: string, password: string) {
     try {
-      return await this.#session.confirmToken(key, password);
-    } catch (error) {
-      if (this.useDbFallback) {
-        try {
-          const doc = await this.#dbAuth.retrieveKey(key);
-          if (doc.expires > Date.now()) {
-            const token: any = doc;
-            token._id = token.user_id;
-            token.key = key;
-            delete token.user_id;
-            delete token.name;
-            delete token.type;
-            delete token._rev;
-            delete token.password_scheme;
-            delete token.iterations;
-            await this.#session.storeToken(token);
-            return this.#session.confirmToken(key, password);
-          }
-        } catch {}
+      const doc = await this.dbAuth.retrieveKey(key);
+      if (doc.expires > Date.now()) {
+        const token: any = doc;
+        token._id = token.user_id;
+        token.key = key;
+        delete token.user_id;
+        delete token.name;
+        delete token.type;
+        delete token._rev;
+        delete token.password_scheme;
+        return await this.session.confirmToken(token, password);
+      } else {
+        this.dbAuth.removeKeys(key);
       }
+    } catch {
+      await this.session.confirmToken({}, password);
     }
     throw Session.invalidMsg;
   }
 
-  removeFromSessionCache(keys) {
-    return this.#session.deleteTokens(keys);
-  }
-
-  quitRedis() {
-    return this.#session.quit();
-  }
-
-  generateSession(username, roles) {
-    return this.#dbAuth.getApiKey().then(key => {
-      const now = Date.now();
-      return Promise.resolve({
-        _id: username,
-        key: key.key,
-        password: key.password,
-        issued: now,
-        expires: now + this.sessionLife * 1000,
-        roles: roles
-      });
-    });
+  generateSession(user_uid: string, roles: string[], provider: string) {
+    const key = this.dbAuth.getApiKey();
+    const now = Date.now();
+    return {
+      ...key,
+      _id: user_uid,
+      issued: now,
+      expires: now + this.config.security.sessionLife * 1000,
+      roles,
+      provider
+    };
   }
 
   /**
-   * Adds numbers to a base name until it finds a unique database key
-   * @param {string} base
+   * Associates a new database with the user's account. Will also authenticate
+   * all existing sessions with the new database. If the optional fields are not
+   * specified, they will be taken from `userDBs.model.{dbName}` or
+   * `userDBs.model._default` in your config.
+   * @param login  the `key`, `email` or `_id` (user_uid) of the user
+   * @param dbName the name of the database. For a shared db, this is the actual
+   *               path. For a private db userDBs.privatePrefix will be prepended,
+   *               and ${user_uid} appended.
+   * @param type 'private' (default) or 'shared'
+   * @param designDocs the name of the designDoc (if any) that will be seeded.
    */
-  generateUsername(base) {
-    base = base.toLowerCase();
-    const entries = [];
-    let finalName;
-    return this.userDB
-      .list({ startkey: base, endkey: base + '\uffff', include_docs: false })
-      .then(results => {
-        if (results.rows.length === 0) {
-          return Promise.resolve(base);
+  addUserDB(
+    login: string,
+    dbName: string,
+    type: 'private' | 'shared' = 'private',
+    designDocs?
+  ) {
+    let userDoc: SlUserDoc;
+    const dbConfig = this.dbAuth.getDBConfig(dbName, type);
+    dbConfig.designDocs = designDocs || dbConfig.designDocs || '';
+    return this.getUser(login)
+      .then(result => {
+        if (!result) {
+          return Promise.reject({ status: 404, error: 'User not found' });
         }
-        for (let i = 0; i < results.rows.length; i++) {
-          entries.push(results.rows[i].id);
+        userDoc = result;
+        return this.dbAuth.addUserDB(
+          userDoc,
+          dbName,
+          dbConfig.designDocs,
+          dbConfig.type,
+          dbConfig.adminRoles,
+          dbConfig.memberRoles
+        );
+      })
+      .then(finalDBName => {
+        if (!userDoc.personalDBs) {
+          userDoc.personalDBs = {};
         }
-        if (entries.indexOf(base) === -1) {
-          return Promise.resolve(base);
-        }
-        let num = 0;
-        while (!finalName) {
-          num++;
-          if (entries.indexOf(base + num) === -1) {
-            finalName = base + num;
-          }
-        }
-        return Promise.resolve(finalName);
+        delete dbConfig.designDocs;
+        delete dbConfig.adminRoles;
+        delete dbConfig.memberRoles;
+        userDoc.personalDBs[finalDBName] = dbConfig;
+        this.emitter.emit('user-db-added', userDoc.key, dbName);
+        return this.userDB.insert(userDoc);
       });
   }
 
-  addUserDBs(newUser) {
+  addUserDBs(newUser: SlUserDoc) {
     // Add personal DBs
-    if (!this.config.getItem('userDBs.defaultDBs')) {
+    if (!this.config.userDBs?.defaultDBs) {
       return Promise.resolve(newUser);
     }
     const promises = [];
@@ -1563,20 +1193,18 @@ export class User {
 
     const processUserDBs = (dbList, type) => {
       dbList.forEach(userDBName => {
-        const dbConfig = this.#dbAuth.getDBConfig(userDBName);
+        const dbConfig = this.dbAuth.getDBConfig(userDBName);
         promises.push(
-          this.#dbAuth
+          this.dbAuth
             .addUserDB(
               newUser,
               userDBName,
               dbConfig.designDocs,
               type,
-              dbConfig.permissions,
               dbConfig.adminRoles,
               dbConfig.memberRoles
             )
             .then(finalDBName => {
-              delete dbConfig.permissions;
               delete dbConfig.adminRoles;
               delete dbConfig.memberRoles;
               delete dbConfig.designDocs;
@@ -1588,12 +1216,12 @@ export class User {
     };
 
     // Just in case defaultDBs is not specified
-    let defaultPrivateDBs = this.config.getItem('userDBs.defaultDBs.private');
+    let defaultPrivateDBs = this.config.userDBs.defaultDBs.private;
     if (!Array.isArray(defaultPrivateDBs)) {
       defaultPrivateDBs = [];
     }
     processUserDBs(defaultPrivateDBs, 'private');
-    let defaultSharedDBs = this.config.getItem('userDBs.defaultDBs.shared');
+    let defaultSharedDBs = this.config.userDBs.defaultDBs.shared;
     if (!Array.isArray(defaultSharedDBs)) {
       defaultSharedDBs = [];
     }
@@ -1606,6 +1234,6 @@ export class User {
 
   /** Cleans up all expired keys from the authentification-DB (`_users`) and superlogin's db. Call this regularily! */
   removeExpiredKeys() {
-    return this.#dbAuth.removeExpiredKeys();
+    return this.dbAuth.removeExpiredKeys();
   }
 }

@@ -11,25 +11,15 @@ module.exports = {
           }
         }
       },
-      username: {
+      key: {
         map: function (doc) {
-          emit(doc._id, null);
+          emit(doc.key, null);
         }
       },
       verifyEmail: {
         map: function (doc) {
           if (doc.unverifiedEmail && doc.unverifiedEmail.token) {
             emit(doc.unverifiedEmail.token, null);
-          }
-        }
-      },
-      emailUsername: {
-        map: function (doc) {
-          emit(doc._id, null);
-          if (doc.email) {
-            emit(doc.email, null);
-          } else if (doc.unverifiedEmail.email) {
-            emit(doc.unverifiedEmail.email, null);
           }
         }
       },

@@ -10,15 +10,11 @@
     "quotes": ["error", "single", { "avoidEscape": true }],
     "no-var": "warn",
     "prefer-const": "warn",
-    "sort-imports": [
-      "error",
-      {
-        "ignoreCase": true
-      }
-    ],
     "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/camelcase": "off",
-    "@typescript-eslint/ban-ts-ignore": "off",
+    "@typescript-eslint/ban-types": "warn",
+    "@typescript-eslint/ban-ts-comment": "off",
     "@typescript-eslint/no-empty-function": "off",
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-inferrable-types": [

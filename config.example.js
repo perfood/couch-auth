@@ -2,7 +2,8 @@
 
 const path = require('path');
 
-module.exports = {
+/** @type {import('./src/types/config').Config} */
+const exampleConfig = {
   // Useful settings for testing and debugging your app
   testMode: {
     // Use a stub transport so no email is actually sent
@@ -71,11 +72,6 @@ module.exports = {
     // This will be the access URL for all your user's personalDBs
     publicURL: 'https://mydb.example.com',
     /**
-     * Set this to `true` if you are using Cloudant with API-v2-keys and Cloudant's role system.
-     * Provide `CLOUDANT_USER` and - unless you're using IAM for authentication - `CLOUDANT_PASS` as environment variables
-     */
-    cloudant: false,
-    /**
      * If specified together with `cloudant` or `couchAuthOnCloudant`, this IAM api key will be used for authentication
      * instead of legacy basic auth via `user:password`. Do not provide `password` or `CLOUDANT_PASS` if using IAM!
      */
@@ -87,22 +83,6 @@ module.exports = {
     couchAuthDB: '_users',
     // Use this flag instead if you use Cloudant, but with the `_users` - DB and CouchDB's permission system instead
     couchAuthOnCloudant: false
-  },
-  session: {
-    // 'redis' or 'memory'
-    adapter: 'redis',
-    // check CouchDB if a session is not present in the adapter
-    dbFallback: false,
-    redis: {
-      // If url is supplied, port and host will be ignored
-      url: 'redis://user:pass@host:port',
-      port: 6379,
-      host: 'localhost',
-      // If a UNIX domain socket is specified, port, host and url will be ignored
-      unix_socket: '/tmp/echo.sock',
-      options: {},
-      password: process.env.REDIS_PASSWORD
-    }
   },
   mailer: {
     // Email address that all your system emails will be from
@@ -146,6 +126,14 @@ module.exports = {
       subject: 'Please confirm your new email',
       template: path.join(__dirname, './templates/email/email-change.ejs'),
       format: 'text'
+    },
+    signupExistingEmail: {
+      subject: 'You already have registered with us',
+      template: path.join(
+        __dirname,
+        './templates/email/signup-email-exists.ejs'
+      ),
+      format: 'text'
     }
   },
   // Custom settings to manage personal databases for your users
@@ -168,13 +156,10 @@ module.exports = {
       // If your database is not listed below, these default settings will be applied
       _default: {
         // Array containing name of the design doc files (omitting .js extension), in the directory configured below
-        designDocs: ['mydesign'],
-        // these permissions only work with the Cloudant API
-        permissions: ['_reader', '_replicator']
+        designDocs: ['mydesign']
       },
       test: {
         designDocs: ['test'],
-        permissions: ['_reader', '_replicator'],
         // 'private' or 'shared'
         type: 'private',
         // Roles that will be automatically added to the db's _security object of this specific db
@@ -227,3 +212,4 @@ module.exports = {
     }
   }
 };
+module.exports = exampleConfig;

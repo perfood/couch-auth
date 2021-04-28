@@ -1,66 +1,53 @@
 'use strict';
-import { Config, DBServerConfig } from './types/config';
-import {
-  DocumentScope,
-  HashResult,
-  LocalHashObj,
-  ServerScope,
-  SlUserDoc
-} from './types/typings';
 import cloudant from '@cloudant/cloudant';
-import { ConfigHelper } from './config/configure';
 import crypto from 'crypto';
-import nano from 'nano';
-import { promisify } from 'util';
-import pwd from '@sensu/couch-pwd';
 import { Request } from 'express';
+import nano from 'nano';
 import URLSafeBase64 from 'urlsafe-base64';
 import { v4 as uuidv4 } from 'uuid';
+import { Config, DBServerConfig } from './types/config';
+import { DocumentScope, ServerScope, SlUserDoc } from './types/typings';
 
-const getHash = promisify(pwd.hash);
+// regexp from https://emailregex.com/
+export const EMAIL_REGEXP = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+export const USER_REGEXP = /^[a-z0-9_-]{3,16}$/;
 
-export function URLSafeUUID() {
+export function URLSafeUUID(): string {
   return URLSafeBase64.encode(uuidv4(null, Buffer.alloc(16)));
+}
+
+function getKey() {
+  return URLSafeUUID().substring(0, 8).toLowerCase();
+}
+
+export function generateSlUserKey(): string {
+  let newKey = getKey();
+  while (!USER_REGEXP.test(newKey)) {
+    newKey = getKey();
+  }
+  return newKey;
+}
+
+export function hyphenizeUUID(uuid: string) {
+  return (
+    uuid.substring(0, 8) +
+    '-' +
+    uuid.substring(8, 12) +
+    '-' +
+    uuid.substring(12, 16) +
+    '-' +
+    uuid.substring(16, 20) +
+    '-' +
+    uuid.substring(20)
+  );
+}
+
+export function removeHyphens(uuid: string) {
+  return uuid.split('-').join('');
 }
 
 export function hashToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
-}
-
-export function hashPassword(password: string): Promise<HashResult> {
-  return new Promise((resolve, reject) => {
-    pwd.hash(password, (err, salt, hash) => {
-      if (err) {
-        return reject(err);
-      }
-      return resolve({
-        salt: salt,
-        derived_key: hash
-      });
-    });
-  });
-}
-
-export function verifyPassword(
-  hashObj: LocalHashObj,
-  password: string
-): Promise<true> {
-  const iterations = hashObj.iterations;
-  const salt = hashObj.salt;
-  const derived_key = hashObj.derived_key;
-  if (iterations) {
-    pwd.iterations(iterations);
-  }
-  if (!salt || !derived_key) {
-    return Promise.reject(false);
-  }
-  return getHash(password, salt).then(hash => {
-    if (hash === derived_key) {
-      return Promise.resolve(true);
-    } else {
-      return Promise.reject(false);
-    }
-  });
 }
 
 /** Loads the server for CouchDB-style auth - via IAM on cloudant or simply via nano */
@@ -183,8 +170,8 @@ export function getSessionToken(req: Request) {
 /**
  * Generates views for each registered provider in the user design doc
  */
-export function addProvidersToDesignDoc(config: ConfigHelper, ddoc: any) {
-  const providers = config.getItem('providers');
+export function addProvidersToDesignDoc(config: Partial<Config>, ddoc: any) {
+  const providers = config.providers;
   if (!providers) {
     return ddoc;
   }
@@ -205,77 +192,17 @@ export function capitalizeFirstLetter(str: string) {
 }
 
 /**
- * Access nested JavaScript objects with string key
- * http://stackoverflow.com/questions/6491463/accessing-nested-javascript-objects-with-string-key
- *
- * @param obj The base object you want to get a reference to
- * @param str The string addressing the part of the object you want
- * @return a reference to the requested key or undefined if not found
+ * adds the nested properties of `source` to `dest`, overwriting present entries
  */
-
-export function getObjectRef(obj: any, str: string) {
-  str = str.replace(/\[(\w+)\]/g, '.$1'); // convert indexes to properties
-  str = str.replace(/^\./, ''); // strip a leading dot
-  const pList = str.split('.');
-  while (pList.length) {
-    const n = pList.shift();
-    if (n in obj) {
-      obj = obj[n];
+export function mergeConfig(dest: any, source: any) {
+  for (const [k, v] of Object.entries(source)) {
+    if (typeof dest[k] === 'object' && !Array.isArray(dest[k])) {
+      dest[k] = mergeConfig(dest[k], source[k]);
     } else {
-      return;
+      dest[k] = v;
     }
   }
-  return obj;
-}
-
-/**
- * Dynamically set property of nested object
- * http://stackoverflow.com/questions/18936915/dynamically-set-property-of-nested-object
- *
- * @param obj The base object you want to set the property in
- * @param str The string addressing the part of the object you want
- * @param val The value you want to set the property to
- * @return the value the reference was set to
- */
-
-export function setObjectRef(obj: Record<string, any>, str: string, val: any) {
-  str = str.replace(/\[(\w+)\]/g, '.$1'); // convert indexes to properties
-  str = str.replace(/^\./, ''); // strip a leading dot
-  const pList = str.split('.');
-  const len = pList.length;
-  for (let i = 0; i < len - 1; i++) {
-    const elem = pList[i];
-    if (!obj[elem]) {
-      obj[elem] = {};
-    }
-    obj = obj[elem];
-  }
-  obj[pList[len - 1]] = val;
-  return val;
-}
-
-/**
- * Dynamically delete property of nested object
- *
- * @param obj The base object you want to set the property in
- * @param str The string addressing the part of the object you want
- * @return true if successful
- */
-
-export function delObjectRef(obj: Record<string, any>, str: string) {
-  str = str.replace(/\[(\w+)\]/g, '.$1'); // convert indexes to properties
-  str = str.replace(/^\./, ''); // strip a leading dot
-  const pList = str.split('.');
-  const len = pList.length;
-  for (let i = 0; i < len - 1; i++) {
-    const elem = pList[i];
-    if (!obj[elem]) {
-      return false;
-    }
-    obj = obj[elem];
-  }
-  delete obj[pList[len - 1]];
-  return true;
+  return dest;
 }
 
 /**
@@ -322,4 +249,16 @@ export function isUserFacingError(errObj: any) {
     }
   }
   return requiredProps.size === 0;
+}
+
+export function replaceAt(str: string, idx: number, repl: string) {
+  return str.substring(0, idx) + repl + str.substring(idx + 1, str.length);
+}
+
+export function timeoutPromise(duration) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve(true);
+    }, duration);
+  });
 }

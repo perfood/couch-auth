@@ -1,15 +1,15 @@
 import {
-  Document,
-  DocumentScope as NanoDocumentScope,
-  ServerScope as NanoServerScope,
-  IdentifiedDocument,
-  MaybeRevisionedDocument
-} from 'nano';
-import {
   DocumentScope as CloudantDocumentScope,
   ServerScope as CloudantServerScope
 } from '@cloudant/cloudant';
 import { Request } from 'express';
+import {
+  Document,
+  DocumentScope as NanoDocumentScope,
+  IdentifiedDocument,
+  MaybeRevisionedDocument,
+  ServerScope as NanoServerScope
+} from 'nano';
 
 export type ServerScope = NanoServerScope | CloudantServerScope;
 export type DocumentScope<D> = NanoDocumentScope<D> | CloudantDocumentScope<D>;
@@ -37,6 +37,12 @@ export interface CouchDbAuthDoc
 export interface HashResult {
   salt?: string;
   derived_key?: string;
+  /**
+   * timestamp of the creation of this HashResult. If `undefined`, the default
+   * iteration number (10) is used, else the value specified in the config
+   * (`security.iterations`) that matches the creation date.
+   */
+  created?: number;
 }
 
 export interface LocalHashObj extends HashResult {
@@ -48,7 +54,6 @@ export interface LocalHashObj extends HashResult {
 export interface SignUpObj {
   provider: string;
   timestamp: string;
-  ip: string;
 }
 
 export interface PersonalDBCollection {
@@ -62,18 +67,41 @@ export interface TimeRestricted {
 
 export interface SessionObj extends TimeRestricted {
   provider: string;
-  ip: string;
 }
 
 export interface SessionCollection {
   [session: string]: SessionObj;
 }
 
+/** actions performed by the user and logged via `activityLog` */
+export type UserAction =
+  | 'email-verified'
+  | 'signup'
+  | 'create-social'
+  | 'link-social'
+  | 'login'
+  | 'password-reset'
+  | 'password-change'
+  | 'forgot-password'
+  | 'email-changed'
+  | 'logout'
+  | 'logout-all'
+  | 'refresh';
+
+/** possible events that are emmitted */
+export type UserEvent =
+  | UserAction
+  | 'signup-attempt'
+  | 'forgot-password-attempt'
+  | 'forgot-username-attempt'
+  | 'email-change-attempt'
+  | 'user-db-added'
+  | 'user-deleted';
+
 export interface UserActivity {
   timestamp: string;
-  action: string;
+  action: UserAction;
   provider: string;
-  ip: string;
 }
 
 export interface PasswortResetEntry extends TimeRestricted {
@@ -81,7 +109,10 @@ export interface PasswortResetEntry extends TimeRestricted {
 }
 
 export interface SlUserDoc extends Document, IdentifiedObj {
-  user_uid: string;
+  /** todo: remove this, it's confusing. */
+  user_uid?: string;
+  /** this is the `_id` in version 1 of superlogin - for login with username */
+  key: string;
   roles: string[];
   providers: string[];
   local: LocalHashObj;
@@ -95,18 +126,26 @@ export interface SlUserDoc extends Document, IdentifiedObj {
   profile: any;
 }
 
-export interface SlSession {
-  expires: number;
-  issued: number;
-  password: string;
+export interface SlUserNew extends SlUserDoc {
+  password?: string;
+  confirmPassword?: string;
+}
+
+export interface SlRefreshSession extends TimeRestricted {
   provider: string;
   roles: string[];
   token: string;
-  userDBs: { [db: string]: string };
+  /** This will still be the old `_id`, i.e. `key` now */
   user_id: string;
-  ip?: string;
+  /** unique identifier of the user's DB, `including` the hyphens. */
+  user_uid: string;
+}
+
+export interface SlLoginSession extends SlRefreshSession {
+  password: string;
+  userDBs: { [db: string]: string };
   profile?: string;
-  user_uid?: string;
+  /** Name for Display purposes only */
   name?: string;
 }
 
@@ -121,3 +160,5 @@ export interface SlUser {
 export interface SlRequest extends Request {
   user: SlUser;
 }
+
+export type SlAction = (a: SlUserDoc, b: string) => SlUserDoc;

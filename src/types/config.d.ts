@@ -1,31 +1,51 @@
+import { Sofa } from '@sl-nx/sofa-model';
+import Mail, { Address } from 'nodemailer/lib/mailer';
+
 export interface TestConfig {
   /** Use a stub transport so no email is actually sent. Default: false */
-  noEmail: boolean;
+  noEmail?: boolean;
   /** Displays debug information in the oauth dialogs. Default: false */
-  oauthDebug: boolean;
+  oauthDebug?: boolean;
+  /** Use the oauth test template */
+  oauthTest?: boolean;
   /** Logs out-going emails to the console. Default: false */
-  debugEmail: boolean;
+  debugEmail?: boolean;
 }
 
 export interface SecurityConfig {
   /** Roles given to a new user. Default: ['user'] */
   defaultRoles: string[];
-  /** Disables the ability to link additional providers to an account when set to true */
+  /**
+   * Disables the ability to link additional providers to an account.
+   * Default: false
+   */
   disableLinkAccounts: boolean;
-  // Maximum number of failed logins before the account is locked
-  maxFailedLogins: number;
-  // The amount of time the account will be locked for (in seconds) after the maximum failed logins is exceeded
-  lockoutTime: number;
   // The amount of time a new session is valid for (default: 24 hours)
   sessionLife: number;
   // The amount of time a password reset token is valid for
   tokenLife: number;
-  // The maximum number of entries in the activity log in each user doc. Zero to disable completely
-  userActivityLogSize: 10;
-  // If set to true, the user will be logged in automatically after registering
+  /** The maximum number of entries in the activity log in each user doc.
+   * Use 0 or undefined to disable completely
+   */
+  userActivityLogSize?: number;
+  /**
+   * If `true`, the user will be logged in automatically after registering.
+   * Default: `false`. Note that setting this to `true` will make your app
+   * vulnerable to name guessing via the registration route.
+   */
   loginOnRegistration: boolean;
-  // If set to true, the user will be logged in automatically after resetting the password
+  /** If `true`, the user will be logged in automatically after resetting the
+   * password. default: `false` */
   loginOnPasswordReset: boolean;
+  /** Disable unused routes for better security, default: ['validate-username', 'validate-email', 'session'] */
+  disabledRoutes: string[];
+  /**
+   * number of iterations for pbkdf2 password hashing, starting with the
+   * supplied dates. The first entry is the timestamp, the second number the
+   * number of iterations that should be used from this timestamp until the
+   * next timestamp in the array. Default: `undefined` uses only 10 iterations.
+   */
+  iterations?: [number, number][];
 }
 
 export interface LengthConstraint {
@@ -39,82 +59,89 @@ export interface PasswordConstraints {
 }
 
 export interface LocalConfig {
-  // Send out a confirm email after each user signs up with local login
+  /**
+   * Send out a confirmation email after each user signs up with local login.
+   * Default: `true`. Must be `true` if `requireEmailConfirm` is `true`.
+   */
   sendConfirmEmail: boolean;
-  // Require the email be confirmed before the user can login  or before his changed email is updated
+  /**
+   * Also require the email be confirmed before the user can change his email.
+   * changed email is updated. Default: `true`. If set, both `change-email` and
+   * `signup` requests will return the same generic answer also if the email is
+   * already taken. If `false`, `change-email` is vulnerable to name guessing.
+   */
   requireEmailConfirm: boolean;
-  // Requires the correct `password` to be sent in the body in order to change the email
+  /**
+   * Requires the correct `password` to be sent in the body in order to change
+   * the email. Default: `true` */
   requirePasswordOnEmailChange: boolean;
-  // send a confirmation E-Mail to the user after the password has successfully been changed or resetted
+  /**
+   * Sends a confirmation E-Mail to the user after the password has
+   * succesfully been changed or resetted. Default: `true`.
+   */
   sendPasswordChangedEmail: boolean;
-  // If this is set, the user will be redirected to this location after confirming email instead of JSON response
-  confirmEmailRedirectURL: string;
-  // Set this to true to disable usernames and use emails instead
+  /** If this is set, the user will be redirected to this location after confirming email instead of JSON response */
+  confirmEmailRedirectURL?: string;
+  /** allow to also login with the username. Default: `false` */
+  usernameLogin: boolean;
+  /** allow to also login with the UUID. Default: `false` */
+  uuidLogin: boolean;
+  /** allow to login via E-Mail. Default: `true` */
+  emailLogin: boolean;
+  /**
+   * only require email for signup and use a randomly generated `key` for the
+   * username for compatibility reasons. Default: `true`
+   * If `false`, the `signup`-route will be vulnerable to name guessing, so you
+   * should only disable this option if your usernames are public anyways.
+   */
   emailUsername: boolean;
-  // Also return the username and UUID when creating a session
-  sendNameAndUUID: boolean;
-  // If a number is set here, the token for password reset will be shortened to that length (e.g. 8)
-  tokenLengthOnReset: boolean | number;
-  // Custom names for the username and password fields in your sign-in form
-  usernameField: string;
-  passwordField: string;
-  // override default constraints (processed by sofa-model)
-  passwordConstraints: PasswordConstraints;
+  /** Also return the username when creating a session */
+  sendNameAndUUID?: boolean;
+  /** If a number > 0 is set here, the token for password reset will be shortened */
+  tokenLengthOnReset?: number;
+  /** Custom username field in your login form. Default: `'username'`. */
+  usernameField?: string;
+  /** Custom passwort field in your login form. Default: `'password'`. */
+  passwordField?: string;
+  /**
+   * Override default constraints (which are: must match `confirmPassword`, at least length 8).
+   * The constraints are processed by [validatejs](https://validatejs.org/#validate).
+   */
+  passwordConstraints?: Record<string, any>;
 }
 
+/** Configure the CouchDB compatible server where all your databases are stored on */
 export interface DBServerConfig {
-  // The CouchDB compatible server where all your databases are stored on
   protocol: 'https://' | 'http://';
   host: string;
-  user: string;
-  password: string;
+  user?: string;
+  password?: string;
   // If the public uses a separate URL from your Node.js server to access the database specify it here.
   // This will be the access URL for all your user's personalDBs
   publicURL?: string;
   /**
-   * Set this to `true` if you are using Cloudant with API-v2-keys and Cloudant's role system.
-   * Provide `CLOUDANT_USER` and - unless you're using IAM for authentication - `CLOUDANT_PASS` as environment variables
-   */
-  cloudant?: boolean;
-  /** Use this flag instead if you use Cloudant, but with the
-   *  `_users` - DB and CouchDB's permission system instead */
+   * Uses the CouchDB-compatible `_users` - DB and permission system. See
+   * [Cloudant Docs](https://cloud.ibm.com/docs/Cloudant?topic=Cloudant-work-with-your-account#using-the-_users-database-with-cloudant-nosql-db)
+   * for more details.
+   * */
   couchAuthOnCloudant?: boolean;
   /**
    * If specified together with `cloudant` or `couchAuthOnCloudant`, this IAM api key will be used for authentication
    * instead of legacy basic auth via `user:password`. Do not provide `password` or `CLOUDANT_PASS` if using IAM!
    */
   iamApiKey?: string;
-  /** The name for the database that stores all your user information. This is distinct from CouchDB's _user database.
-   * Alternatively you can pass in a `nano` instance to the SuperLogin constructor and leave this blank */
-  userDB: string;
-  /** CouchDB's _users database. Each session generates the user a unique login and password.
-   * This is not used when `cloudant` is true, but can be used with
-   * `couchStyleAuth` on Cloudant as well. */
-  couchAuthDB: string;
-}
-
-export interface RedisConfig {
-  // If url is supplied, port and host will be ignored
-  url: string;
-  port: number;
-  host: string;
-  // If a UNIX domain socket is specified, port, host and url will be ignored
-  unix_socket: string;
-  options: any;
-  password: string;
-}
-
-export interface SessionConfig {
-  adapter: 'memory' | 'redis' | 'file';
   /**
-   * check CouchDB when a session is not present in the adapter. Should only be used for local development or if
-   * redis was down. Cannot be used with Cloudant. Default: false
+   * The name for the database that stores user information like email, hashed passwords, sessions,...
+   * This is _distinct_ from CouchDB's _user database. Default: `'sl-users'`.
+   * Alternatively, you can pass in a `nano` instance to the SuperLogin constructor and leave this blank */
+  userDB?: string;
+  /**
+   * defaults to CouchDB's _users database. Each session generates the user a unique login and password
+   * according to the [CouchDB Users Documents format](https://docs.couchdb.org/en/stable/intro/security.html#users-documents).
    */
-  dbFallback?: boolean;
-  file?: {
-    sessionsRoot: string;
-  };
-  redis?: RedisConfig;
+  couchAuthDB?: string;
+  /** Directory for the DDocs of user-DBs, as specified by `userDB.designDocs` */
+  designDocDir?: string;
 }
 
 export interface EmailTemplate {
@@ -138,28 +165,40 @@ export interface MailOptions {
 }
 
 export interface MailerConfig {
-  // Email address that all your system emails will be from
-  fromEmail: string;
-  // Use this if you want to specify a custom Nodemailer transport. Defaults to SMTP or sendmail.
+  /** Email address that all your system emails will be from */
+  fromEmail: string | Address;
+  /** Use this if you want to specify a custom Nodemailer transport. Defaults to SMTP or sendmail. */
   transport?: any;
-  // The options object that will be passed into your transport. These should usually be your SMTP settings.
-  // If this is left blank, it will default to sendmail.
-  options: MailOptions;
+  /**
+   * The options object that will be passed into your transport.
+   * These should usually be your SMTP settings.
+   * If this is left blank, it will default to sendmail.
+   */
+  options?: MailOptions;
+  /**
+   * Additional message fields, see https://nodemailer.com/message/
+   * Don't use for to, from, subject, html and text -> it will be overridden.
+   */
+  messageConfig?: Mail.Options;
 }
-
+/**
+ * Customize the templates for the emails that SuperLogin sends out. Otherwise,
+ * the defaults located in `./templates/email` will be used.
+ */
 export interface TemplateConfig {
-  // Customize the templates for the emails that SuperLogin sends out
-  confirmEmail: EmailTemplate;
+  confirmEmail?: EmailTemplate;
   confirmEmailChange?: EmailTemplate;
-  forgotPassword: EmailTemplate;
-  modifiedPassword: EmailTemplate;
+  forgotPassword?: EmailTemplate;
+  modifiedPassword?: EmailTemplate;
+  signupExistingEmail?: EmailTemplate;
+  forgotUsername?: EmailTemplate;
 }
 
 export interface DefaultDBConfig {
   // Private databases are personal to each user. They will be prefixed with your setting below and postfixed with $USERNAME.
-  private: string[];
+  private?: string[];
   // Shared databases that you want the user to be authorized to use. These will not be prefixed, so type the exact name.
-  shared: string[];
+  shared?: string[];
 }
 
 export interface SecurityRoles {
@@ -167,13 +206,13 @@ export interface SecurityRoles {
   members: string[];
 }
 
+export type PersonalDBType = 'private' | 'shared';
+
 export interface PersonalDBSettings {
-  /** Array containing name of the design doc files (omitting .js extension), in the directory configured below */
+  /** Array containing name of the design doc files (omitting .js extension), in the directory specified in `designDocDir` */
   designDocs: string[];
-  /** these permissions only work with the Cloudant API */
-  permissions: string[];
   /** defaults to 'private' */
-  type?: 'private' | 'shared';
+  type?: PersonalDBType;
   /** admin roles that will be automatically added to the db's _security object of this specific db. Default: [] */
   adminRoles?: string[];
   /** member roles that will be automatically added to the db's _security object of this specific db. Default: [] */
@@ -188,17 +227,20 @@ export interface PersonalDBModel {
 }
 
 export interface UserDBConfig {
-  // These databases will be set up automatically for each new user
-  defaultDBs: DefaultDBConfig;
-  // If you specify default roles here (and use CouchDB not Cloudant) then these will be added to the _security object
-  // of each new user database created. This is useful for preventing anonymous access.
-  defaultSecurityRoles: SecurityRoles;
-  // These are settings for each personal database
-  model: PersonalDBModel;
-  // Your private user databases will be prefixed with this:
-  privatePrefix: string;
-  // Directory that contains all your design docs
-  designDocDir: string;
+  /** If set, these databases will be set up automatically for each new user */
+  defaultDBs?: DefaultDBConfig;
+  /**
+   * If you specify default roles here (and use CouchDB not Cloudant),
+   * then these will be added to the _security object of each new user database
+   * created. This is useful for preventing anonymous access.
+   */
+  defaultSecurityRoles?: SecurityRoles;
+  /** These are settings for each personal database. */
+  model?: PersonalDBModel;
+  /** Prefix for your private user databases. Default: no prefix. */
+  privatePrefix?: string;
+  /** Directory that contains all your design docs. Default: `./designDocs/` */
+  designDocDir?: string;
 }
 
 export interface ProviderCredentials {
@@ -227,13 +269,19 @@ export interface ProviderConfig {
 }
 
 export interface Config {
-  testMode: TestConfig;
-  security: SecurityConfig;
-  local: LocalConfig;
-  session: SessionConfig;
+  testMode?: Partial<TestConfig>;
+  security?: Partial<SecurityConfig>;
+  local: Partial<LocalConfig>;
   dbServer: DBServerConfig;
-  emails: TemplateConfig;
-  // Custom settings to manage personal databases for your users
-  userDBs: UserDBConfig;
-  providers: { [provider: string]: ProviderConfig };
+  mailer?: MailerConfig;
+  emails?: TemplateConfig;
+  /** Custom settings to manage personal databases for your users */
+  userDBs?: UserDBConfig;
+  providers?: { [provider: string]: ProviderConfig };
+  /**
+   * Anything here will be merged with the default async userModel that
+   * validates your local sign-up form. For details, check the
+   * [Sofa Model documentation](http://github.com/sl-nx/sofa-model)
+   */
+  userModel?: Sofa.Options | Sofa.AsyncOptions;
 }

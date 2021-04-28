@@ -1,6 +1,7 @@
 'use strict';
 import { DocumentScope, ServerScope } from 'nano';
-import { getSecurityDoc, hashPassword, putSecurityDoc, toArray } from '../util';
+import { getSecurityDoc, putSecurityDoc, toArray } from '../util';
+import { hashCouchPassword, Hashing } from '../hashing';
 import { Config } from '../types/config';
 import { CouchDbAuthDoc } from '../types/typings';
 import { DBAdapter } from '../types/adapters';
@@ -8,25 +9,22 @@ import { DBAdapter } from '../types/adapters';
 const userPrefix = 'org.couchdb.user:';
 
 export class CouchAdapter implements DBAdapter {
-  #couchAuthDB: DocumentScope<CouchDbAuthDoc>;
-  #couch: ServerScope;
-  #config: Partial<Config>;
   couchAuthOnCloudant = false;
+  private hasher: Hashing;
   constructor(
-    couchAuthDB: DocumentScope<CouchDbAuthDoc>,
-    couch: ServerScope,
-    config: Partial<Config>
+    private couchAuthDB: DocumentScope<CouchDbAuthDoc>,
+    private couch: ServerScope,
+    private config: Partial<Config>
   ) {
-    this.#couchAuthDB = couchAuthDB;
-    this.#couch = couch;
-    this.#config = config;
-    if (this.#config?.dbServer.couchAuthOnCloudant) {
+    if (this.config?.dbServer.couchAuthOnCloudant) {
       this.couchAuthOnCloudant = true;
     }
+    this.hasher = new Hashing(config);
   }
 
   /**
-   * stores a CouchDbAuthDoc with the passed information
+   * stores a CouchDbAuthDoc with the passed information. Expects the `username`
+   * (i.e. `key`) and not the UUID.
    */
   async storeKey(
     username: string,
@@ -52,24 +50,30 @@ export class CouchAdapter implements DBAdapter {
       roles: roles,
       provider: provider
     };
-    if (this.couchAuthOnCloudant) {
-      // PWs need to be hashed manually when using pbkdf2
-      newKey.password_scheme = 'pbkdf2';
-      newKey.iterations = 10;
-      newKey = { ...newKey, ...(await hashPassword(password)) };
-    } else {
-      newKey.password = password;
-    }
-    await this.#couchAuthDB.insert(newKey);
+    // required when using Cloudant or other db than `_users`
+    newKey.password_scheme = 'pbkdf2';
+    newKey.iterations = 10;
+    newKey = {
+      ...newKey,
+      ...(await hashCouchPassword(password))
+    };
+
+    await this.couchAuthDB.insert(newKey);
     newKey._id = key;
     return newKey;
+  }
+
+  async extendKey(key: string, newExpiration: number) {
+    const token = await this.retrieveKey(key);
+    token.expires = newExpiration;
+    return await this.couchAuthDB.insert(token);
   }
 
   /**
    * fetches the document from the couchAuthDB, if it's present. Throws an error otherwise.
    */
   retrieveKey(key: string) {
-    return this.#couchAuthDB.get(userPrefix + key);
+    return this.couchAuthDB.get(userPrefix + key);
   }
 
   /**
@@ -84,7 +88,7 @@ export class CouchAdapter implements DBAdapter {
     const toDelete: { _id: string; _rev: string; _deleted: boolean }[] = [];
     // success: have row.doc, but possibly row.doc = null and row.value.deleted = true
     // failure: have row.key and row.error
-    const keyDocs = await this.#couchAuthDB.fetch({ keys: keylist });
+    const keyDocs = await this.couchAuthDB.fetch({ keys: keylist });
     keyDocs.rows.forEach(row => {
       if (!('doc' in row)) {
         console.info('removeKeys() - could not retrieve: ' + row.key);
@@ -98,7 +102,7 @@ export class CouchAdapter implements DBAdapter {
       }
     });
     if (toDelete.length) {
-      return this.#couchAuthDB.bulk({ docs: toDelete });
+      return this.couchAuthDB.bulk({ docs: toDelete });
     } else {
       return false;
     }
@@ -116,7 +120,7 @@ export class CouchAdapter implements DBAdapter {
     memberRoles: string[]
   ) {
     let changes = false;
-    const secDoc = await getSecurityDoc(this.#couch, db);
+    const secDoc = await getSecurityDoc(this.couch, db);
     if (!secDoc.admins) {
       secDoc.admins = { names: [], roles: [] };
     }
@@ -146,7 +150,7 @@ export class CouchAdapter implements DBAdapter {
       secDoc.couchdb_auth_only = true;
     }
     if (changes) {
-      return putSecurityDoc(this.#couch, db, secDoc);
+      return putSecurityDoc(this.couch, db, secDoc);
     } else {
       return false;
     }
@@ -156,11 +160,8 @@ export class CouchAdapter implements DBAdapter {
    * authorises the passed keys to access the db
    */
   async authorizeKeys(
-    user_id: string,
     db: DocumentScope<any>,
-    keys: Record<string, any> | Array<string> | string,
-    permissions?,
-    roles?
+    keys: Record<string, any> | Array<string> | string
   ) {
     // Check if keys is an object and convert it to an array
     if (typeof keys === 'object' && !(keys instanceof Array)) {
@@ -172,7 +173,7 @@ export class CouchAdapter implements DBAdapter {
     }
     // Convert keys to an array if it is just a string
     keys = toArray(keys);
-    const secDoc = await getSecurityDoc(this.#couch, db);
+    const secDoc = await getSecurityDoc(this.couch, db);
     if (!secDoc.members) {
       secDoc.members = { names: [], roles: [] };
     }
@@ -188,7 +189,7 @@ export class CouchAdapter implements DBAdapter {
       }
     });
     if (changes) {
-      return await putSecurityDoc(this.#couch, db, secDoc);
+      return await putSecurityDoc(this.couch, db, secDoc);
     } else {
       return false;
     }
@@ -199,7 +200,7 @@ export class CouchAdapter implements DBAdapter {
    */
   async deauthorizeKeys(db: DocumentScope<any>, keys: string[] | string) {
     const keysArr = toArray(keys);
-    const secDoc = await getSecurityDoc(this.#couch, db);
+    const secDoc = await getSecurityDoc(this.couch, db);
     if (!secDoc.members || !secDoc.members.names) {
       return false;
     }
@@ -212,7 +213,7 @@ export class CouchAdapter implements DBAdapter {
       }
     });
     if (changes) {
-      return await putSecurityDoc(this.#couch, db, secDoc);
+      return await putSecurityDoc(this.couch, db, secDoc);
     } else {
       return false;
     }

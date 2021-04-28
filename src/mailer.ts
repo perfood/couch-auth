@@ -1,39 +1,37 @@
-'use strict';
-import { ConfigHelper } from './config/configure';
+import { Config } from './types/config';
 import Mail from 'nodemailer/lib/mailer';
 import nodemailer from 'nodemailer';
 import { readFileSync } from 'fs';
 import { render } from 'ejs';
 
 export class Mailer {
-  private config: ConfigHelper;
+  private config: Partial<Config>;
   private transporter: Mail;
-  constructor(config: ConfigHelper) {
+  constructor(config: Partial<Config>) {
     // Initialize the transport mechanism with nodermailer
     this.config = config;
-    const customTransport = config.getItem('mailer.transport');
-    if (config.getItem('testMode.noEmail')) {
+    const customTransport = config.mailer.transport;
+    if (config.testMode?.noEmail) {
       this.transporter = nodemailer.createTransport(
         require('nodemailer-stub-transport')()
       );
     } else if (customTransport) {
       this.transporter = nodemailer.createTransport(
-        customTransport(config.getItem('mailer.options'))
+        customTransport(config.mailer.options)
       );
     } else {
       this.transporter = nodemailer.createTransport(
-        config.getItem('mailer.options')
+        // @ts-ignore
+        config.mailer.options
       );
     }
   }
 
   sendEmail(templateName: string, email, locals) {
     // load the template and parse it
-    let templateFiles = this.config.getItem(`emails.${templateName}.templates`);
+    let templateFiles = this.config.emails[templateName]?.templates;
     if (!templateFiles) {
-      const templateFile = this.config.getItem(
-        'emails.' + templateName + '.template'
-      );
+      const templateFile = this.config.emails[templateName]?.template;
       if (!templateFile) {
         return Promise.reject('No templates found for "' + templateName + '".');
       }
@@ -51,10 +49,10 @@ export class Mailer {
     const renderedTemplates = readTemplates.map(t => render(t, locals));
 
     // form the email
-    const subject = this.config.getItem('emails.' + templateName + '.subject');
-    let formats = this.config.getItem('emails.' + templateName + '.formats');
+    const subject = this.config.emails[templateName].subject;
+    let formats = this.config.emails[templateName].formats;
     if (!formats) {
-      const format = this.config.getItem('emails.' + templateName + '.format');
+      const format = this.config.emails[templateName].format;
       if (!format) {
         return Promise.reject('No formats specified for: ' + templateName);
       }
@@ -66,16 +64,19 @@ export class Mailer {
           templateName
       );
     }
-    const mailOptions = {
-      from: this.config.getItem('mailer.fromEmail'),
+    let mailOptions: Mail.Options = {
+      from: this.config.mailer.fromEmail,
       to: email,
       subject: subject
     };
+    if (this.config.mailer.messageConfig) {
+      mailOptions = { ...this.config.mailer.messageConfig, ...mailOptions };
+    }
 
     for (let i = 0; i < formats.length; i++) {
       mailOptions[formats[i]] = renderedTemplates[i];
     }
-    if (this.config.getItem('testMode.debugEmail')) {
+    if (this.config.testMode?.debugEmail) {
       console.log(mailOptions);
     }
     // send the message

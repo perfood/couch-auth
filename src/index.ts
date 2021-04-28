@@ -1,28 +1,20 @@
 'use strict';
-import {
-  addProvidersToDesignDoc,
-  getCloudantURL,
-  getDBURL,
-  hashPassword,
-  loadCouchServer,
-  verifyPassword
-} from './util';
-import cloudant, { ServerScope as CloudantServer } from '@cloudant/cloudant';
-import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
-import express, { Router } from 'express';
-import nano, { DocumentScope, ServerScope as NanoServer } from 'nano';
-import { Authenticator } from 'passport';
-import { Config } from './types/config';
-import { ConfigHelper } from './config/configure';
+import { ServerScope as CloudantServer } from '@cloudant/cloudant';
 import events from 'events';
+import express, { Router } from 'express';
+import { DocumentScope, ServerScope as NanoServer } from 'nano';
+import { Authenticator } from 'passport';
+import { ConfigHelper } from './config/configure';
+import seed from './design/seed';
+import localConfig from './local';
 import { Mailer } from './mailer';
 import { Middleware } from './middleware';
 import { OAuth } from './oauth';
-import seed from './design/seed';
+import loadRoutes from './routes';
+import { Config } from './types/config';
+import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
 import { User } from './user';
-
-const loadRoutes = require('./routes');
-const localConfig = require('./local');
+import { addProvidersToDesignDoc, loadCouchServer } from './util';
 
 export class SuperLogin extends User {
   router: Router;
@@ -31,8 +23,6 @@ export class SuperLogin extends User {
   registerProvider: OAuth['registerProvider'];
   registerOAuth2: OAuth['registerOAuth2'];
   registerTokenProvider: OAuth['registerTokenProvider'];
-  hashPassword: typeof hashPassword;
-  verifyPassword: typeof verifyPassword;
   sendEmail: Mailer['sendEmail'];
   requireAuth: Middleware['requireAuth'];
   requireRole: Middleware['requireRole'];
@@ -45,10 +35,8 @@ export class SuperLogin extends User {
     userDB?: DocumentScope<SlUserDoc>,
     couchAuthDB?: DocumentScope<CouchDbAuthDoc>
   ) {
-    const config = new ConfigHelper(
-      configData,
-      require('./config/default.config')
-    );
+    const configHelper = new ConfigHelper(configData);
+    const config = configHelper.config;
     const router = express.Router();
     const emitter = new events.EventEmitter();
 
@@ -57,32 +45,20 @@ export class SuperLogin extends User {
     }
     const middleware = new Middleware(passport);
 
-    // Some extra default settings if no config object is specified
-    if (!configData) {
-      config.setItem('testMode.noEmail', true);
-      config.setItem('testMode.debugEmail', true);
-    }
-
     // Create the DBs if they weren't passed in
     let server: CloudantServer | NanoServer;
     if (
-      (!userDB && config.getItem('dbServer.userDB')) ||
-      (!couchAuthDB &&
-        config.getItem('dbServer.couchAuthDB') &&
-        !config.getItem('dbServer.cloudant'))
+      (!userDB && config.dbServer.userDB) ||
+      (!couchAuthDB && config.dbServer.couchAuthDB)
     ) {
-      server = loadCouchServer(config.config);
+      server = loadCouchServer(config);
     }
 
-    if (!userDB && config.getItem('dbServer.userDB')) {
-      userDB = server.use(config.getItem('dbServer.userDB'));
+    if (!userDB && config.dbServer.userDB) {
+      userDB = server.use(config.dbServer.userDB);
     }
-    if (
-      !couchAuthDB &&
-      config.getItem('dbServer.couchAuthDB') &&
-      !config.getItem('dbServer.cloudant')
-    ) {
-      couchAuthDB = server.use(config.getItem('dbServer.couchAuthDB'));
+    if (!couchAuthDB && config.dbServer.couchAuthDB) {
+      couchAuthDB = server.use(config.dbServer.couchAuthDB);
     }
     if (!userDB || typeof userDB !== 'object') {
       throw new Error(
@@ -111,21 +87,11 @@ export class SuperLogin extends User {
     this.registerOAuth2 = oauth.registerOAuth2.bind(oauth);
     this.registerTokenProvider = oauth.registerTokenProvider.bind(oauth);
 
-    this.hashPassword = hashPassword;
-    this.verifyPassword = verifyPassword;
-
     this.sendEmail = mailer.sendEmail.bind(mailer);
 
     this.requireAuth = middleware.requireAuth.bind(middleware);
     this.requireRole = middleware.requireRole.bind(middleware);
     this.requireAnyRole = middleware.requireAnyRole.bind(middleware);
     this.requireAllRoles = middleware.requireAllRoles.bind(middleware);
-
-    // Inherit emitter
-    for (const key in emitter) {
-      this[key] = emitter[key];
-    }
   }
 }
-
-module.exports = SuperLogin;

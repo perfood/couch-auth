@@ -1,55 +1,76 @@
-'use strict';
-const nano = require('nano');
-const request = require('superagent');
-const chai = require('chai');
-const sinon = require('sinon');
-const expect = chai.expect;
+import chai, { expect } from 'chai';
+import nano from 'nano';
+import sinon from 'sinon';
+import request from 'superagent';
+import seed from '../lib/design/seed';
+import { getDBURL, timeoutPromise } from '../lib/util';
+import { config } from './test.config';
 chai.use(require('sinon-chai'));
-
-const seed = require('../lib/design/seed').default;
-const util = require('../lib/util');
 
 describe('SuperLogin', function () {
   let app;
   /** @type {import('nano').DocumentScope} */
   let userDB;
-  let previous;
+  /** @type {import('nano').DocumentScope} */
+  let keysDB;
+  let previous: Promise<any>;
   let accessToken;
   let accessPass;
   let expireCompare;
   let resetToken = null;
 
-  const config = require('./test.config');
   const server = 'http://localhost:5000';
-  const dbUrl = util.getDBURL(config.dbServer);
+  const dbUrl = getDBURL(config.dbServer);
   const couch = nano({ url: dbUrl, parseUrl: false });
+
   const newUser = {
     name: 'Kewl Uzer',
     username: 'kewluzer',
     email: 'kewluzer@example.com',
-    password: '1s3cret',
-    confirmPassword: '1s3cret'
+    password: '123s3cret',
+    confirmPassword: '123s3cret'
+  };
+  const invalidNewUser = { ...newUser, email: 'blah@example' };
+
+  const emptyNewUser = {
+    name: '',
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
   };
 
   const newUser2 = {
     name: 'Kewler Uzer',
     username: 'kewleruzer',
     email: 'kewleruzer@example.com',
-    password: '1s3cret',
-    confirmPassword: '1s3cret'
+    password: '123s3cret',
+    confirmPassword: '123s3cret'
   };
+  let newUser2Bearer;
 
-  before(async function () {
+  const findUser = key =>
+    userDB
+      .find({
+        selector: {
+          key
+        },
+        fields: ['unverifiedEmail']
+      })
+      .then(record => record.docs[0]);
+
+  before(async () => {
     await couch.db.create('sl_test-users');
     await couch.db.create('sl_test-keys');
     userDB = couch.use('sl_test-users');
+    keysDB = couch.use('sl_test-keys');
     app = require('./test-server')(config);
     app.superlogin.onCreate((userDoc, provider) => {
       userDoc.profile = { name: userDoc.name };
       return Promise.resolve(userDoc);
     });
-
-    previous = seed(userDB, require('../lib/design/user-design'));
+    await seed(userDB, require('../lib/design/user-design.js'));
+    previous = Promise.resolve();
     return previous;
   });
 
@@ -65,16 +86,83 @@ describe('SuperLogin', function () {
     app.shutdown();
   });
 
+  it('should reject a new user with an invalid email', () => {
+    return previous.then(() => {
+      return request
+        .post(server + '/auth/register')
+        .send(invalidNewUser)
+        .then(() => {
+          return Promise.reject('invalid email should have been rejected');
+        })
+        .catch(err => {
+          expect(err.status).to.equal(400);
+          console.log('Rejected user with invalid email');
+        });
+    });
+  });
+
+  it('should reject a new user without matching passwords', () => {
+    return previous.then(() => {
+      return request
+        .post(server + '/auth/register')
+        .send({ ...newUser, confirmPassword: 'something else' })
+        .then(() => {
+          return Promise.reject(
+            'different confirmPassword should have been rejected'
+          );
+        })
+        .catch(err => {
+          expect(err.status).to.equal(400);
+          console.log('Rejected user with different confirmPassword');
+        });
+    });
+  });
+
+  it('should reject a new user with a too short password', () => {
+    return previous.then(() => {
+      return request
+        .post(server + '/auth/register')
+        .send({ ...newUser, password: 'abc', confirmPassword: 'abc' })
+        .then(() => {
+          return Promise.reject('too short password should have been rejected');
+        })
+        .catch(err => {
+          expect(err.status).to.equal(400);
+          console.log('Rejected user with too short password');
+        });
+    });
+  });
+
+  it('should reject a new user without any data', () => {
+    return previous.then(() => {
+      return request
+        .post(server + '/auth/register')
+        .send(emptyNewUser)
+        .then(() => {
+          return Promise.reject('invalid email should have been rejected');
+        })
+        .catch(err => {
+          //console.log('Body: ' + err.response.body);
+          //console.log('clientError: ', err.response.clientError);
+          expect(err.response.clientError).to.be.true;
+          expect(err.response.serverError).to.be.false;
+          expect(err.response.body.validationErrors).to.exist;
+          expect(err.status).to.equal(400);
+          console.log('Rejected empty user');
+        });
+    });
+  });
+
   it('should create a new user', function () {
     return previous.then(() => {
       return request
         .post(server + '/auth/register')
         .send(newUser)
         .then(res => {
-          expect(res.status).to.equal(201);
-          expect(res.body.success).to.equal('User created.');
+          expect(res.status).to.equal(200);
+          expect(res.body.success).to.equal('Request processed.');
           console.log('User created');
-          return Promise.resolve();
+          return timeoutPromise(500);
         });
     });
   });
@@ -82,8 +170,7 @@ describe('SuperLogin', function () {
   it('should verify the email', function () {
     let emailToken;
     return previous.then(function () {
-      return userDB
-        .get('kewluzer')
+      return findUser('kewluzer')
         .then(function (record) {
           emailToken = record.unverifiedEmail.token;
           return 1;
@@ -120,7 +207,7 @@ describe('SuperLogin', function () {
 
   it('should access a protected endpoint', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .get(server + '/auth/session')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -135,7 +222,7 @@ describe('SuperLogin', function () {
 
   it('should require a role', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .get(server + '/user')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -150,7 +237,7 @@ describe('SuperLogin', function () {
 
   it('should deny access when a required role is not present', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .get(server + '/admin')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -168,34 +255,38 @@ describe('SuperLogin', function () {
 
   it('should generate a forgot password token', function () {
     const spySendMail = sinon.spy(app.superlogin.mailer, 'sendEmail');
+    const emitterPromise = new Promise<void>(resolve => {
+      app.superlogin.emitter.on('forgot-password', () => {
+        resolve();
+      });
+    });
 
-    return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+    return previous.then(() => {
+      return Promise.all([
         request
           .post(server + '/auth/forgot-password')
-          .send({ email: newUser.email })
-          .then(res => {
-            expect(res.status).to.equal(200);
-            // keep unhashed token emailed to user.
-            const sendEmailArgs = spySendMail.getCall(0).args;
-            resetToken = sendEmailArgs[2].token;
-            console.log('Password token successfully generated.');
-            resolve();
-          });
+          .send({ email: newUser.email }),
+        emitterPromise
+      ]).then(res => {
+        expect(res[0].status).to.equal(200);
+        const sendEmailArgs = spySendMail.getCall(0).args;
+        resetToken = sendEmailArgs[2].token;
+        console.log('Password token successfully generated.');
+        return Promise.resolve();
       });
     });
   });
 
   it('should reset the password', function () {
     return previous.then(function () {
-      return userDB.get(newUser.username).then(() => {
-        return new Promise(function (resolve, reject) {
+      return findUser(newUser.username).then(() => {
+        return new Promise<void>(function (resolve, reject) {
           request
             .post(server + '/auth/password-reset')
             .send({
               token: resetToken,
-              password: 'newpass',
-              confirmPassword: 'newpass'
+              password: 'newpass1',
+              confirmPassword: 'newpass1'
             })
             .then(res => {
               expect(res.status).to.equal(200);
@@ -209,7 +300,7 @@ describe('SuperLogin', function () {
 
   it('should logout the user upon password reset', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .get(server + '/auth/session')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -229,10 +320,10 @@ describe('SuperLogin', function () {
 
   it('should login with the new password', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .post(server + '/auth/login')
-          .send({ username: newUser.username, password: 'newpass' })
+          .send({ username: newUser.username, password: 'newpass1' })
           .then(res => {
             accessToken = res.body.token;
             accessPass = res.body.password;
@@ -252,13 +343,17 @@ describe('SuperLogin', function () {
 
   it('should refresh the session', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .post(server + '/auth/refresh')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
           .then(res => {
             expect(res.status).to.equal(200);
             expect(res.body.expires).to.be.above(expireCompare);
+            return keysDB.get('org.couchdb.user:' + accessToken);
+          })
+          .then(tokenDoc => {
+            expect(tokenDoc.expires).to.be.above(expireCompare);
             console.log('Session successfully refreshed.');
             resolve();
           });
@@ -268,13 +363,13 @@ describe('SuperLogin', function () {
 
   it('should change the password', function () {
     return previous.then(function () {
-      return userDB.get(newUser.username).then(function (resetUser) {
-        return new Promise(function (resolve, reject) {
+      return findUser(newUser.username).then(function (resetUser) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .post(server + '/auth/password-change')
             .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
             .send({
-              currentPassword: 'newpass',
+              currentPassword: 'newpass1',
               newPassword: 'newpass2',
               confirmPassword: 'newpass2'
             })
@@ -290,7 +385,7 @@ describe('SuperLogin', function () {
 
   it('should logout the user', function () {
     return previous.then(function () {
-      return new Promise(function (resolve, reject) {
+      return new Promise<void>(function (resolve, reject) {
         request
           .post(server + '/auth/logout')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -302,7 +397,7 @@ describe('SuperLogin', function () {
             resolve();
           });
       }).then(function () {
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .get(server + '/auth/session')
             .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -318,15 +413,16 @@ describe('SuperLogin', function () {
 
   it('should login after creating a new user', function () {
     return previous.then(function () {
-      app.config.setItem('security.loginOnRegistration', true);
-      return new Promise(function (resolve, reject) {
+      app.config.security.loginOnRegistration = true;
+      return new Promise<void>(function (resolve, reject) {
         request
           .post(server + '/auth/register')
           .send(newUser2)
           .end(function (error, res) {
             expect(res.status).to.equal(200);
-            expect(res.body.token).to.be.a.string;
+            expect(res.body.token).to.be.string;
             console.log('User created and logged in');
+            newUser2Bearer = res.body.token + ':' + res.body.password;
             resolve();
           });
       });
@@ -336,7 +432,7 @@ describe('SuperLogin', function () {
   it('should validate a username', function () {
     return previous
       .then(function () {
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .get(server + '/auth/validate-username/idontexist')
             .end(function (error, res) {
@@ -347,7 +443,7 @@ describe('SuperLogin', function () {
         });
       })
       .then(function () {
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .get(server + '/auth/validate-username/kewluzer')
             .end(function (error, res) {
@@ -362,7 +458,7 @@ describe('SuperLogin', function () {
   it('should validate an email', function () {
     return previous
       .then(function () {
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .get(server + '/auth/validate-email/nobody@example.com')
             .end(function (error, res) {
@@ -372,8 +468,18 @@ describe('SuperLogin', function () {
             });
         });
       })
+      .then(() => {
+        return new Promise<void>((resolve, reject) => {
+          request
+            .get(server + '/auth/validate-email/nobody@example')
+            .end((err, res) => {
+              expect(res.status).to.equal(400);
+              resolve();
+            });
+        });
+      })
       .then(function () {
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           request
             .get(server + '/auth/validate-username/kewluzer@example.com')
             .end(function (error, res) {
@@ -396,7 +502,7 @@ describe('SuperLogin', function () {
     });
   }
 
-  it('should respond unauthorized if a user logs in and no password is set', function () {
+  it('should respond unauthorized on login if no password is set', function () {
     return previous
       .then(function () {
         return userDB.insert({
@@ -407,38 +513,62 @@ describe('SuperLogin', function () {
       .then(function () {
         return attemptLogin('nopassword', 'wrongpassword');
       })
-      .then(function (result) {
+      .then(function (result: any) {
         expect(result.status).to.equal(401);
         expect(result.message).to.equal('Invalid username or password');
       });
   });
 
-  it('should block a user after failed logins', function () {
+  it('should respond unauthorized on login if the password is wrong', function () {
     return previous
       .then(function () {
         return attemptLogin('kewluzer', 'wrong');
       })
-      .then(function (result) {
+      .then(function (result: any) {
         expect(result.status).to.equal(401);
         expect(result.message).to.equal('Invalid username or password');
-        return attemptLogin('kewluzer', 'wrong');
-      })
-      .then(function (result) {
-        expect(result.status).to.equal(401);
-        expect(result.message).to.equal('Invalid username or password');
-        return attemptLogin('kewluzer', 'wrong');
-      })
-      .then(function (result) {
-        expect(result.status).to.equal(401);
-        expect(result.message.search('Maximum failed login')).to.equal(0);
-        return attemptLogin('kewluzer', 'newpass');
-      })
-      .then(function (result) {
-        expect(result.status).to.equal(401);
-        expect(
-          result.message.search('Your account is currently locked')
-        ).to.equal(0);
         return Promise.resolve();
       });
+  });
+
+  it('should respond unauthorized on login if data is missing', function () {
+    return previous
+      .then(function () {
+        return attemptLogin(undefined, 'test');
+      })
+      .then(function (result: any) {
+        expect(result.status).to.equal(401);
+        expect(result.message).to.equal('Missing credentials');
+        return Promise.resolve();
+      });
+  });
+
+  it('should delete a user', () => {
+    const emitterPromise = new Promise<void>(function (resolve) {
+      app.superlogin.emitter.on('user-deleted', function (user, reason) {
+        expect(user.key).to.equal(newUser2.username);
+        expect(reason).to.equal('boring');
+        resolve();
+      });
+    });
+
+    return previous.then(() => {
+      const deletionForm = {
+        password: newUser2.password,
+        username: newUser2.username,
+        reason: 'boring'
+      };
+      const requestPromise = new Promise<void>(resolve => {
+        request
+          .post(server + '/auth/request-deletion')
+          .set('Authorization', 'Bearer ' + newUser2Bearer)
+          .send(deletionForm)
+          .end(function (error, res) {
+            expect(res.status).to.equal(200);
+            resolve();
+          });
+      });
+      return Promise.all([requestPromise, emitterPromise]);
+    });
   });
 });

@@ -1,14 +1,49 @@
 ## Change Log
 
-#### 0.13.4: Upgrades, email bug
+#### 0.14.X: UUID based schema, more OWASP compliance
+
+
+##### 0.14.0: Initial release
+
+The schema for the database IDs has been migrated to UUIDs, these changes to `sl-user` - doc schema must be **manually migrated**:
+
+- previous `_id` in `sl-users` is now the field `key`
+- no more PII in document or DB-IDs: a uuid is used for the personal DBs and as `_id` in `sl-users`
+
+Further changes to the `sl-users`:
+- IP addresses are no longer saved in the `sl-users` docs
+- `lockedUntil` has been removed
+- `activityLog` keys have slightly modified and match the emitted events, check the `UserAction`-type in `src/types/typings.d.ts`.
+- if `emailUsername` is active, a random `key` is generated instead of being extracted from the email
+
+Changes to the API:
+
+- `change-email` now resolves with `200: change requested`
+-`superlogin.emitter` must be used to listen to events, e.g. `superlogin.emitter.on('signup', () => {..})`
+instead of listening directly on `superlogin`.
+- added `request-deletion` - route (enabled by default).
+
+No external session cache is used anymore:
+
+- removed `redis` and the other adapters
+- marked `session` as deprecated: It simply checks whether the entry in `_users` exists. You should handle this by checking the connection to CouchDB instead.
+
+Cloudant legacy auth via API-Keys is no longer supported. Use `couchAuthOnCloudant` instead.
+
+Adjustments to config options, see `src/config/default.config.ts` for the new defaults and `src/types/config.d.ts` for all available options.
+- made the defaults more secure
+- more than 10 hashing iterations (`security.iterations`)
+- disabling of routes (`security.disabledRoutes`)  
+- prevent name guessing via `forgot-password`, `register`, `change-email` and `login`
+  - only fully available if `requireEmailConfirm` and `emailUsername` are `true`
+
+And fixed a lot of bugs...
+
+#### 0.13.X: Cloudant IAM
+##### 0.13.4: Upgrades, email bug
 
 Also lowercasing mails on change-email
-
-#### 0.13.3: Upgrades
-
-#### 0.13.2 Upgrades
-
-#### Cloudant IAM (0.13)
+##### 0.13.0: Cloudant
 
 Use Cloudant Library for compatibility with IAM auth instead of `user:password` (downgraded nano)
 

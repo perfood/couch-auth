@@ -1,8 +1,8 @@
 'use strict';
-const expect = require('chai').expect;
-const Middleware = require('../lib/middleware').Middleware;
+import { expect } from 'chai';
+import { Middleware } from '../src/middleware';
 
-const middleware = new Middleware({});
+const middleware = new Middleware({} as any);
 
 const noCall = function () {
   throw new Error('This should not have been called.');
@@ -26,6 +26,7 @@ describe('middleware', function () {
       const next = function () {
         done();
       };
+      // @ts-ignore
       middleware.requireRole('user')(req, res, next);
     });
 
@@ -42,6 +43,7 @@ describe('middleware', function () {
         },
         json: noop
       };
+      // @ts-ignore
       middleware.requireRole('admin')(req, res, noCall);
     });
   });
@@ -60,6 +62,7 @@ describe('middleware', function () {
       const next = function () {
         done();
       };
+      // @ts-ignore
       middleware.requireAnyRole(['user', 'admin'])(req, res, next);
     });
 
@@ -76,6 +79,7 @@ describe('middleware', function () {
         },
         json: noop
       };
+      // @ts-ignore
       middleware.requireAnyRole(['admin', 'superman'])(req, res, noCall);
     });
   });
