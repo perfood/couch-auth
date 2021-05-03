@@ -7,13 +7,11 @@ This is a heavily modified SuperLogin, re-written in TypeScript and developed wi
 
 If you've used SuperLogin before, the `0.13.X` release should be mostly backwards compatible. That version will only receive occasional bugfixes. New/ migrated projects should use a release >= `0.14.0`.
 
-Some changes in version `0.14.0`:
-- The adapters for session are no used.
-- db and doc ids no longer include PII, but be UUIDs instead. Existing user docs in `sl-users` and user-DBs must be migrated.
+Important changes in version `0.14.0`:
+- db and doc ids no longer include PII, but be UUIDs instead. Existing user docs in `sl-users` and user-DBs **must be migrated**. Check `CHANGELOG.md` for details.
+- The adapters for sessions (e.g `redis`) are no longer used.
 - signup with e-Mail only instead of `username` is preferred: now prevents account-guessing via `forgot-pass`, `login`, `signup` and `change-pass`
-- no more IP logging
-- some functionality has been removed (Cloudant legacy auth, `lockedUntil`,...)
-
+- some functionality has been removed (Cloudant legacy auth, `lockedUntil`, IP logging,...)
 
 Note that I'm only actively working on / performing security testing for the `local` email/PW authentication strategy.
 
@@ -466,11 +464,7 @@ Constructs a new instance of SuperLogin. All arguments are optional. If you don'
 
 ##### `superlogin.config`
 
-A reference to the configuration object. Use this to lookup and change configuration settings at runtime. `key` is a dot path string to the item you want to look up. For example `'emails.confirmEmail.subject'`
-
-- `superlogin.config.getItem(key)`
-- `superlogin.config.setItem(key, value)`
-- `superlogin.config.removeItem(key)`
+A reference to the configuration object. You can use this to lookup and change configuration settings at runtime. See `src/types/config.d.ts` for details.
 
 ##### `superlogin.router`
 
