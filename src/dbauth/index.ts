@@ -1,4 +1,5 @@
 'use strict';
+import seed from '../design/seed';
 import { Config, PersonalDBSettings, PersonalDBType } from '../types/config';
 import {
   CouchDbAuthDoc,
@@ -9,7 +10,6 @@ import {
 } from '../types/typings';
 import { getSessions, loadCouchServer, toArray, URLSafeUUID } from '../util';
 import { CouchAdapter } from './couchdb';
-import seed from '../design/seed';
 
 export class DBAuth {
   adapter: CouchAdapter;
@@ -248,7 +248,7 @@ export class DBAuth {
       this.config.userDBs?.defaultSecurityRoles?.admins || [];
     dbConfig.memberRoles =
       this.config.userDBs?.defaultSecurityRoles?.members || [];
-    const dbConfigRef = this.config.userDBs?.model[dbName];
+    const dbConfigRef = this.config.userDBs?.model?.[dbName];
     if (dbConfigRef) {
       dbConfig.designDocs = dbConfigRef.designDocs || [];
       dbConfig.type = type || dbConfigRef.type || 'private';
