@@ -27,9 +27,6 @@ export const config = {
     emailUsername: false,
     requireEmailConfirm: false
   },
-  session: {
-    adapter: 'redis'
-  },
   mailer: {
     fromEmail: 'me@example.com'
   },

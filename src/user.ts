@@ -287,6 +287,7 @@ export class User {
       newUser = await user.process();
     } catch (err) {
       hasError = true;
+      let doThrow = true;
       if (
         err.email &&
         this.config.local.emailUsername &&
@@ -298,10 +299,15 @@ export class User {
         if (inUseIdx >= 0) {
           err.email.splice(inUseIdx, 1);
           if (err.email.length === 0) {
-            this.handleEmailExists(form.email);
+            delete err.email;
+            if (Object.keys(err).length === 0) {
+              this.handleEmailExists(form.email);
+              doThrow = false;
+            }
           }
         }
-      } else {
+      }
+      if (doThrow) {
         throw {
           error: 'Validation failed',
           validationErrors: err,

@@ -65,14 +65,13 @@ Here's a simple minimalist configuration that will get you up and running right 
 First:
 
 ```
-npm install @sl-nx/superlogin-next
+npm install @sl-nx/superlogin-next express body-parser morgan
 ```
 
-Then...
+You'll need an email service that is supported by [nodemailer](https://nodemailer.com/smtp/). Then start a server with the following content:
 
 ```javascript
 var express = require('express');
-var http = require('http');
 var bodyParser = require('body-parser');
 var logger = require('morgan');
 var { SuperLogin } = require('@sl-nx/superlogin-next');
@@ -95,7 +94,7 @@ var config = {
   mailer: {
     fromEmail: 'gmail.user@gmail.com',
     options: {
-      service: 'Gmail',
+      service: 'Gmail', // N.B.: Gmail won't work out of the box, see https://nodemailer.com/usage/using-gmail/
       auth: {
         user: 'gmail.user@gmail.com',
         pass: 'userpass'
@@ -114,23 +113,46 @@ var superlogin = new SuperLogin(config);
 
 // Mount SuperLogin's routes to our app
 app.use('/auth', superlogin.router);
-
-http.createServer(app).listen(app.get('port'));
+app.listen(app.get("port"));
 ```
 
-Now get a request tool like [Postman](https://www.getpostman.com) and let's create our first user.
+Now let's create our first user by sending a POST request with the following JSON content to `http://localhost:3000/auth/register`. 
+Replace the example E-Mail with one that you can access:
 
 ```json
 {
   "name": "Joe Smith",
-  "username": "joesmith",
   "email": "joesmith@example.com",
   "password": "bigsecret",
   "confirmPassword": "bigsecret"
 }
 ```
 
-POST the form to `http://localhost:3000/auth/register` (using `x-www-form-urlencoded`) and you should get the response `{"success": "User created."}`.
+e.g. via `curl`:
+
+```bash
+curl --request POST \
+  --url http://localhost:3000/auth/register \
+  --header 'Content-Type: application/json' \                 
+  --data '{"name": "Joe Smith", "email": "joesmith@example.com", "password": "bigsecret", "confirmPassword": "bigsecret"}'
+```
+
+Using `x-www-form-urlencoded` is also supported:
+
+```bash
+curl --request POST \
+  --url http://localhost:3000/auth/register \
+  --header 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'name=Joe Smith' \
+  --data-urlencode 'email=joesmith@example.com' \
+  --data-urlencode 'password=bigsecret' \
+  --data-urlencode 'confirmPassword=bigsecret'
+```
+
+You should get the response `{"success": "Request processed."}` and an confirmation E-Mail should have been sent out. 
+Click on the confirmation link to activate your account. 
+You can also manually confirm the user's email by removing the `unverifiedEmail` - property in his doc in `sl-users` and adding `"email": "joesmith@example.com"` instead.
+
 
 Now to login, simply post your username and password to `http://localhost:3000/auth/login`. You should get a response similar to this:
 
@@ -139,7 +161,6 @@ Now to login, simply post your username and password to `http://localhost:3000/a
   "issued": 1440232999594,
   "expires": 1440319399594,
   "provider": "local",
-  "ip": "127.0.0.1",
   "token": "aViSVnaDRFKFfdepdXtiEg",
   "password": "p7l9VCNbTbOVeuvEBhYW_A",
   "user_id": "joesmith",
@@ -150,13 +171,19 @@ Now to login, simply post your username and password to `http://localhost:3000/a
 }
 ```
 
-You have now been issued an access token. Let's use it to access a protected endpoint. Make a request to `http://localhost:3000/auth/session` and you'll see it was unauthorized. Now add a header to your request: `"Authorization": "Bearer {token}:{password}"` and you should see information about your session. That was easy!
+You have now been issued an access token. Let's use it to access a protected endpoint. 
+Make a request to `http://localhost:3000/auth/refresh` and you'll see it was unauthorized. 
+Now add a header to your request: `"Authorization": "Bearer {token}:{password}"` and you should see that your session was refreshed. That was easy!
 
 If your user document contains a field called `profile`, this will automatically be included with the session information.
 
-You can also use the same token and password combination to access your personal database. But as soon as you log out your session that access will be revoked.
+You can also use the same token and password combination to access your personal database. 
+But as soon as you log out your session, that access will be revoked.
 
-**Note:** Session tokens for your API will be unusable as soon as they expire. However, there is no mechanism to automatically revoke expired credentials with CouchDB. Whenever a user logs in, logs out, or refreshes the session, SuperLogin will automatically clean up any expired credentials for that user. But you **have to** periodically run `superlogin.removeExpiredKeys()`, e.g. with `setInterval` or a cron job. This will deauthorize every single expired credential.
+**Note:** Session tokens for your API will be unusable as soon as they expire. 
+However, there is no mechanism to automatically revoke expired credentials with CouchDB. 
+Whenever a user logs in, logs out, or refreshes the session, SuperLogin will automatically clean up any expired credentials for that user. 
+But you **have to** periodically run `superlogin.removeExpiredKeys()`, e.g. with `setInterval` or a cron job. This will deauthorize every single expired credential.
 
 ## Securing Your Routes
 

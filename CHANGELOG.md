@@ -3,6 +3,11 @@
 #### 0.14.X: UUID based schema, more OWASP compliance
 
 
+##### 0.14.2 Bugfix
+`auth/register` returned OK even if there are validation errors other than an existing email.
+##### 0.14.1 Bugfix
+An optional config entry was required to successfully launch the server.
+
 ##### 0.14.0: Initial release
 
 The schema for the database IDs has been migrated to UUIDs, these changes to `sl-user` - doc schema must be **manually migrated**:

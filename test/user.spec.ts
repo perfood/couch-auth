@@ -302,7 +302,7 @@ describe('User Model', async function () {
       });
   });
 
-  it('should emit and send and email if trying to register again', () => {
+  it('should send an email if registering with same email', () => {
     spySendMail = sinon.spy(mailer, 'sendEmail');
     const emitterPromise = new Promise<void>(resolve => {
       emitter.once('signup-attempt', () => {
@@ -315,9 +315,9 @@ describe('User Model', async function () {
       .then(() => {
         userConfig.local.requireEmailConfirm = true;
         userConfig.local.emailUsername = true;
-        const formWithoutUsername = { ...testUserForm };
-        delete formWithoutUsername.username;
-        return Promise.all([user.createUser(testUserForm), emitterPromise]);
+        const newForm = { ...testUserForm };
+        newForm.username = 'superuser2';
+        return Promise.all([user.createUser(newForm), emitterPromise]);
       })
       .then(res => {
         userConfig.local.requireEmailConfirm = false;
