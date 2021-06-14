@@ -2,7 +2,14 @@
 
 #### 0.14.X: UUID based schema, more OWASP compliance
 
+##### 0.14.3 Consents Handling
 
+ :sparkles: Introduced handling of consents
+    
+This allows to optionally specifiy consents with `minVersion`, `currentVersion` and `required` in the config.
+- On signup, it is verified whether all `required` consents are accepted with a valid version.
+- Retrieve current consents via `GET /consents`
+- Update via `POST /consents` -> It's not possible to revoke `required` consents or to update unsupported versions
 ##### 0.14.2 Bugfix
 `auth/register` returned OK even if there are validation errors other than an existing email.
 ##### 0.14.1 Bugfix

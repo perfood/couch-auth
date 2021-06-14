@@ -12,6 +12,7 @@ import { Mailer } from './mailer';
 import { Session } from './session';
 import { Config } from './types/config';
 import {
+  ConsentRequest,
   CouchDbAuthDoc,
   HashResult,
   LocalHashObj,
@@ -27,13 +28,15 @@ import { DbManager } from './user/DbManager';
 import {
   arrayUnion,
   EMAIL_REGEXP,
+  extractCurrentConsents,
   getExpiredSessions,
   getSessions,
   hashToken,
   hyphenizeUUID,
   removeHyphens,
   URLSafeUUID,
-  USER_REGEXP
+  USER_REGEXP,
+  verifyConsentUpdate
 } from './util';
 
 enum Cleanup {
@@ -56,9 +59,13 @@ export class User {
   private hasher: Hashing;
 
   passwordConstraints;
-  // validation funs. todo: implement via bind...
-  validateUsername: Function;
-  validateEmail: Function;
+  // validation funs. todo: implement nicer via bind...
+  public validateUsername: (v: string) => Promise<string | void>;
+  public validateEmail: (v: string) => Promise<string | void>;
+  /** Validates whether the _format_ matches the config */
+  private validateConsents: (
+    v: Record<string, ConsentRequest>
+  ) => string | void;
 
   userModel: Sofa.AsyncOptions;
   resetPasswordModel: Sofa.AsyncOptions;
@@ -79,7 +86,7 @@ export class User {
     this.userDbManager = new DbManager(userDB, config);
     this.passwordConstraints = config.local.passwordConstraints;
 
-    // the validation functions are public
+    // the validation functions are public and callable without `this` context
     this.validateUsername = async function (username: string) {
       if (!username) {
         return;
@@ -100,7 +107,9 @@ export class User {
       }
     };
 
-    this.validateEmail = async function (email): Promise<string | void> {
+    this.validateEmail = async function (
+      email: string
+    ): Promise<string | void> {
       if (!email) {
         return;
       }
@@ -120,13 +129,36 @@ export class User {
       }
     };
 
+    const requiredConsents: string[] = [];
+    for (const [k, v] of Object.entries(config.local.consents ?? {})) {
+      if (v.required) {
+        requiredConsents.push(k);
+      }
+    }
+    this.validateConsents = function (
+      initialConsents: Record<string, ConsentRequest>
+    ): string | void {
+      if (initialConsents === undefined && !requiredConsents.length) {
+        return;
+      }
+      const err = verifyConsentUpdate(initialConsents, config);
+      if (err) {
+        return err;
+      }
+      const providedConsents = new Set(Object.keys(initialConsents));
+      if (requiredConsents.some(c => !providedConsents.has(c))) {
+        return 'must include all required consents';
+      }
+    };
+
     const userModel: Sofa.AsyncOptions = {
       async: true,
       whitelist: ['name', 'username', 'email', 'password', 'confirmPassword'],
       customValidators: {
         validateEmail: this.validateEmail,
         validateUsername: this.validateUsername,
-        matches: this.matches
+        matches: this.matches,
+        validateConsents: this.validateConsents
       },
       sanitize: {
         name: ['trim'],
@@ -157,8 +189,17 @@ export class User {
       }
     };
 
-    if (this.config.local.emailUsername) {
+    if (config.local.emailUsername) {
       delete userModel.validate.username;
+    }
+    if (config.local.consents) {
+      userModel.whitelist.push('consents');
+      userModel.validate.consents = {
+        validateConsents: true
+      };
+      if (requiredConsents.length) {
+        userModel.validate.consents.presence = true;
+      }
     }
     this.userModel = userModel;
 
@@ -351,6 +392,11 @@ export class User {
     newUser.local = await this.hashPassword(newUser.password ?? URLSafeUUID());
     delete newUser.password;
     delete newUser.confirmPassword;
+    if (newUser.consents) {
+      for (const [k, v] of Object.entries(newUser.consents)) {
+        newUser.consents[k] = [v as any];
+      }
+    }
     newUser.signUp = {
       provider: 'local',
       timestamp: new Date().toISOString()
@@ -1087,6 +1133,9 @@ export class User {
   async removeUser(login: string, destroyDBs = false, reason?: string) {
     const promises = [];
     let user = await this.getUser(login, true);
+    if (!user) {
+      throw { status: 404, error: 'not found' };
+    }
     user = await this.logoutUserSessions(user, Cleanup.all);
     if (destroyDBs && user.personalDBs) {
       Object.keys(user.personalDBs).forEach(userdb => {
@@ -1241,5 +1290,43 @@ export class User {
   /** Cleans up all expired keys from the authentification-DB (`_users`) and superlogin's db. Call this regularily! */
   removeExpiredKeys() {
     return this.dbAuth.removeExpiredKeys();
+  }
+
+  /** returns the latest entries of the current user's consents */
+  async getCurrentConsents(login: string) {
+    const userDoc: SlUserDoc = await this.userDbManager.getUser(login, true);
+    return extractCurrentConsents(userDoc);
+  }
+
+  /**
+   * validates and performs the update to the consents, returning the updated
+   * consents if successful
+   */
+  async updateConsents(
+    login: string,
+    consentUpdate: Record<string, ConsentRequest>
+  ) {
+    const validationErrMsg = verifyConsentUpdate(consentUpdate, this.config);
+    if (validationErrMsg) {
+      throw { error: 'bad request', status: 400, message: validationErrMsg };
+    }
+    let userDoc: SlUserDoc = await this.userDbManager.getUser(login, true);
+    // it's also possible that a _new_ consent has been introduced!
+    for (const [consentKey, consentRequest] of Object.entries(consentUpdate)) {
+      if (!userDoc.consents) {
+        userDoc.consents = {};
+      }
+      if (!userDoc.consents[consentKey]) {
+        userDoc.consents[consentKey] = [];
+      }
+      userDoc.consents[consentKey].push({
+        ...consentRequest,
+        timestamp: new Date().toISOString()
+      });
+    }
+    userDoc = this.userDbManager.logActivity('consents', undefined, userDoc);
+    await this.userDB.insert(userDoc);
+    this.emitter.emit('consents', userDoc);
+    return extractCurrentConsents(userDoc);
   }
 }

@@ -392,12 +392,36 @@ export default function (
       passport.authenticate('bearer', { session: false }),
       function (req: SlRequest, res: Response) {
         const user = req.user;
-        user.user_id = user._id; // todo: what here??
+        user.user_id = user._id; // todo: should rename/make clear what's used
         delete user._id;
         delete user.key;
         res.status(200).json(user);
       }
     );
+
+  if (!disabled.includes('consents') && config.local.consents) {
+    router.get(
+      '/consents',
+      passport.authenticate('bearer', { session: false }),
+      (req: SlRequest, res: Response, next: NextFunction) => {
+        user
+          .getCurrentConsents(req.user._id)
+          .then(consents => res.status(200).json(consents))
+          .catch(err => next(err));
+      }
+    );
+
+    router.post(
+      '/consents',
+      passport.authenticate('bearer', { session: false }),
+      (req: SlRequest, res: Response, next: NextFunction) => {
+        user
+          .updateConsents(req.user._id, req.body)
+          .then(ret => res.status(200).json(ret))
+          .catch(err => next(err));
+      }
+    );
+  }
 
   /**
    * If the error is expected, it's sent as response. Otherwise, a generic

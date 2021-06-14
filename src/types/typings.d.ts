@@ -86,7 +86,8 @@ export type UserAction =
   | 'email-changed'
   | 'logout'
   | 'logout-all'
-  | 'refresh';
+  | 'refresh'
+  | 'consents';
 
 /** possible events that are emmitted */
 export type UserEvent =
@@ -124,6 +125,21 @@ export interface SlUserDoc extends Document, IdentifiedObj {
   email: string;
   session: SessionCollection;
   profile: any;
+  consents?: Record<string, ConsentSlEntry[]>;
+}
+
+export interface ConsentConfig {
+  minVersion: number;
+  currentVersion: number;
+  required: boolean;
+  //data?: any;
+}
+export interface ConsentRequest {
+  accepted: boolean;
+  version: number;
+}
+export interface ConsentSlEntry extends ConsentRequest {
+  timestamp: string;
 }
 
 export interface SlUserNew extends SlUserDoc {
@@ -155,6 +171,7 @@ export interface SlUser {
   key?: string;
   roles?: string[];
   user_id?: string;
+  consents?: Record<string, ConsentRequest>;
 }
 
 export interface SlRequest extends Request {

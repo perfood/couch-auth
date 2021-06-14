@@ -60,6 +60,19 @@ const exampleConfig = {
         message: 'must be at least 6 characters'
       },
       matches: 'confirmPassword'
+    },
+    // `required` consents must be included in the signup form. Updates can be saved via the `consents` - route.
+    consents: {
+      privacy: {
+        minVersion: 2,
+        currentVersion: 3,
+        required: true
+      },
+      marketing: {
+        minVersion: 3,
+        currentVersion: 4,
+        required: false
+      }
     }
   },
   dbServer: {

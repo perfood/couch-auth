@@ -475,6 +475,7 @@ Here is a full list of the events that SuperLogin emits, and parameters provided
 - `user-deleted`: (`userDoc`, `reason`)
 - `logout`: (`user_id`)
 - `logout-all`: (`user_id`)
+- `consents`: (`userDoc`)
 
 ## Main API
 
