@@ -79,7 +79,12 @@ const userConfigHelper = new Configure({
     },
     // todo: adjust once the old default behaviour works.
     usernameLogin: true,
-    emailUsername: false
+    emailUsername: false,
+    // this is deleted after the 1st two tests. Todo: run in isolation...
+    consents: {
+      privacy: { minVersion: 2, currentVersion: 3, required: true },
+      marketing: { minVersion: 3, currentVersion: 5, required: false }
+    }
   },
   mailer: {
     fromEmail: 'noreply@example.com'
@@ -161,6 +166,11 @@ describe('User Model', async function () {
   let verifyEmailToken;
 
   before(async function () {
+    for (const db of createdDBs) {
+      try {
+        await couch.db.destroy(db);
+      } catch (err) {}
+    }
     await couch.db.create('superlogin_test_users');
     await couch.db.create('superlogin_test_keys');
     let userDesign = require('../lib/design/user-design');
@@ -194,6 +204,77 @@ describe('User Model', async function () {
     });
   });
 
+  it('should reject a new user with invalid consents', async () => {
+    const invalidRequests = [
+      user.createUser({
+        ...testUserForm,
+        consents: { privacy: { version: '2', accepted: true } }
+      }),
+      user.createUser({
+        ...testUserForm,
+        consents: { privacy: { version: -1, accepted: true } }
+      }),
+      user.createUser({
+        ...testUserForm,
+        consents: {
+          privacy: { version: 2, accepted: false },
+          marketing: { version: 3, accepted: true }
+        }
+      }),
+      user.createUser({
+        ...testUserForm,
+        consents: {
+          privacy: { version: 3, accepted: true },
+          marketing: { version: 1, accepted: true }
+        }
+      }),
+      user.createUser({
+        ...testUserForm,
+        consents: {
+          privacy: { version: 1, accepted: true },
+          marketing: { version: 4, accepted: true }
+        }
+      }),
+      user.createUser({
+        ...testUserForm,
+        consents: {
+          privacy: { version: 2, accepted: true },
+          marketing: { version: 6, accepted: false }
+        }
+      })
+    ];
+    const results = await Promise.allSettled(invalidRequests);
+    const invalid = results
+      .map((r, i) =>
+        r.status === 'fulfilled'
+          ? `invalid consent request number ${i} succeeded`
+          : undefined
+      )
+      .filter(r => !!r);
+    if (invalid.length) {
+      console.error(invalid.length + 'invalid consents requests accepted.');
+      throw invalid.join(', ');
+    }
+    console.log('OK - invalid consents rejected.');
+  });
+
+  it('should save a new user with valid consents', async () => {
+    try {
+      await user.createUser({
+        ...testUserForm,
+        consents: {
+          privacy: { version: 2, accepted: true },
+          marketing: { version: 3, accepted: true }
+        }
+      });
+      await timeoutPromise(500); // todo: use emitter instead
+      await user.removeUser('superuser');
+    } catch (error) {
+      console.error('Creation or cleanup failed with: ', error);
+      throw error;
+    }
+  });
+
   it('should save a new user', function () {
     const emitterPromise = new Promise<void>(function (resolve) {
       emitter.once('signup', function (user) {
@@ -206,6 +287,9 @@ describe('User Model', async function () {
 
     return previous
       .then(() => {
+        delete userConfig.local.consents;
+        delete user.userModel.validate.consents;
+
         user.onCreate(userDoc => {
           userDoc.onCreate1 = true;
           return Promise.resolve(userDoc);
@@ -217,7 +301,7 @@ describe('User Model', async function () {
         return user.createUser(testUserForm, req);
       })
       .then(newUser => {
-        return timeoutPromise(500).then(() => newUser);
+        return timeoutPromise(500).then(() => newUser); // todo: use emitter
       })
       .then(newUser => {
         superuserUUID = newUser._id;

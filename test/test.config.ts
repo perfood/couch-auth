@@ -22,10 +22,22 @@ export const config = {
   local: {
     sendConfirmEmail: true,
     sendPasswordChangedEmail: true,
-    // todo: adjust once the old default behaviour works.
+    // todo: adjust these three once the old default behaviour works.
     usernameLogin: true,
     emailUsername: false,
-    requireEmailConfirm: false
+    requireEmailConfirm: false,
+    consents: {
+      privacy: {
+        minVersion: 2,
+        currentVersion: 3,
+        required: true
+      },
+      marketing: {
+        minVersion: 2,
+        currentVersion: 3,
+        required: false
+      }
+    }
   },
   mailer: {
     fromEmail: 'me@example.com'

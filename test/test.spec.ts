@@ -22,13 +22,24 @@ describe('SuperLogin', function () {
   const server = 'http://localhost:5000';
   const dbUrl = getDBURL(config.dbServer);
   const couch = nano({ url: dbUrl, parseUrl: false });
+  const consents = {
+    privacy: {
+      version: 3,
+      accepted: true
+    },
+    marketing: {
+      version: 2,
+      accepted: false
+    }
+  };
 
   const newUser = {
     name: 'Kewl Uzer',
     username: 'kewluzer',
     email: 'kewluzer@example.com',
     password: '123s3cret',
-    confirmPassword: '123s3cret'
+    confirmPassword: '123s3cret',
+    consents
   };
   const invalidNewUser = { ...newUser, email: 'blah@example' };
 
@@ -37,7 +48,8 @@ describe('SuperLogin', function () {
     username: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    consents: ''
   };
 
   const newUser2 = {
@@ -45,7 +57,8 @@ describe('SuperLogin', function () {
     username: 'kewleruzer',
     email: 'kewleruzer@example.com',
     password: '123s3cret',
-    confirmPassword: '123s3cret'
+    confirmPassword: '123s3cret',
+    consents
   };
   let newUser2Bearer;
 
@@ -139,14 +152,15 @@ describe('SuperLogin', function () {
         .post(server + '/auth/register')
         .send(emptyNewUser)
         .then(() => {
-          return Promise.reject('invalid email should have been rejected');
+          return Promise.reject('empty user should have been rejected');
         })
         .catch(err => {
-          //console.log('Body: ' + err.response.body);
-          //console.log('clientError: ', err.response.clientError);
           expect(err.response.clientError).to.be.true;
           expect(err.response.serverError).to.be.false;
           expect(err.response.body.validationErrors).to.exist;
+          expect(
+            Object.keys(err.response.body.validationErrors)
+          ).length.to.be.greaterThan(1);
           expect(err.status).to.equal(400);
           console.log('Rejected empty user');
         });
@@ -359,6 +373,33 @@ describe('SuperLogin', function () {
           });
       });
     });
+  });
+
+  it('should retrieve the current consents', async () => {
+    const res = await request
+      .get(server + '/auth/consents')
+      .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
+      .send();
+    expect(res.status).to.equal(200);
+    expect(res.body.privacy.version).to.equal(3);
+    expect(res.body.marketing.accepted).to.equal(false);
+  });
+
+  it('should update the consents', async () => {
+    const data = {
+      marketing: {
+        accepted: true,
+        version: 3
+      }
+    };
+    const res = await request
+      .post(server + '/auth/consents')
+      .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
+      .send(data);
+    expect(res.status).to.equal(200);
+    expect(res.body.privacy.accepted).to.equal(true);
+    expect(res.body.marketing.accepted).to.equal(true);
+    expect(res.body.marketing.version).to.equal(3);
   });
 
   it('should change the password', function () {

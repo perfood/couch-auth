@@ -21,6 +21,7 @@ export class DbManager {
     private config: Partial<Config>
   ) {}
 
+  /** returns the `SlUserDoc` if found, else null. Rejects on other error */
   getUserByUUID(uuid: string): Promise<SlUserDoc> {
     return this.userDB.get(removeHyphens(uuid)).catch(err => {
       if (err.status === 404) {

@@ -6,7 +6,13 @@ import nano from 'nano';
 import URLSafeBase64 from 'urlsafe-base64';
 import { v4 as uuidv4 } from 'uuid';
 import { Config, DBServerConfig } from './types/config';
-import { DocumentScope, ServerScope, SlUserDoc } from './types/typings';
+import {
+  ConsentRequest,
+  ConsentSlEntry,
+  DocumentScope,
+  ServerScope,
+  SlUserDoc
+} from './types/typings';
 
 // regexp from https://emailregex.com/
 export const EMAIL_REGEXP = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
@@ -261,4 +267,43 @@ export function timeoutPromise(duration) {
       resolve(true);
     }, duration);
   });
+}
+
+export function extractCurrentConsents(userDoc: SlUserDoc) {
+  const ret = {};
+  for (const [consentKey, consentLog] of Object.entries(
+    userDoc.consents ?? {}
+  )) {
+    ret[consentKey] = consentLog[consentLog.length - 1];
+  }
+  return ret as Record<string, ConsentSlEntry>;
+}
+
+export function verifyConsentUpdate(
+  consentUpdate: Record<string, ConsentRequest>,
+  config: Config
+): string | void {
+  if (typeof consentUpdate !== 'object') {
+    return 'must not have an invalid format';
+  }
+  for (const [consentKey, consentRequest] of Object.entries(consentUpdate)) {
+    const configEntry = config.local.consents[consentKey];
+    if (
+      !configEntry ||
+      typeof consentRequest.accepted !== 'boolean' ||
+      typeof consentRequest.version !== 'number'
+    ) {
+      return 'must not have an invalid format';
+    }
+    if (
+      consentRequest.version < configEntry.minVersion ||
+      consentRequest.version > configEntry.currentVersion
+    ) {
+      return 'must provide a supported version';
+    }
+    // it's not possible to revoke a required consents -> delete user instead.
+    if (configEntry.required && consentRequest.accepted !== true) {
+      return 'must include all required consents';
+    }
+  }
 }

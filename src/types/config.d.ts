@@ -1,5 +1,6 @@
 import { Sofa } from '@sl-nx/sofa-model';
 import Mail, { Address } from 'nodemailer/lib/mailer';
+import { ConsentConfig } from './typings';
 
 export interface TestConfig {
   /** Use a stub transport so no email is actually sent. Default: false */
@@ -108,6 +109,14 @@ export interface LocalConfig {
    * The constraints are processed by [validatejs](https://validatejs.org/#validate).
    */
   passwordConstraints?: Record<string, any>;
+  /**
+   * If set, a `ConsentRequest` must be sent included on registration for each
+   * record with `required: true`. Given consents can be updated via the
+   * consents route. Updates are not accepted if the `ConsentRequest` does not
+   * have a matching `ConsentConfig`, if it is `required` or if the version of
+   * the request is lower.
+   */
+  consents?: Record<string, ConsentConfig>;
 }
 
 /** Configure the CouchDB compatible server where all your databases are stored on */
