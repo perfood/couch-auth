@@ -394,6 +394,7 @@ export class User {
     delete newUser.confirmPassword;
     if (newUser.consents) {
       for (const [k, v] of Object.entries(newUser.consents)) {
+        (v as any).timestamp = new Date().toISOString();
         newUser.consents[k] = [v as any];
       }
     }
