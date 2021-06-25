@@ -12,9 +12,7 @@
         var session = <%- JSON.stringify(session) %>;
         var error = <%- JSON.stringify(error) %>;
         var link = <%- JSON.stringify(link) %>;
-        if (window.opener.superlogin && window.opener.superlogin.oauthSession) {
-            window.opener.superlogin.oauthSession(error, session, link);
-        }
+        window.opener.postMessage({error, session, link}, '*');
     }
     window.close();
 </script>

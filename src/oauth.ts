@@ -21,11 +21,11 @@ export class OAuth {
     private config: Partial<Config>
   ) {}
 
-  // Function to initialize a session following authentication from a socialAuth provider
+  /** Function to initialize a session following authentication from a socialAuth provider */
   private initSession(req: SlRequest, res: Response, next: NextFunction) {
     const provider = this.getProvider(req.path);
     return this.user
-      .createSession(req.user._id, provider)
+      .createSession(req.user._id, provider, true)
       .then(mySession => {
         return Promise.resolve({
           error: null,
@@ -56,11 +56,11 @@ export class OAuth {
       );
   }
 
-  // Function to initialize a session following authentication from a socialAuth provider
+  /** Function to initialize a session following authentication from a socialAuth provider */
   private initTokenSession(req: SlRequest, res: Response, next: NextFunction) {
     const provider = this.getProviderToken(req.path);
     return this.user
-      .createSession(req.user._id, provider)
+      .createSession(req.user._id, provider, true)
       .then(mySession => {
         return Promise.resolve(mySession);
       })
@@ -74,7 +74,7 @@ export class OAuth {
       );
   }
 
-  // Called after an account has been succesfully linked
+  /** Called after an account has been succesfully linked */
   private linkSuccess(req: Request, res: Response, next: NextFunction) {
     const provider = this.getProvider(req.path);
     const result = {
@@ -98,7 +98,7 @@ export class OAuth {
     res.status(200).send(html);
   }
 
-  // Called after an account has been succesfully linked using access_token provider
+  /** Called after an account has been succesfully linked using access_token provider */
   private linkTokenSuccess(req: Request, res: Response, next: NextFunction) {
     const provider = this.getProviderToken(req.path);
     res.status(200).json({
@@ -108,7 +108,7 @@ export class OAuth {
     });
   }
 
-  // Handles errors if authentication fails
+  /** Handles errors if authentication fails */
   private oauthErrorHandler(
     err: Error,
     req: Request,
@@ -116,7 +116,7 @@ export class OAuth {
     next: NextFunction
   ) {
     let template;
-    if (this.config.testMode.oauthTest) {
+    if (this.config.testMode?.oauthTest) {
       template = readFileSync(
         join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
         'utf8'
@@ -139,7 +139,7 @@ export class OAuth {
     res.status(400).send(html);
   }
 
-  // Handles errors if authentication from access_token provider fails
+  /** Handles errors if authentication from access_token provider fails */
   private tokenAuthErrorHandler(
     err: Error,
     req: SlRequest,
@@ -160,7 +160,7 @@ export class OAuth {
     res.status(status).json(err);
   }
 
-  // Framework to register OAuth providers with passport
+  /** Framework to register OAuth providers with passport */
   public registerProvider(provider: string, configFunction: Function) {
     provider = provider.toLowerCase();
     const configRef = this.config.providers[provider];
@@ -202,7 +202,7 @@ export class OAuth {
     }
   }
 
-  // A shortcut to register OAuth2 providers that follow the exact accessToken, refreshToken pattern.
+  /** A shortcut to register OAuth2 providers that follow the exact accessToken, refreshToken pattern. */
   public registerOAuth2(providerName: string, Strategy: any) {
     this.registerProvider(
       providerName,
@@ -234,8 +234,10 @@ export class OAuth {
     );
   }
 
-  // Registers a provider that accepts an access_token directly from the client, skipping the popup window and callback
-  // This is for supporting Cordova, native IOS and Android apps, as well as other devices
+  /**
+   * Registers a provider that accepts an access_token directly from the client, skipping the popup window and callback
+   * This is for supporting Cordova, native IOS and Android apps, as well as other devices
+   */ 
   public registerTokenProvider(providerName: string, Strategy) {
     providerName = providerName.toLowerCase();
     const configRef = this.config.providers[providerName];
@@ -278,9 +280,11 @@ export class OAuth {
     }
   }
 
-  // This is called after a user has successfully authenticated with a provider
-  // If a user is authenticated with a bearer token we will link an account, otherwise log in
-  // auth is an object containing 'access_token' and optionally 'refresh_token'
+  /**
+   * This is called after a user has successfully authenticated with a provider
+   * If a user is authenticated with a bearer token we will link an account, otherwise log in
+   * auth is an object containing 'access_token' and optionally 'refresh_token'
+   */ 
   private authHandler(req: SlRequest, provider: string, auth, profile) {
     // todo: is this already the UUID here?
     if (req.user && req.user._id && req.user.key) {
@@ -290,8 +294,10 @@ export class OAuth {
     }
   }
 
-  // Configures the passport.authenticate for the given provider, passing in options
-  // Operation is 'login' or 'link'
+  /**
+   * Configures the passport.authenticate for the given provider, passing in options
+   * Operation is 'login' or 'link'
+   */
   private passportCallback(provider: string, options, operation) {
     return (req: Request, res: Response, next: NextFunction) => {
       const theOptions = { ...options };
@@ -317,7 +323,7 @@ export class OAuth {
     };
   }
 
-  // Configures the passport.authenticate for the given access_token provider, passing in options
+  /** Configures the passport.authenticate for the given access_token provider, passing in options */
   private passportTokenCallback(provider: string, options) {
     return (req: Request, res: Response, next: NextFunction) => {
       const theOptions = { ...options };
