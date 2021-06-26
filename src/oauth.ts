@@ -251,7 +251,7 @@ export class OAuth {
         new Strategy(
           credentials,
           (req, accessToken, refreshToken, profile, done) => {
-            callbackify(this.authHandler)(
+            callbackify(this.authHandler).bind(this)(
               req,
               providerName,
               { accessToken: accessToken, refreshToken: refreshToken },
