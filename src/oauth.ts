@@ -35,18 +35,7 @@ export class OAuth {
       })
       .then(
         results => {
-          let template;
-          if (this.config.testMode?.oauthTest) {
-            template = readFileSync(
-              join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
-              'utf8'
-            );
-          } else {
-            template = readFileSync(
-              join(__dirname, '../templates/oauth/auth-callback.ejs'),
-              'utf8'
-            );
-          }
+          const template = this.getTemplate(provider);
           const html = render(template, results);
           res.status(200).send(html);
         },
@@ -82,18 +71,7 @@ export class OAuth {
       session: null,
       link: provider
     };
-    let template;
-    if (this.config.testMode?.oauthTest) {
-      template = readFileSync(
-        join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
-        'utf8'
-      );
-    } else {
-      template = readFileSync(
-        join(__dirname, '../templates/oauth/auth-callback.ejs'),
-        'utf8'
-      );
-    }
+    const template = this.getTemplate(provider);
     const html = render(template, result);
     res.status(200).send(html);
   }
@@ -115,18 +93,8 @@ export class OAuth {
     res: Response,
     next: NextFunction
   ) {
-    let template;
-    if (this.config.testMode?.oauthTest) {
-      template = readFileSync(
-        join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
-        'utf8'
-      );
-    } else {
-      template = readFileSync(
-        join(__dirname, '../templates/oauth/auth-callback.ejs'),
-        'utf8'
-      );
-    }
+    const provider = this.getProvider(req.path);
+    const template = this.getTemplate(provider);
     const html = render(template, {
       error: err.message,
       session: null,
@@ -395,5 +363,35 @@ export class OAuth {
     if (index > 0) {
       return items[index - 1];
     }
+  }
+
+  /**
+   * Gets the template file checking if a custom template was set in the provider options 
+   * and if the testMode.oauthTest is enabled.
+   */
+  private getTemplate(provider: string) {
+    const configRef = this.config.providers[provider];
+    if (this.config.testMode?.oauthTest) {
+      if (configRef?.templateTest) {
+        return readFileSync(
+        configRef.templateTest,
+        'utf8'
+        );
+      }
+      return readFileSync(
+        join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
+        'utf8'
+      );
+    } 
+    if (configRef?.template) {
+      return readFileSync(
+        configRef.template,
+        'utf8'
+      );
+    }
+    return readFileSync(
+      join(__dirname, '../templates/oauth/auth-callback.ejs'),
+      'utf8'
+    );
   }
 }

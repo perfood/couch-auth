@@ -204,7 +204,11 @@ const exampleConfig = {
       },
       // This will pass in the user's auth token as a variable called 'state' when linking to this provider
       // Defaults to true for Google and LinkedIn, but you can enable it for other providers if needed
-      stateRequired: false
+      stateRequired: false,
+      // You should copy the template from `templates/oauth/auth-callback.ejs` and modify the second parameter
+      // from '*' to your page origin, e.g. 'https://example.com', to avoid any malicious site receiving the auth data returned by the pop-up
+      // window workflow. The template can be the same for all providers.
+      template: path.join(__dirname, './templates/oauth/my-custom-secure-auth-callback.ejs')
     }
   },
   // Anything here will be merged with the userModel that validates your local sign-up form.

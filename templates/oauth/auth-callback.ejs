@@ -12,6 +12,10 @@
         var session = <%- JSON.stringify(session) %>;
         var error = <%- JSON.stringify(error) %>;
         var link = <%- JSON.stringify(link) %>;
+        // When you change the targetOrigin be sure to set the protocol, host and port
+        // otherwise the message won't be posted to the parent window.
+        // https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy#definition_of_an_origin
+        // e.g. 'http://mypage.com:8080'
         window.opener.postMessage({error, session, link}, '*');
     }
     window.close();

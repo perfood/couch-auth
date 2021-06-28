@@ -249,7 +249,11 @@ providers: {
     },
     options: {
       // Options here will be passed in on the call to passport.authenticate
-    }
+    },
+    // You should copy the template from this repo that is in `templates/oauth/auth-callback.ejs` and modify the second parameter
+    // from '*' to your page origin, e.g. 'https://example.com', to avoid any malicious site receiving the auth data returned by the pop-up
+    // window workflow. The template can be the same for all providers.
+    template: path.join(__dirname, './templates/oauth/my-custom-secure-auth-callback.ejs')
   }
 }
 ```
@@ -287,7 +291,6 @@ After completing the configuration step above, all you have to do is register yo
 var DropboxStrategy = require('passport-dropbox-oauth2').Strategy;
 superlogin.registerOAuth2('dropbox', DroboxStrategy);
 ```
-
 Now, assuming your credentials are valid, you should be able to authenticate with Dropbox by opening a popup window to `/dropbox`. See below in the Routes documentation for more detail.
 
 #### Client Access Token for Cordova / Phonegap and Native Apps
