@@ -164,6 +164,7 @@ Now to login, simply post your username and password to `http://localhost:3000/a
   "token": "aViSVnaDRFKFfdepdXtiEg",
   "password": "p7l9VCNbTbOVeuvEBhYW_A",
   "user_id": "joesmith",
+  "user_uid": "86801e38-e3f6-49b4-9187-e5116aa1ecea",
   "roles": ["user"],
   "userDBs": {
     "supertest": "http://aViSVnaDRFKFfdepdXtiEg:p7l9VCNbTbOVeuvEBhYW_A@localhost:5984/supertest$joesmith"
