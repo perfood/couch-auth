@@ -26,7 +26,7 @@ export class DBAuth {
 
   storeKey(
     username: string,
-    user_uid,
+    user_uid: string,
     key: string,
     password: string,
     expires: number,
