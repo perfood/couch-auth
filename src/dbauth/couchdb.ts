@@ -1,6 +1,11 @@
 'use strict';
 import { DocumentScope, ServerScope } from 'nano';
-import { getSecurityDoc, putSecurityDoc, toArray } from '../util';
+import {
+  getSecurityDoc,
+  hyphenizeUUID,
+  putSecurityDoc,
+  toArray
+} from '../util';
 import { hashCouchPassword, Hashing } from '../hashing';
 import { Config } from '../types/config';
 import { CouchDbAuthDoc } from '../types/typings';
@@ -46,7 +51,7 @@ export class CouchAdapter implements DBAdapter {
       _id: userPrefix + key,
       type: 'user',
       name: key,
-      user_uid: user_uid,
+      user_uid: hyphenizeUUID(user_uid),
       user_id: username,
       expires: expires,
       roles: roles,
