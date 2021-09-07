@@ -70,6 +70,7 @@ describe('DBAuth', () => {
     /**  @type {import('../types/typings').CouchDbAuthDoc}  */
     const newKey = await dbAuth.storeKey(
       testUser._id,
+      '86801e38-e3f6-49b4-9187-e5116aa1ecea',
       'testkey',
       'testpass',
       Date.now() + 60000,
