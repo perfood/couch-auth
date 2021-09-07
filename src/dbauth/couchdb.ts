@@ -28,6 +28,7 @@ export class CouchAdapter implements DBAdapter {
    */
   async storeKey(
     username: string,
+    user_uid,
     key: string,
     password: string,
     expires: number,
@@ -45,6 +46,7 @@ export class CouchAdapter implements DBAdapter {
       _id: userPrefix + key,
       type: 'user',
       name: key,
+      user_uid: user_uid,
       user_id: username,
       expires: expires,
       roles: roles,

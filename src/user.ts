@@ -559,6 +559,7 @@ export class User {
     token.provider = provider;
     await this.dbAuth.storeKey(
       user.key,
+      user_uid,
       token.key,
       password,
       token.expires,

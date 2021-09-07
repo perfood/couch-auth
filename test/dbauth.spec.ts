@@ -236,6 +236,7 @@ describe('DBAuth', () => {
         promises.push(
           dbAuth.storeKey(
             'testuser1',
+            'testuser1uid',
             'oldkey1',
             'password',
             user1.session.oldkey1.expires,
@@ -246,6 +247,7 @@ describe('DBAuth', () => {
         promises.push(
           dbAuth.storeKey(
             'testuser1',
+            'testuser1uid',
             'goodkey1',
             'password',
             user1.session.goodkey1.expires,
@@ -256,6 +258,7 @@ describe('DBAuth', () => {
         promises.push(
           dbAuth.storeKey(
             'testuser2',
+            'testuser2uid',
             'oldkey2',
             'password',
             user2.session.oldkey2.expires,
@@ -266,6 +269,7 @@ describe('DBAuth', () => {
         promises.push(
           dbAuth.storeKey(
             'testuser2',
+            'testuser2uid',
             'goodkey2',
             'password',
             user2.session.goodkey2.expires,
