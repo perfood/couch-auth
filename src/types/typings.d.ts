@@ -23,6 +23,7 @@ export interface CouchDbAuthDoc
   extends IdentifiedDocument,
     MaybeRevisionedDocument,
     IdentifiedObj {
+  user_uid: string;
   user_id: string;
   password?: string;
   expires: number;
