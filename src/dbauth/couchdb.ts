@@ -29,7 +29,7 @@ export class CouchAdapter implements DBAdapter {
 
   /**
    * stores a CouchDbAuthDoc with the passed information. Expects the `username`
-   * (i.e. `key`) and not the UUID.
+   * (i.e. `key`) and the UUID.
    */
   async storeKey(
     username: string,
@@ -51,7 +51,7 @@ export class CouchAdapter implements DBAdapter {
       _id: userPrefix + key,
       type: 'user',
       name: key,
-      user_uid: hyphenizeUUID(user_uid),
+      user_uid: user_uid,
       user_id: username,
       expires: expires,
       roles: roles,
