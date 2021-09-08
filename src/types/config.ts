@@ -303,7 +303,7 @@ export interface Config {
   local: Partial<LocalConfig>;
   dbServer: DBServerConfig;
   mailer?: MailerConfig;
-  emails?: TemplateConfig;
+  emails?: Record<string, EmailTemplate>;
   /** Custom settings to manage personal databases for your users */
   userDBs?: UserDBConfig;
   providers?: { [provider: string]: ProviderConfig };
