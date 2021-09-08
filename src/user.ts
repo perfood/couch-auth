@@ -10,7 +10,7 @@ import { DBAuth } from './dbauth';
 import { Hashing } from './hashing';
 import { Mailer } from './mailer';
 import { Session } from './session';
-import { Config } from './types/config';
+import { Config } from './types/config.model';
 import {
   ConsentRequest,
   CouchDbAuthDoc,
@@ -23,7 +23,7 @@ import {
   SlRequest,
   SlUserDoc,
   SlUserNew
-} from './types/typings';
+} from './types/typings.model';
 import { DbManager } from './user/DbManager';
 import {
   arrayUnion,

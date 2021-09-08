@@ -3,7 +3,7 @@
 
 import { NextFunction, Request, Response } from 'express';
 import { Authenticator } from 'passport';
-import { SlRequest } from './types/typings';
+import { SlRequest } from './types/typings.model';
 
 export class Middleware {
   static forbiddenError = {

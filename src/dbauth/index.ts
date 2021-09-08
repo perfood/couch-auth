@@ -1,13 +1,13 @@
 'use strict';
 import seed from '../design/seed';
-import { Config, PersonalDBSettings, PersonalDBType } from '../types/config';
+import { Config, PersonalDBSettings, PersonalDBType } from '../types/config.model';
 import {
   CouchDbAuthDoc,
   DocumentScope,
   IdentifiedObj,
   ServerScope,
   SlUserDoc
-} from '../types/typings';
+} from '../types/typings.model';
 import { getSessions, loadCouchServer, toArray, URLSafeUUID } from '../util';
 import { CouchAdapter } from './couchdb';
 

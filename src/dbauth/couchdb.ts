@@ -7,9 +7,9 @@ import {
   toArray
 } from '../util';
 import { hashCouchPassword, Hashing } from '../hashing';
-import { Config } from '../types/config';
-import { CouchDbAuthDoc } from '../types/typings';
-import { DBAdapter } from '../types/adapters';
+import { Config } from '../types/config.model';
+import { CouchDbAuthDoc } from '../types/typings.model';
+import { DBAdapter } from '../types/adapters.model';
 
 const userPrefix = 'org.couchdb.user:';
 

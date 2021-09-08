@@ -1,6 +1,6 @@
 import { Sofa } from '@sl-nx/sofa-model';
 import Mail, { Address } from 'nodemailer/lib/mailer';
-import { ConsentConfig } from './typings';
+import { ConsentConfig } from './typings.model';
 
 export interface TestConfig {
   /** Use a stub transport so no email is actually sent. Default: false */
