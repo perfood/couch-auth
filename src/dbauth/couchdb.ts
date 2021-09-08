@@ -1,6 +1,11 @@
 'use strict';
 import { DocumentScope, ServerScope } from 'nano';
-import { getSecurityDoc, putSecurityDoc, toArray } from '../util';
+import {
+  getSecurityDoc,
+  hyphenizeUUID,
+  putSecurityDoc,
+  toArray
+} from '../util';
 import { hashCouchPassword, Hashing } from '../hashing';
 import { Config } from '../types/config';
 import { CouchDbAuthDoc } from '../types/typings';
@@ -24,10 +29,11 @@ export class CouchAdapter implements DBAdapter {
 
   /**
    * stores a CouchDbAuthDoc with the passed information. Expects the `username`
-   * (i.e. `key`) and not the UUID.
+   * (i.e. `key`) and the UUID.
    */
   async storeKey(
     username: string,
+    user_uid: string,
     key: string,
     password: string,
     expires: number,
@@ -45,6 +51,7 @@ export class CouchAdapter implements DBAdapter {
       _id: userPrefix + key,
       type: 'user',
       name: key,
+      user_uid: user_uid,
       user_id: username,
       expires: expires,
       roles: roles,

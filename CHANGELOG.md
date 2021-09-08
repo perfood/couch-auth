@@ -2,6 +2,11 @@
 
 #### 0.14.X: UUID based schema, more OWASP compliance
 
+##### 0.14.3 OAuth, UUID, types
+
+- OAuth works again now
+- `user_uid` is added to entries in `_users` - DB
+- All types are emmitted now
 ##### 0.14.3 Consents Handling
 
  :sparkles: Introduced handling of consents

@@ -559,6 +559,7 @@ export class User {
     token.provider = provider;
     await this.dbAuth.storeKey(
       user.key,
+      hyphenizeUUID(user_uid),
       token.key,
       password,
       token.expires,

@@ -70,6 +70,7 @@ describe('DBAuth', () => {
     /**  @type {import('../types/typings').CouchDbAuthDoc}  */
     const newKey = await dbAuth.storeKey(
       testUser._id,
+      '86801e38-e3f6-49b4-9187-e5116aa1ecea',
       'testkey',
       'testpass',
       Date.now() + 60000,
@@ -236,6 +237,7 @@ describe('DBAuth', () => {
         promises.push(
           dbAuth.storeKey(
             'testuser1',
+            'testuser1uid',
             'oldkey1',
             'password',
             user1.session.oldkey1.expires,
@@ -246,6 +248,7 @@ describe('DBAuth', () => {
         promises.push(
           dbAuth.storeKey(
             'testuser1',
+            'testuser1uid',
             'goodkey1',
             'password',
             user1.session.goodkey1.expires,
@@ -256,6 +259,7 @@ describe('DBAuth', () => {
         promises.push(
           dbAuth.storeKey(
             'testuser2',
+            'testuser2uid',
             'oldkey2',
             'password',
             user2.session.oldkey2.expires,
@@ -266,6 +270,7 @@ describe('DBAuth', () => {
         promises.push(
           dbAuth.storeKey(
             'testuser2',
+            'testuser2uid',
             'goodkey2',
             'password',
             user2.session.goodkey2.expires,
