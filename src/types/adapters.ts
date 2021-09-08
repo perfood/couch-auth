@@ -1,5 +1,6 @@
 import { DocumentScope } from 'nano';
 
+// @internal
 export interface DBAdapter {
   storeKey: Function;
   removeKeys: Function;
@@ -16,6 +17,7 @@ export interface DBAdapter {
   ) => Promise<any>;
 }
 
+// @internal
 export interface SessionAdapter {
   storeKey: (key: string, life: number, data: string) => Promise<any>;
   deleteKeys: (keys: string[]) => Promise<any>;
