@@ -11,8 +11,8 @@ import { Mailer } from './mailer';
 import { Middleware } from './middleware';
 import { OAuth } from './oauth';
 import loadRoutes from './routes';
-import { Config } from './types/config.model';
-import { CouchDbAuthDoc, SlUserDoc } from './types/typings.model';
+import { Config } from './types/config';
+import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
 import { User } from './user';
 import { addProvidersToDesignDoc, loadCouchServer } from './util';
 

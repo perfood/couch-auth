@@ -1,5 +1,5 @@
 import path from 'path';
-import { Config } from '../types/config.model';
+import { Config } from '../types/config';
 
 /**
  * These are the default settings that will be used if you don't override them

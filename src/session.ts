@@ -1,6 +1,6 @@
 'use strict';
 import { Hashing } from './hashing';
-import { LocalHashObj } from './types/typings.model';
+import { LocalHashObj } from './types/typings';
 
 export class Session {
   static invalidMsg = 'invalid token';

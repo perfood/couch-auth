@@ -5,14 +5,14 @@ import { Request } from 'express';
 import nano from 'nano';
 import URLSafeBase64 from 'urlsafe-base64';
 import { v4 as uuidv4 } from 'uuid';
-import { Config, DBServerConfig } from './types/config.model';
+import { Config, DBServerConfig } from './types/config';
 import {
   ConsentRequest,
   ConsentSlEntry,
   DocumentScope,
   ServerScope,
   SlUserDoc
-} from './types/typings.model';
+} from './types/typings';
 
 // regexp from https://emailregex.com/
 export const EMAIL_REGEXP = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;

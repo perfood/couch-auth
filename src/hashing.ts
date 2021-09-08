@@ -1,6 +1,6 @@
 import pwdModule from '@sl-nx/couch-pwd';
-import { Config } from './types/config.model';
-import { HashResult, LocalHashObj } from './types/typings.model';
+import { Config } from './types/config';
+import { HashResult, LocalHashObj } from './types/typings';
 import { URLSafeUUID } from './util';
 
 const pwd = new pwdModule();

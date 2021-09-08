@@ -1,4 +1,4 @@
-import { Config } from './types/config.model';
+import { Config } from './types/config';
 import Mail from 'nodemailer/lib/mailer';
 import nodemailer from 'nodemailer';
 import { readFileSync } from 'fs';

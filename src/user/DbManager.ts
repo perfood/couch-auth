@@ -1,11 +1,11 @@
 import { validate as isUUID } from 'uuid';
-import { Config } from '../types/config.model';
+import { Config } from '../types/config';
 import {
   DocumentScope,
   SlUserDoc,
   UserAction,
   UserActivity
-} from '../types/typings.model';
+} from '../types/typings';
 import {
   capitalizeFirstLetter,
   EMAIL_REGEXP,

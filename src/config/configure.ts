@@ -1,5 +1,5 @@
 'use strict';
-import { Config } from '../types/config.model';
+import { Config } from '../types/config';
 import { defaultConfig } from './default.config';
 import { mergeConfig } from '../util';
 

@@ -4,11 +4,11 @@ import { NextFunction, Request, Response, Router } from 'express';
 import { Authenticator } from 'passport';
 import { callbackify } from 'util';
 import { capitalizeFirstLetter } from './util';
-import { Config } from './types/config.model';
+import { Config } from './types/config';
 import { join } from 'path';
 import { readFileSync } from 'fs';
 import { render } from 'ejs';
-import { SlRequest } from './types/typings.model';
+import { SlRequest } from './types/typings';
 import { User } from './user';
 
 export class OAuth {

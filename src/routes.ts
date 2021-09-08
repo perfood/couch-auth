@@ -1,8 +1,8 @@
 'use strict';
 import { NextFunction, Request, Response, Router } from 'express';
 import { Authenticator } from 'passport';
-import { Config } from './types/config.model';
-import { SlRequest } from './types/typings.model';
+import { Config } from './types/config';
+import { SlRequest } from './types/typings';
 import { User, ValidErr } from './user';
 import {
   capitalizeFirstLetter,
