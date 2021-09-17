@@ -69,7 +69,7 @@ export class Hashing {
     });
   }
 
-  verifyUserPassword(hashObj: LocalHashObj, pw: string): Promise<boolean> {
+  verifyUserPassword(hashObj: HashResult, pw: string): Promise<boolean> {
     const salt = hashObj.salt ?? this.dummyHashObject.salt;
     const derived_key = hashObj.derived_key ?? this.dummyHashObject.derived_key;
     let created = hashObj.created;

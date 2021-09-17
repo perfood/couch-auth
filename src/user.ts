@@ -16,6 +16,7 @@ import {
   CouchDbAuthDoc,
   HashResult,
   LocalHashObj,
+  RegistrationForm,
   SessionObj,
   SlAction,
   SlLoginSession,
@@ -59,8 +60,17 @@ export class User {
   private hasher: Hashing;
 
   passwordConstraints;
-  // validation funs. todo: implement nicer via bind...
+  /**
+   * Checks that a username is valid and not in use.
+   * Resolves with nothing if successful.
+   * Resolves with an error object in failed.
+   */
   public validateUsername: (v: string) => Promise<string | void>;
+  /**
+   * Checks that an email is valid and not in use.
+   * Resolves with nothing if successful.
+   * Resolves with an error object in failed.
+   */
   public validateEmail: (v: string) => Promise<string | void>;
   /** Validates whether the _format_ matches the config */
   private validateConsents: (
@@ -233,20 +243,32 @@ export class User {
     };
   }
 
-  hashPassword(pw: string): Promise<HashResult> {
+  /**
+   * Hashes a password using PBKDF2 and returns an object containing `salt` and
+   * `derived_key`.
+   */
+  public hashPassword(pw: string): Promise<HashResult> {
     return this.hasher.hashUserPassword(pw);
   }
-  verifyPassword(obj: LocalHashObj, pw: string): Promise<boolean> {
+
+  /**
+   * Verifies a password using a hash object. If you have a user doc, pass in
+   * `local` as the hash object.
+   * @returns resolves with `true` if valid, `false` if not
+   */
+  public verifyPassword(obj: LocalHashObj, pw: string): Promise<boolean> {
     return this.hasher.verifyUserPassword(obj, pw);
   }
 
   /**
-   * Use this to add as many functions as you want to transform the new user document before it is saved.
-   * Your function should accept two arguments (userDoc, provider) and return a Promise that resolves to the modified user document.
+   * Use this to add as many functions as you want to transform the new user
+   * document before it is saved. Your function should accept two arguments
+   * (userDoc, provider) and return a Promise that resolves to the modified
+   * user document.
    * onCreate functions will be chained in the order they were added.
    * @param {Function} fn
    */
-  onCreate(fn) {
+  public onCreate(fn: SlAction) {
     if (typeof fn === 'function') {
       this.onCreateActions.push(fn);
     } else {
@@ -255,11 +277,14 @@ export class User {
   }
 
   /**
-   * Does the same thing as onCreate, but is called every time a user links a new provider, or their profile information is refreshed.
-   * This allows you to process profile information and, for example, create a master profile.
-   * If an object called profile exists inside the user doc it will be passed to the client along with session information at each login.
+   * Does the same thing as onCreate, but is called every time a user links a
+   * new provider, or their profile information is refreshed.
+   * This allows you to process profile information and, for example, create a
+   * master profile.
+   * If an object called profile exists inside the user doc it will be passed
+   * to the client along with session information at each login.
    */
-  onLink(fn: SlAction) {
+  public onLink(fn: SlAction) {
     if (typeof fn === 'function') {
       this.onLinkActions.push(fn);
     } else {
@@ -268,13 +293,13 @@ export class User {
   }
 
   /** Validation function for ensuring that two fields match */
-  matches(value, option, key, attributes) {
+  private matches(value, option, key, attributes) {
     if (attributes && attributes[option] !== value) {
       return 'does not match ' + option;
     }
   }
 
-  async processTransformations(
+  private async processTransformations(
     fnArray: SlAction[],
     userDoc: SlUserDoc,
     provider: string
@@ -289,11 +314,11 @@ export class User {
    * retrieves by email (default) or username or uuid if the config options are
    * set. Rejects if no valid format.
    */
-  getUser(login: string, allowUUID = false): Promise<SlUserDoc | null> {
+  public getUser(login: string, allowUUID = false): Promise<SlUserDoc | null> {
     return this.userDbManager.getUser(login, allowUUID);
   }
 
-  async handleEmailExists(email: string): Promise<void> {
+  private async handleEmailExists(email: string): Promise<void> {
     const existingUser = await this.userDbManager.getUserBy('email', email);
     await this.mailer.sendEmail('signupExistingEmail', email, {
       user: existingUser
@@ -301,7 +326,18 @@ export class User {
     this.emitter.emit('signup-attempt', existingUser, 'local');
   }
 
-  async createUser(form, req?): Promise<void | SlUserDoc> {
+  /**
+   * Creates a new local user with a username/email and password.
+   * @param form requires the following: `username` and/or `email`, `password`,
+   * and `confirmPassword`. `name` is optional. Any additional fields must be
+   * whitelisted in your config under `userModel` or they will be removed.
+   * @param req additional request data passed to the email template
+   * @returns
+   */
+  public async createUser(
+    form: RegistrationForm,
+    req?
+  ): Promise<void | SlUserDoc> {
     req = req || {};
     let finalUserModel = this.userModel;
     const newUserModel = this.config.userModel;
@@ -439,7 +475,11 @@ export class User {
    * @param {any} auth credentials supplied by the provider
    * @param {any} profile the profile supplied by the provider
    */
-  async createUserSocial(provider: string, auth, profile): Promise<SlUserDoc> {
+  public async createUserSocial(
+    provider: string,
+    auth,
+    profile
+  ): Promise<SlUserDoc> {
     let user: Partial<SlUserDoc>;
     let newAccount = false;
     // This used to be consumed by `.nodeify` from Bluebird. I hope `callbackify` works just as well...
@@ -505,7 +545,11 @@ export class User {
     return user as SlUserDoc;
   }
 
-  async linkUserSocial(
+  /**
+   * like `createUserSocial`, but for an already existing user identified by
+   * `login`
+   */
+  public async linkUserSocial(
     login: string,
     provider: string,
     auth,
@@ -529,19 +573,24 @@ export class User {
   }
 
   /**
-   * Removes the specified provider from the user's account. Local cannot be removed. If there is only one provider left it will fail.
+   * Removes the specified provider from the user's account.
+   * `local` cannot be removed. If there is only one provider left it will fail.
    * Returns the modified user, if successful.
-   * @param {string} user_id
-   * @param {string} provider
+   * @param login email, username or UUID
+   * @param provider the OAuth provider
    */
-  unlink(user_id, provider): Promise<SlUserDoc> {
-    return this.userDbManager.unlink(user_id, provider);
+  public unlinkUserSocial(login: string, provider: string): Promise<SlUserDoc> {
+    return this.userDbManager.unlink(login, provider);
   }
 
   /**
-   * Creates a new session for a user. provider is the name of the provider. (eg. 'local', 'facebook', twitter.)
+   * Creates a new session for a user
+   * @param login the email, username or UUID (depending on your config)
+   * @param provider 'local' or one of the configured OAuth providers
+   * @param byUUID if `true`, interpret `login` always as UUID
+   * @returns the new session
    */
-  async createSession(
+  public async createSession(
     login: string,
     provider: string,
     byUUID = false
@@ -636,7 +685,7 @@ export class User {
    * todo:
    * - handle error if invalid state occurs that doc is not present.
    */
-  async refreshSession(key: string): Promise<SlRefreshSession> {
+  public async refreshSession(key: string): Promise<SlRefreshSession> {
     let userDoc = await this.userDbManager.findUserDocBySession(key);
     const newExpiration = Date.now() + this.config.security.sessionLife * 1000;
     userDoc.session[key].expires = newExpiration;
@@ -661,7 +710,7 @@ export class User {
   /**
    * Required form fields: token, password, and confirmPassword
    */
-  async resetPassword(
+  public async resetPassword(
     form,
     req: Partial<Request> = undefined
   ): Promise<SlUserDoc> {
@@ -712,7 +761,7 @@ export class User {
     return user;
   }
 
-  async changePasswordSecure(login: string, form, req?): Promise<void> {
+  public async changePasswordSecure(login: string, form, req?): Promise<void> {
     req = req || {};
     const ChangePasswordModel = Model(this.changePasswordModel);
     const changePasswordForm = new ChangePasswordModel(form);
@@ -758,7 +807,10 @@ export class User {
     }
   }
 
-  async forgotUsername(email: string, req: Partial<Request>): Promise<void> {
+  public async forgotUsername(
+    email: string,
+    req: Partial<Request>
+  ): Promise<void> {
     if (!email || !email.match(EMAIL_REGEXP)) {
       throw { error: 'invalid email', status: 400 };
     }
@@ -785,16 +837,23 @@ export class User {
     }
   }
 
-  async changePassword(
-    user_id: string,
+  /**
+   * Changes the password of a user
+   * @param user_uid the UUID of the user (without hypens, `_id` in `sl-users`)
+   * @param newPassword the new password for the user
+   * @param userDoc the `SlUserDoc` of the user. Will be retrieved by the
+   * @param req additional data that will be passed to the template as `req`
+   */
+  public async changePassword(
+    user_uid: string,
     newPassword: string,
     userDoc: SlUserDoc,
-    req
+    req: any
   ): Promise<void> {
     req = req || {};
     if (!userDoc) {
       try {
-        userDoc = await this.userDB.get(user_id);
+        userDoc = await this.userDB.get(user_uid);
       } catch (error) {
         throw {
           error: 'User not found',
@@ -830,10 +889,12 @@ export class User {
     }
   }
 
-  public async forgotPassword(
-    email: string,
-    req: Partial<Request>
-  ): Promise<void> {
+  /**
+   * sends out a passwort reset email, if the user exists
+   * @param email email of the user
+   * @param req additional request data, passed to the template as `req`
+   */
+  public async forgotPassword(email: string, req: any): Promise<void> {
     if (!email || !email.match(EMAIL_REGEXP)) {
       return Promise.reject({ error: 'invalid email', status: 400 });
     }
@@ -882,7 +943,12 @@ export class User {
     this.emitter.emit('forgot-password', user);
   }
 
-  verifyEmail(token: string) {
+  /**
+   * Marks the user's email as verified. `token` comes from the confirmation
+   * email. Resolves if successful, rejects if token is invalid.
+   * @param token
+   */
+  public verifyEmail(token: string) {
     let user: SlUserDoc;
     return this.userDB
       .view('auth', 'verifyEmail', { key: token, include_docs: true })
@@ -938,6 +1004,13 @@ export class User {
     this.emitter.emit('email-changed', user);
   }
 
+  /**
+   * Changes the user's email. If email verification is enabled
+   * (`local.sendConfirmEmail`), a confirmation email will be sent out.
+   * @param login user's email, username or UUID (depending on your config)
+   * @param newEmail the new email
+   * @param req additional request data, passed to the template as `req`
+   */
   public async changeEmail(
     login: string,
     newEmail: string,
@@ -963,11 +1036,19 @@ export class User {
     this.completeEmailChange(login, newEmail, req);
   }
 
-  async removeUserDB(
+  /**
+   * Deauthorizes the specified database from the user's account, and optionally destroys it.
+   * @param login email, username or UUID of the user (depending on your config)
+   * @param dbName full path for a shared db, or base name for a private db
+   * @param deletePrivate when true, will destroy a private DB with the `dbName`
+   * @param deleteShared when true, will destroy a shared DB with the `dbName.
+   *                     Caution: may destroy other users' data!
+   */
+  public async removeUserDB(
     login: string,
     dbName: string,
-    deletePrivate,
-    deleteShared
+    deletePrivate: boolean = false,
+    deleteShared: boolean = false
   ) {
     let update = false;
     const user = await this.getUser(login);
@@ -996,10 +1077,13 @@ export class User {
   }
 
   /**
-   * Completely logs out a user either by his provided login information (uuid,
-   * email or username) or his session_id
+   * Logs out all of a user's sessions. One of `login` or `session_id` must be
+   * provided.
+   * @param login the email, username or UUID of the user
+   * @param session_id the id of the session - i.e. `org.couchdb.user:${suffix}`
+   * @returns
    */
-  async logoutAll(login: string, session_id: string) {
+  public async logoutAll(login: string, session_id: string) {
     let user: SlUserDoc;
     if (login) {
       user = await this.getUser(login);
@@ -1020,10 +1104,11 @@ export class User {
   }
 
   /**
-   * todo: Should I really allow to fail after `removeKeys`?
-   * -> I'd like my `sl-users` to be single source of truth, don't I?
+   * Logs out the specified session. Note that in case of a server error, it can
+   * happen that only the entry in the `_users` DB is removed. This deauthorizes
+   * the user, but the records in `sl-users` might not be accurate in that case.
    */
-  async logoutSession(session_id: string) {
+  public async logoutSession(session_id: string) {
     let startSessions = 0;
     let endSessions = 0;
     let user = await this.userDbManager.findUserDocBySession(session_id);
@@ -1081,7 +1166,8 @@ export class User {
     return caughtError;
   }
 
-  async logoutOthers(session_id) {
+  /** Logs out all of a user's sessions, except for the one specified. */
+  public async logoutOthers(session_id: string) {
     const user = await this.userDbManager.findUserDocBySession(session_id);
     if (user) {
       if (user.session && user.session[session_id]) {
@@ -1096,7 +1182,7 @@ export class User {
     return false;
   }
 
-  async logoutUserSessions(
+  private async logoutUserSessions(
     userDoc: SlUserDoc,
     op: Cleanup,
     currentSession?: string
@@ -1132,7 +1218,13 @@ export class User {
     return userDoc;
   }
 
-  async removeUser(login: string, destroyDBs = false, reason?: string) {
+  /**
+   * Removes a user and terminates all of his sessions
+   * @param login the user's uuid or email/key
+   * @param destroyDBs use `true` to also remove the personal DBs of the user
+   * @param reason additional information to be emmitted by `'user-deleted'`
+   */
+  public async removeUser(login: string, destroyDBs = false, reason?: string) {
     const promises = [];
     let user = await this.getUser(login, true);
     if (!user) {
@@ -1153,22 +1245,27 @@ export class User {
   }
 
   /**
-   * Confirms the user:password that has been passed as Bearer Token
-   * Todo: Should ensure that sessions aren't discarded on CouchDB error!
+   * Confirms the user:password that has been passed as Bearer Token. Returns
+   * the passed `key` + the `user_uid`, `expires`, `roles`, `provider` from the
+   * the contents of the doc in the `_users`-DB.
    */
-  async confirmSession(key: string, password: string) {
+  public async confirmSession(key: string, password: string) {
     try {
       const doc = await this.dbAuth.retrieveKey(key);
       if (doc.expires > Date.now()) {
-        const token: any = doc;
-        token._id = token.user_id;
-        token.key = key;
-        delete token.user_id;
-        delete token.name;
-        delete token.type;
-        delete token._rev;
-        delete token.password_scheme;
-        return await this.session.confirmToken(token, password);
+        doc._id = doc.user_id;
+        delete doc.user_id;
+        delete doc.name;
+        delete doc.type;
+        delete doc._rev;
+        delete doc.password_scheme;
+        return { key, ...(await this.session.confirmToken(doc, password)) } as {
+          key: string;
+          user_uid: string;
+          expires: number;
+          roles: string[];
+          provider: string;
+        };
       } else {
         this.dbAuth.removeKeys(key);
       }
@@ -1178,7 +1275,7 @@ export class User {
     throw Session.invalidMsg;
   }
 
-  generateSession(user_uid: string, roles: string[], provider: string) {
+  private generateSession(user_uid: string, roles: string[], provider: string) {
     const key = this.dbAuth.getApiKey();
     const now = Date.now();
     return {
@@ -1198,12 +1295,12 @@ export class User {
    * `userDBs.model._default` in your config.
    * @param login  the `key`, `email` or `_id` (user_uid) of the user
    * @param dbName the name of the database. For a shared db, this is the actual
-   *               path. For a private db userDBs.privatePrefix will be prepended,
-   *               and ${user_uid} appended.
+   * path. For a private db userDBs.privatePrefix will be prepended, and
+   * `${user_uid}` appended.
    * @param type 'private' (default) or 'shared'
    * @param designDocs the name of the designDoc (if any) that will be seeded.
    */
-  addUserDB(
+  public addUserDB(
     login: string,
     dbName: string,
     type: 'private' | 'shared' = 'private',
@@ -1240,13 +1337,15 @@ export class User {
       });
   }
 
-  addUserDBs(newUser: SlUserDoc) {
-    // Add personal DBs
+  /**
+   * Adds the private and authorises access to the shared userDBs
+   */
+  private addUserDBs(userDoc: SlUserDoc) {
     if (!this.config.userDBs?.defaultDBs) {
-      return Promise.resolve(newUser);
+      return Promise.resolve(userDoc);
     }
     const promises = [];
-    newUser.personalDBs = {};
+    userDoc.personalDBs = {};
 
     const processUserDBs = (dbList, type) => {
       dbList.forEach(userDBName => {
@@ -1254,7 +1353,7 @@ export class User {
         promises.push(
           this.dbAuth
             .addUserDB(
-              newUser,
+              userDoc,
               userDBName,
               dbConfig.designDocs,
               type,
@@ -1266,7 +1365,7 @@ export class User {
               delete dbConfig.memberRoles;
               delete dbConfig.designDocs;
               dbConfig.type = type;
-              newUser.personalDBs[finalDBName] = dbConfig;
+              userDoc.personalDBs[finalDBName] = dbConfig;
             })
         );
       });
@@ -1285,22 +1384,29 @@ export class User {
     processUserDBs(defaultSharedDBs, 'shared');
 
     return Promise.all(promises).then(() => {
-      return Promise.resolve(newUser);
+      return Promise.resolve(userDoc);
     });
   }
 
-  /** Cleans up all expired keys from the authentification-DB (`_users`) and superlogin's db. Call this regularily! */
-  removeExpiredKeys() {
+  /**
+   * Deauthorizes all expired keys from the authentification-DB (`_users`) and
+   * superlogin's db (`sl-users`). Call this regularily!
+   */
+  public removeExpiredKeys() {
     return this.dbAuth.removeExpiredKeys();
   }
 
-  /** returns the latest entries of the current user's consents */
+  /**
+   * @internal
+   * returns the latest entries of the current user's consents
+   */
   async getCurrentConsents(login: string) {
     const userDoc: SlUserDoc = await this.userDbManager.getUser(login, true);
     return extractCurrentConsents(userDoc);
   }
 
   /**
+   * @internal
    * validates and performs the update to the consents, returning the updated
    * consents if successful
    */

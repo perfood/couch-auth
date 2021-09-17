@@ -241,7 +241,7 @@ export default function (
       passport.authenticate('bearer', { session: false }),
       function (req: SlRequest, res: Response, next: NextFunction) {
         const provider = req.params.provider;
-        user.unlink(req.user._id, provider).then(
+        user.unlinkUserSocial(req.user._id, provider).then(
           function () {
             res.status(200).json({
               success: capitalizeFirstLetter(provider) + ' unlinked'

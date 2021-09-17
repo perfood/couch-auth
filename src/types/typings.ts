@@ -57,6 +57,15 @@ export interface SignUpObj {
   timestamp: string;
 }
 
+export interface RegistrationForm {
+  email: string;
+  username?: string;
+  password: string;
+  confirmPassword: string;
+  name?: string;
+  [x: string]: any;
+}
+
 export interface PersonalDBCollection {
   [dbName: string]: IdentifiedObj;
 }
@@ -179,4 +188,4 @@ export interface SlRequest extends Request {
   user: SlUser;
 }
 
-export type SlAction = (a: SlUserDoc, b: string) => SlUserDoc;
+export type SlAction = (a: SlUserDoc, b: string) => Promise<SlUserDoc>;

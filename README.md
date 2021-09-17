@@ -550,13 +550,9 @@ Checks that a username is valid and not in use. Resolves with nothing if success
 
 Checks that an email is valid and not in use. Resolves with nothing if successful. Resolves with an error object in failed.
 
-##### `superlogin.validateEmailUsername(email)`
-
-The same as above, but for use when you are using email as the username. (`local.emailUsername` set to true.)
-
 ##### `superlogin.getUser(login)`
 
-Fetches a user document by either username or email.
+Fetches a user document by either username, email or UUID.
 
 ##### `superlogin.createUser(form, req)`
 
@@ -574,15 +570,22 @@ Use this to add as many functions as you want to transform the new user document
 
 Does the same thing as `onCreate`, but is called every time a user links a new provider, or their profile information is refreshed. This allows you to process profile information and, for example, create a master profile. If an object called `profile` exists inside the user doc it will be passed to the client along with session information at each login.
 
-##### `superlogin.socialAuth(provider, auth, profile, req)`
+##### `superlogin.createUserSocial(provider, auth, profile)`
 
 Creates a new user following authentication from an OAuth provider. If the user already exists it will update the profile.
 
 - `provider`: the name of the provider in lowercase, (e.g. 'facebook')
 - `auth`: credentials supplied by the provider
 - `profile`: the profile supplied by the provider
-- `req`: used just to log the user's ip if supplied
 
+##### `superlogin.linkUserSocial(login, provider, auth, profile)`
+
+like `createUserSocial`, but for an existing user identified by `login`
+
+##### `superlogin.unlinkUserSocial(login, provider)
+
+Removes the specified provider from the user's account.
+`local` cannot be removed. If there is only one provider left it will fail.
 ##### `superlogin.hashPassword(password)`
 
 Hashes a password using PBKDF2 and returns an object containing `salt` and `derived_key`.
@@ -646,6 +649,9 @@ Logs out the specified session.
 
 Logs out all of a user's sessions, except for the one specified.
 
+##### `superlogin.logoutAll(login, session_id)`
+
+Logs out all of a user's sessions. Retrieves the user by `login` or `session_id`
 ##### `superlogin.removeUser(user_id, destroyDBs)`
 
 Deletes a user, deauthorizes all the sessions, and optionally destroys all private databases if `destroyDBs` is true.
