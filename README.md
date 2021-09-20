@@ -3,9 +3,9 @@
 ![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)
 ![Build Status](https://github.com/sl-nx/superlogin-next/workflows/Build/badge.svg?branch=master)
 
-This is a heavily modified SuperLogin, re-written in TypeScript and developed with Node 12/14 & CouchDB 3. It is compatible with Cloudant when using the CouchDB-style authentication, adapted for current OWASP best practises and can be used on [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry).
+This is a heavily modified SuperLogin, re-written in TypeScript and developed with Node 12/14/16 & CouchDB 3. It is compatible with Cloudant when using the CouchDB-style authentication, adapted for current OWASP best practises and can be used on [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry).
 
-If you've used SuperLogin before, the `0.13.X` release should be mostly backwards compatible. That version will only receive occasional bugfixes. New/ migrated projects should use a release >= `0.14.0`.
+If you've used SuperLogin before, the `0.13.X` release should be mostly backwards compatible. New/ migrated projects should use a release >= `0.14.0`.
 
 Important changes in version `0.14.0`:
 - db and doc ids no longer include PII, but be UUIDs instead. Existing user docs in `sl-users` and user-DBs **must be migrated**. Check `CHANGELOG.md` for details.

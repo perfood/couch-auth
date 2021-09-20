@@ -75,7 +75,11 @@ export interface LocalConfig {
    * Also require the email be confirmed before the user can change his email.
    * changed email is updated. Default: `true`. If set, both `change-email` and
    * `signup` requests will return the same generic answer also if the email is
-   * already taken. If `false`, `change-email` is vulnerable to name guessing.
+   * already taken. `login` will not distinguish between an unverified email and
+   * wrong credentials.
+   *
+   * If `false`, `change-email` and `login` while the email is not yet confirmed
+   * are vulnerable to name guessing.
    */
   requireEmailConfirm: boolean;
   /**
