@@ -181,7 +181,7 @@ export interface EmailTemplate {
   /** @deprecated The format of the email */
   format?: 'text' | 'html';
   /** @deprecated The path of the template */
-  template: string;
+  template?: string;
 }
 
 export interface MailOptions {
