@@ -187,7 +187,12 @@ export interface EmailTemplate {
 export interface MailOptions {
   host?: string;
   port?: number;
-  /** Use TLS? */
+  /** turns off STARTTLS support if true */
+  ignoreTLS?: boolean | undefined;
+  /** forces the client to use STARTTLS. Returns an error if upgrading the connection is not possible or fails. */
+  requireTLS?: boolean | undefined;
+  /** tries to use STARTTLS and continues normally if it fails */
+  opportunisticTLS?: boolean | undefined;
   secure?: boolean;
   auth: {
     user?: string;
