@@ -61,9 +61,7 @@ export default function (
                 }
                 // Check if the email has been confirmed if it is required
                 if (config.local.requireEmailConfirm && !theuser.email) {
-                  return done(null, false, {
-                    message: 'You must confirm your email address.'
-                  });
+                  return done(null, false, invalidResponse());
                 }
                 // Success!!!
                 return done(null, theuser);

@@ -148,16 +148,19 @@ export class DBAuth {
   }
 
   /**
-   * Checks from the superlogin-userDB which keys are expired and removes them from:
+   * Checks from the superlogin-userDB which keys are expired and removes them
+   * from:
    * 1. the CouchDB authentication-DB (`_users`)
    * 2. the security-doc of the user's personal DB
    * 3. the user's doc in the superlogin-DB
-   * This method might fail due to Connection/ CouchDB-Problems.
+   *
+   * @returns an array of removed keys
+   * @throws This method can fail due to Connection/ CouchDB-Problems.
    */
-  async removeExpiredKeys() {
+  async removeExpiredKeys(): Promise<string[]> {
     const keysByUser = {};
     const userDocs = {};
-    const expiredKeys = [];
+    const expiredKeys: string[] = [];
     // query a list of expired keys by user
     const results = await this.userDB.view('auth', 'expiredKeys', {
       endkey: Date.now(),
@@ -165,7 +168,7 @@ export class DBAuth {
     });
     // group by user
     results.rows.forEach(row => {
-      const val: any = row.value;
+      const val = row.value as { key: string; user: string };
       keysByUser[val.user] = val.key;
       expiredKeys.push(val.key);
       // Add the user doc if it doesn't already exist

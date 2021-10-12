@@ -291,11 +291,11 @@ describe('User Model', async function () {
         delete user.userModel.validate.consents;
 
         user.onCreate(userDoc => {
-          userDoc.onCreate1 = true;
+          userDoc['onCreate1'] = true;
           return Promise.resolve(userDoc);
         });
         user.onCreate(userDoc => {
-          userDoc.onCreate2 = true;
+          userDoc['onCreate2'] = true;
           return Promise.resolve(userDoc);
         });
         return user.createUser(testUserForm, req);
@@ -928,7 +928,7 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Unlinking a social profile');
-        return user.unlink('superuser', 'facebook');
+        return user.unlinkUserSocial('superuser', 'facebook');
       })
       .then(function (theUser) {
         expect(typeof theUser.facebook).to.equal('undefined');

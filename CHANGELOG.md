@@ -1,5 +1,10 @@
 ## Change Log
 
+##### 0.15.0: Prevent name guessing while email not confirmed
+
+- `login` will only return a generic response if the email is not yet verified.
+- renamed a few methods of the API, e.g. `unlink` to `unlinkSocial`
+- dependency updates, docs and better usage within TypeScript projects
 #### 0.14.X: UUID based schema, more OWASP compliance
 
 ##### 0.14.3 OAuth, UUID, types

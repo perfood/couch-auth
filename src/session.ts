@@ -6,8 +6,15 @@ export class Session {
   static invalidMsg = 'invalid token';
   constructor(private hasher: Hashing) {}
 
-  /** Confirms the token and removes the information that should not be sent to the client */
-  async confirmToken(token: LocalHashObj, password: string) {
+  /**
+   * Confirms that the password matches with the provided token and returns the
+   * token, if successful, but removes the information that should not be sent
+   * to the client.
+   */
+  async confirmToken<T extends LocalHashObj>(
+    token: T,
+    password: string
+  ): Promise<Omit<T, 'salt' | 'derived_key' | 'iterations'>> {
     try {
       await this.hasher.verifyUserPassword(token, password);
       delete token.salt;

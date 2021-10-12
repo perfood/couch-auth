@@ -1,14 +1,14 @@
-import { Config } from './types/config';
-import Mail from 'nodemailer/lib/mailer';
-import nodemailer from 'nodemailer';
-import { readFileSync } from 'fs';
 import { render } from 'ejs';
+import { readFileSync } from 'fs';
+import nodemailer from 'nodemailer';
+import Mail from 'nodemailer/lib/mailer';
+import { Config } from './types/config';
 
 export class Mailer {
   private config: Partial<Config>;
   private transporter: Mail;
   constructor(config: Partial<Config>) {
-    // Initialize the transport mechanism with nodermailer
+    // Initialize the transport mechanism with nodemailer
     this.config = config;
     const customTransport = config.mailer.transport;
     if (config.testMode?.noEmail) {
@@ -27,7 +27,17 @@ export class Mailer {
     }
   }
 
-  sendEmail(templateName: string, email, locals) {
+  /**
+   * Use the same nodemailer config that Superlogin uses to send out an email.
+   * @param templateName the entry under the `emails` property in the config
+   * @param recepient the recepient's email address
+   * @param data additional data can be passed to `ejs.render()`
+   */
+  sendEmail(
+    templateName: string,
+    recepient: string,
+    data?: Record<string, any>
+  ) {
     // load the template and parse it
     let templateFiles = this.config.emails[templateName]?.templates;
     if (!templateFiles) {
@@ -46,7 +56,7 @@ export class Mailer {
         );
       }
     }
-    const renderedTemplates = readTemplates.map(t => render(t, locals));
+    const renderedTemplates = readTemplates.map(t => render(t, data));
 
     // form the email
     const subject = this.config.emails[templateName].subject;
@@ -66,7 +76,7 @@ export class Mailer {
     }
     let mailOptions: Mail.Options = {
       from: this.config.mailer.fromEmail,
-      to: email,
+      to: recepient,
       subject: subject
     };
     if (this.config.mailer.messageConfig) {

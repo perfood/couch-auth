@@ -21,12 +21,13 @@ export interface SecurityConfig {
    * Default: false
    */
   disableLinkAccounts: boolean;
-  // The amount of time a new session is valid for (default: 24 hours)
+  /** The number of seconds a new session is valid (default: 24 hours) */
   sessionLife: number;
-  // The amount of time a password reset token is valid for
+  /** The number of seconds a password reset token is valid (default: 24h) */
   tokenLife: number;
-  /** The maximum number of entries in the activity log in each user doc.
-   * Use 0 or undefined to disable completely
+  /**
+   * The maximum number of entries in the activity log in each user doc.
+   * Use 0 or undefined to disable completely.
    */
   userActivityLogSize?: number;
   /**
@@ -35,13 +36,18 @@ export interface SecurityConfig {
    * vulnerable to name guessing via the registration route.
    */
   loginOnRegistration: boolean;
-  /** If `true`, the user will be logged in automatically after resetting the
-   * password. default: `false` */
+  /**
+   * If `true`, the user will be logged in automatically after resetting the
+   * password. default: `false`
+   */
   loginOnPasswordReset: boolean;
-  /** Disable unused routes for better security, default: ['validate-username', 'validate-email', 'session'] */
+  /**
+   * Disable unused routes for better security, default:
+   * ['validate-username', 'validate-email', 'session']
+   */
   disabledRoutes: string[];
   /**
-   * number of iterations for pbkdf2 password hashing, starting with the
+   * Number of iterations for pbkdf2 password hashing, starting with the
    * supplied dates. The first entry is the timestamp, the second number the
    * number of iterations that should be used from this timestamp until the
    * next timestamp in the array. Default: `undefined` uses only 10 iterations.
@@ -69,19 +75,27 @@ export interface LocalConfig {
    * Also require the email be confirmed before the user can change his email.
    * changed email is updated. Default: `true`. If set, both `change-email` and
    * `signup` requests will return the same generic answer also if the email is
-   * already taken. If `false`, `change-email` is vulnerable to name guessing.
+   * already taken. `login` will not distinguish between an unverified email and
+   * wrong credentials.
+   *
+   * If `false`, `change-email` and `login` while the email is not yet confirmed
+   * are vulnerable to name guessing.
    */
   requireEmailConfirm: boolean;
   /**
    * Requires the correct `password` to be sent in the body in order to change
-   * the email. Default: `true` */
+   * the email. Default: `true`
+   */
   requirePasswordOnEmailChange: boolean;
   /**
    * Sends a confirmation E-Mail to the user after the password has
    * succesfully been changed or resetted. Default: `true`.
    */
   sendPasswordChangedEmail: boolean;
-  /** If this is set, the user will be redirected to this location after confirming email instead of JSON response */
+  /**
+   * If this is set, the user will be redirected to this location after
+   * confirming email instead of JSON response
+   */
   confirmEmailRedirectURL?: string;
   /** allow to also login with the username. Default: `false` */
   usernameLogin: boolean;
@@ -91,7 +105,7 @@ export interface LocalConfig {
   emailLogin: boolean;
   /**
    * only require email for signup and use a randomly generated `key` for the
-   * username for compatibility reasons. Default: `true`
+   * username for compatibility reasons. Default: `true`.
    * If `false`, the `signup`-route will be vulnerable to name guessing, so you
    * should only disable this option if your usernames are public anyways.
    */
@@ -105,8 +119,9 @@ export interface LocalConfig {
   /** Custom passwort field in your login form. Default: `'password'`. */
   passwordField?: string;
   /**
-   * Override default constraints (which are: must match `confirmPassword`, at least length 8).
-   * The constraints are processed by [validatejs](https://validatejs.org/#validate).
+   * Override default constraints (which are: must match `confirmPassword`,
+   * at least length 8). The constraints are processed by
+   * [validatejs](https://validatejs.org/#validate).
    */
   passwordConstraints?: Record<string, any>;
   /**
@@ -154,59 +169,69 @@ export interface DBServerConfig {
 }
 
 export interface EmailTemplate {
+  /** The subject for the sent out email */
   subject: string;
-  template?: string;
-  format?: string;
+  /** The formats in which the email should be send out */
+  formats?: Array<'text' | 'html'>;
+  /**
+   * The paths (relative to where your config file) where the templates for the
+   * different formats are is located (in the same order)
+   */
   templates?: string[];
-  formats?: string[];
+  /** @deprecated The format of the email */
+  format?: 'text' | 'html';
+  /** @deprecated The path of the template */
+  template?: string;
 }
 
 export interface MailOptions {
   host?: string;
-  port?: string;
+  port?: number;
+  /** Use TLS? */
   secure?: boolean;
   auth: {
-    api_user?: string;
-    api_key?: string;
     user?: string;
     pass?: string;
+    /** e.g. for sendGrid via `customTransport` */
+    api_user?: string;
+    /** e.g. for sendGrid via `customTransport` */
+    api_key?: string;
   };
 }
 
 export interface MailerConfig {
   /** Email address that all your system emails will be from */
   fromEmail: string | Address;
-  /** Use this if you want to specify a custom Nodemailer transport. Defaults to SMTP or sendmail. */
+  /**
+   * Use this if you want to specify a custom Nodemailer transport instead of
+   * passing SMTP.
+   */
   transport?: any;
   /**
-   * The options object that will be passed into your transport.
-   * These should usually be your SMTP settings.
-   * If this is left blank, it will default to sendmail.
+   * The options that will be passed into `createTransport`. If you do not use a
+   * custom transport, these are simply your SMTP credentials.
+   *
+   * See https://nodemailer.com/smtp/#examples for details.
+   * Type this as `any` if you pass custom options.
    */
   options?: MailOptions;
   /**
    * Additional message fields, see https://nodemailer.com/message/
-   * Don't use for to, from, subject, html and text -> it will be overridden.
+   * Don't use it to pass `to`, `from`, `subject`, `html` and `text`.
    */
   messageConfig?: Mail.Options;
 }
-/**
- * Customize the templates for the emails that SuperLogin sends out. Otherwise,
- * the defaults located in `./templates/email` will be used.
- */
-export interface TemplateConfig {
-  confirmEmail?: EmailTemplate;
-  confirmEmailChange?: EmailTemplate;
-  forgotPassword?: EmailTemplate;
-  modifiedPassword?: EmailTemplate;
-  signupExistingEmail?: EmailTemplate;
-  forgotUsername?: EmailTemplate;
-}
 
 export interface DefaultDBConfig {
-  // Private databases are personal to each user. They will be prefixed with your setting below and postfixed with $USERNAME.
+  /**
+   * Private databases are personal to each user. They will be prefixed with
+   * your setting below and postfixed with $USERNAME.
+   */
   private?: string[];
-  // Shared databases that you want the user to be authorized to use. These will not be prefixed, so type the exact name.
+  /**
+   * Shared databases that you want the user to be authorized to use.
+   * These will not be prefixed, so type the exact name.
+   */
   shared?: string[];
 }
 
@@ -253,8 +278,8 @@ export interface UserDBConfig {
 }
 
 /**
- * Anything under credentials will be passed in to passport.use
- * It is a best practice to put any sensitive credentials in environment variables rather than your code
+ * Anything under credentials will be passed in to `passport.use`. Put any
+ * sensitive credentials in environment variables rather than your code.
  */
 export interface ProviderCredentials {
   clientID: string;
@@ -269,9 +294,9 @@ export interface ProviderOptions {
 }
 
 export interface ProviderConfig {
-  /** 
+  /**
    * Supply your app's credentials here. The callback url is generated automatically.
-   * See the Passport documentation for your specific strategy for details. 
+   * See the Passport documentation for your specific strategy for details.
    */
   credentials: ProviderCredentials;
   /** Any additional options you want to supply your authentication strategy such as requested permissions */
@@ -283,11 +308,11 @@ export interface ProviderConfig {
   stateRequired: boolean;
   /**
    * Custom template for the redirect callback, this needs to pass the data received by the provider authentication
-   * back to the parent window, you can copy the default from `templates/oauth/auth-callback` but modify the 
+   * back to the parent window, you can copy the default from `templates/oauth/auth-callback` but modify the
    * second parameter of the function postMessage, that is the targetOrigin, with the origin of your page server
    * to avoid posting the data to any potencial malicious site.
-   * 
-   * In the template you have access to 
+   *
+   * In the template you have access to
    *  - error: message in case anything went wrong.
    *  - session: includes the same session object that is generated by `/login`.
    *  - link: contains the name of the provider that was successfully linked.
@@ -298,12 +323,25 @@ export interface ProviderConfig {
 }
 
 export interface Config {
+  /** Only necessary for testing/debugging */
   testMode?: Partial<TestConfig>;
   security?: Partial<SecurityConfig>;
   local: Partial<LocalConfig>;
   dbServer: DBServerConfig;
   mailer?: MailerConfig;
-  emails?: TemplateConfig;
+  /**
+   * Customize the templates for the emails that SuperLogin sends out.
+   * Otherwise, the defaults located in `./templates/email` will be used.
+   * The following templates are used by Superlogin:
+   * - `'confirmEmail'`
+   * - `'confirmEmailChange'`
+   * - `'forgotPassword'`
+   * - `'modifiedPassword'`
+   * - `'signupExistingEmail'`
+   * - `'forgotUsername'`
+   * You can add additional templates and send them out via `sendEmail()`
+   */
+  emails?: Record<string, EmailTemplate>;
   /** Custom settings to manage personal databases for your users */
   userDBs?: UserDBConfig;
   providers?: { [provider: string]: ProviderConfig };
