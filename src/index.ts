@@ -1,8 +1,7 @@
 'use strict';
-import { ServerScope as CloudantServer } from '@cloudant/cloudant';
 import events from 'events';
 import express, { Router } from 'express';
-import { DocumentScope, ServerScope as NanoServer } from 'nano';
+import nano, { DocumentScope, ServerScope } from 'nano';
 import { Authenticator } from 'passport';
 import { ConfigHelper } from './config/configure';
 import seed from './design/seed';
@@ -14,12 +13,11 @@ import loadRoutes from './routes';
 import { Config } from './types/config';
 import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
 import { User } from './user';
-import { addProvidersToDesignDoc, loadCouchServer } from './util';
+import { addProvidersToDesignDoc, getDBURL } from './util';
 
 export class SuperLogin extends User {
   router: Router;
   passport: Authenticator;
-  couchAuthDB: DocumentScope<CouchDbAuthDoc>;
   registerProvider: OAuth['registerProvider'];
   registerOAuth2: OAuth['registerOAuth2'];
   registerTokenProvider: OAuth['registerTokenProvider'];
@@ -31,9 +29,8 @@ export class SuperLogin extends User {
 
   constructor(
     configData: Partial<Config>,
-    passport?: Authenticator,
-    userDB?: DocumentScope<SlUserDoc>,
-    couchAuthDB?: DocumentScope<CouchDbAuthDoc>
+    couchServer?: ServerScope,
+    passport?: Authenticator
   ) {
     const configHelper = new ConfigHelper(configData);
     const config = configHelper.config;
@@ -45,29 +42,22 @@ export class SuperLogin extends User {
     }
     const middleware = new Middleware(passport);
 
-    // Create the DBs if they weren't passed in
-    let server: CloudantServer | NanoServer;
-    if (
-      (!userDB && config.dbServer.userDB) ||
-      (!couchAuthDB && config.dbServer.couchAuthDB)
-    ) {
-      server = loadCouchServer(config);
+    if (!couchServer) {
+      couchServer = nano({
+        url: getDBURL(config.dbServer),
+        parseUrl: false
+      });
     }
 
-    if (!userDB && config.dbServer.userDB) {
-      userDB = server.use(config.dbServer.userDB);
-    }
-    if (!couchAuthDB && config.dbServer.couchAuthDB) {
-      couchAuthDB = server.use(config.dbServer.couchAuthDB);
-    }
-    if (!userDB || typeof userDB !== 'object') {
-      throw new Error(
-        'userDB must be passed in as the third argument or specified in the config file under dbServer.userDB'
-      );
-    }
+    const userDB: DocumentScope<SlUserDoc> = couchServer.use(
+      config.dbServer.userDB
+    );
+    const couchAuthDB: DocumentScope<CouchDbAuthDoc> = couchServer.use(
+      config.dbServer.couchAuthDB
+    );
 
     const mailer = new Mailer(config);
-    super(config, userDB, couchAuthDB, mailer, emitter);
+    super(config, userDB, couchAuthDB, mailer, emitter, couchServer);
     const oauth = new OAuth(router, passport, this, config);
 
     // Seed design docs for the user database
@@ -81,7 +71,6 @@ export class SuperLogin extends User {
 
     this.router = router;
     this.passport = passport;
-    this.couchAuthDB = couchAuthDB;
 
     this.registerProvider = oauth.registerProvider.bind(oauth);
     this.registerOAuth2 = oauth.registerOAuth2.bind(oauth);

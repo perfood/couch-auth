@@ -1,11 +1,11 @@
 'use strict';
 import { expect } from 'chai';
-import nano from 'nano';
+import nano, { DocumentScope } from 'nano';
 import request from 'superagent';
 import { ConfigHelper } from '../src/config/configure';
 import { DBAuth } from '../src/dbauth';
 import seed from '../src/design/seed';
-import { CouchDbAuthDoc, DocumentScope, SlUserDoc } from '../src/types/typings';
+import { CouchDbAuthDoc, SlUserDoc } from '../src/types/typings';
 import { getDBURL } from '../src/util';
 import { config } from './test.config';
 
@@ -41,7 +41,7 @@ const userConfigHelper = new ConfigHelper({
   }
 });
 
-const dbAuth = new DBAuth(userConfigHelper.config, userDB, keysDB);
+const dbAuth = new DBAuth(userConfigHelper.config, userDB, couch, keysDB);
 
 describe('DBAuth', () => {
   let key, previous;

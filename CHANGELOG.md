@@ -1,5 +1,11 @@
 ## Change Log
 
+##### 0.16.0: Remove Cloudant
+
+- Core API optionally accepts a `ServerScope` as second argument, but no longer the auth- and user-DB.
+  - This way, you can still use IAM by passing the `couchServer` returned by `@cloudant/cloudant` to `superlogin-next`
+  - `passport` is now the 3rd optional argument.
+- Uses `nano` instead of `@cloudant/cloudant` to connect with CouchDB
 ##### 0.15.0: Prevent name guessing while email not confirmed
 
 - `login` will only return a generic response if the email is not yet verified.

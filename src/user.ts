@@ -3,7 +3,7 @@ import Model, { Sofa } from '@sl-nx/sofa-model';
 import merge from 'deepmerge';
 import { EventEmitter } from 'events';
 import { Request } from 'express';
-import { DocumentScope } from 'nano';
+import { DocumentScope, ServerScope } from 'nano';
 import url from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { DBAuth } from './dbauth';
@@ -83,12 +83,13 @@ export class User {
 
   constructor(
     protected config: Config,
-    protected userDB: DocumentScope<SlUserDoc>,
-    couchAuthDB: DocumentScope<CouchDbAuthDoc>,
+    public userDB: DocumentScope<SlUserDoc>,
+    public couchAuthDB: DocumentScope<CouchDbAuthDoc>,
     protected mailer: Mailer,
-    public emitter: EventEmitter
+    public emitter: EventEmitter,
+    protected couchServer: ServerScope
   ) {
-    this.dbAuth = new DBAuth(config, userDB, couchAuthDB);
+    this.dbAuth = new DBAuth(config, userDB, couchServer, couchAuthDB);
     this.onCreateActions = [];
     this.onLinkActions = [];
     this.hasher = new Hashing(config);

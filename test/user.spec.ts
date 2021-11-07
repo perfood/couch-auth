@@ -1,6 +1,6 @@
 import chai, { expect } from 'chai';
 import events from 'events';
-import nano from 'nano';
+import nano, { DocumentScope } from 'nano';
 import path from 'path';
 import sinon from 'sinon';
 import request from 'superagent';
@@ -8,7 +8,7 @@ import { v4 as uuidv4, validate as isUUID } from 'uuid';
 import { ConfigHelper as Configure } from '../src/config/configure';
 import seed from '../src/design/seed';
 import { Mailer } from '../src/mailer';
-import { CouchDbAuthDoc, DocumentScope, SlUserDoc } from '../src/types/typings';
+import { CouchDbAuthDoc, SlUserDoc } from '../src/types/typings';
 import { User } from '../src/user';
 import {
   addProvidersToDesignDoc,
@@ -160,7 +160,7 @@ const createdDBs = ['superlogin_test_users', 'superlogin_test_keys'];
 
 describe('User Model', async function () {
   const mailer = new Mailer(userConfig);
-  let user = new User(userConfig, userDB, keysDB, mailer, emitter);
+  let user = new User(userConfig, userDB, keysDB, mailer, emitter, couch);
   let userTestDB;
   let previous;
   let verifyEmailToken;
@@ -1068,7 +1068,7 @@ describe('User Model', async function () {
         // Don't create any more userDBs
         delete userConfig.userDBs.defaultDBs;
         // Create a new instance of user with the new config
-        user = new User(userConfig, userDB, keysDB, mailer, emitter);
+        user = new User(userConfig, userDB, keysDB, mailer, emitter, couch);
         return user.createUser(emailUserForm, req);
       })
       .then(newUser => {

@@ -1,21 +1,15 @@
 'use strict';
-import cloudant from '@cloudant/cloudant';
 import crypto from 'crypto';
 import { Request } from 'express';
-import nano from 'nano';
+import { DocumentScope, ServerScope } from 'nano';
 import URLSafeBase64 from 'urlsafe-base64';
 import { v4 as uuidv4 } from 'uuid';
 import { Config, DBServerConfig } from './types/config';
-import {
-  ConsentRequest,
-  ConsentSlEntry,
-  DocumentScope,
-  ServerScope,
-  SlUserDoc
-} from './types/typings';
+import { ConsentRequest, ConsentSlEntry, SlUserDoc } from './types/typings';
 
 // regexp from https://emailregex.com/
-export const EMAIL_REGEXP = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+export const EMAIL_REGEXP =
+  /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 export const USER_REGEXP = /^[a-z0-9_-]{3,16}$/;
 
 export function URLSafeUUID(): string {
@@ -54,25 +48,6 @@ export function removeHyphens(uuid: string) {
 
 export function hashToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
-}
-
-/** Loads the server for CouchDB-style auth - via IAM on cloudant or simply via nano */
-export function loadCouchServer(config: Partial<Config>) {
-  if (config.dbServer?.iamApiKey) {
-    return cloudant({
-      url: getCloudantURL(),
-      plugins: [
-        { iamauth: { iamApiKey: config.dbServer.iamApiKey } },
-        { retry: { retryInitialDelayMsecs: 750 } }
-      ],
-      maxAttempt: 2
-    });
-  } else {
-    return nano({
-      url: getDBURL(config.dbServer),
-      parseUrl: false
-    });
-  }
 }
 
 export function putSecurityDoc(

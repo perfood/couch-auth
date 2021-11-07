@@ -1,7 +1,7 @@
 'use strict';
 import { Config } from '../types/config';
-import { defaultConfig } from './default.config';
 import { mergeConfig } from '../util';
+import { defaultConfig } from './default.config';
 
 export class ConfigHelper {
   public config: Config = defaultConfig;
@@ -21,12 +21,6 @@ export class ConfigHelper {
 
   /** Verifies the config against some incompatible settings */
   private verifyConfig() {
-    if (
-      this.config.dbServer?.iamApiKey &&
-      (this.config.dbServer?.password || process.env.CLOUDANT_PASS)
-    ) {
-      throw 'do not provide a password when using IAM authentication!';
-    }
     if (
       this.config.local?.requireEmailConfirm &&
       !this.config.local.sendConfirmEmail

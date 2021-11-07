@@ -1,27 +1,21 @@
 'use strict';
+import { DocumentScope, ServerScope } from 'nano';
 import seed from '../design/seed';
 import { Config, PersonalDBSettings, PersonalDBType } from '../types/config';
-import {
-  CouchDbAuthDoc,
-  DocumentScope,
-  IdentifiedObj,
-  ServerScope,
-  SlUserDoc
-} from '../types/typings';
-import { getSessions, loadCouchServer, toArray, URLSafeUUID } from '../util';
+import { CouchDbAuthDoc, IdentifiedObj, SlUserDoc } from '../types/typings';
+import { getSessions, toArray, URLSafeUUID } from '../util';
 import { CouchAdapter } from './couchdb';
 
 export class DBAuth {
   adapter: CouchAdapter;
-  couch: ServerScope;
 
   constructor(
     private config: Partial<Config>,
     private userDB: DocumentScope<SlUserDoc>,
+    private couchServer: ServerScope,
     couchAuthDB?: DocumentScope<CouchDbAuthDoc>
   ) {
-    this.couch = loadCouchServer(config);
-    this.adapter = new CouchAdapter(couchAuthDB, this.couch, this.config);
+    this.adapter = new CouchAdapter(couchAuthDB, this.couchServer, this.config);
   }
 
   storeKey(
@@ -89,7 +83,7 @@ export class DBAuth {
   authorizeUserSessions(personalDBs, sessionKeys: string[] | string) {
     const promises = [];
     Object.keys(personalDBs).forEach(personalDB => {
-      const db = this.couch.use(personalDB);
+      const db = this.couchServer.use(personalDB);
       promises.push(this.authorizeKeys(db, toArray(sessionKeys)));
     });
     return Promise.all(promises);
@@ -115,7 +109,7 @@ export class DBAuth {
     const finalDBName =
       type === 'shared' ? dbName : prefix + dbName + '$' + userDoc._id;
     await this.createDB(finalDBName);
-    const newDB = this.couch.db.use(finalDBName);
+    const newDB = this.couchServer.db.use(finalDBName);
     await this.adapter.initSecurity(newDB, adminRoles, memberRoles);
     // Seed the design docs
     if (designDocs && designDocs instanceof Array) {
@@ -213,7 +207,7 @@ export class DBAuth {
     keys = toArray(keys);
     if (userDoc.personalDBs && typeof userDoc.personalDBs === 'object') {
       Object.keys(userDoc.personalDBs).forEach(personalDB => {
-        const db = this.couch.use(personalDB);
+        const db = this.couchServer.use(personalDB);
         promises.push(this.deauthorizeKeys(db, keys));
       });
       return Promise.all(promises);
@@ -290,7 +284,7 @@ export class DBAuth {
 
   async createDB(dbName: string) {
     try {
-      await this.couch.db.create(dbName);
+      await this.couchServer.db.create(dbName);
     } catch (err) {
       if (err.statusCode === 412) {
         return false; // already exists
@@ -301,6 +295,6 @@ export class DBAuth {
   }
 
   removeDB(dbName: string) {
-    return this.couch.db.destroy(dbName);
+    return this.couchServer.db.destroy(dbName);
   }
 }

@@ -1,11 +1,7 @@
+import { DocumentScope } from 'nano';
 import { validate as isUUID } from 'uuid';
 import { Config } from '../types/config';
-import {
-  DocumentScope,
-  SlUserDoc,
-  UserAction,
-  UserActivity
-} from '../types/typings';
+import { SlUserDoc, UserAction, UserActivity } from '../types/typings';
 import {
   capitalizeFirstLetter,
   EMAIL_REGEXP,

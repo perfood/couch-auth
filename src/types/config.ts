@@ -150,17 +150,12 @@ export interface DBServerConfig {
    * */
   couchAuthOnCloudant?: boolean;
   /**
-   * If specified together with `cloudant` or `couchAuthOnCloudant`, this IAM api key will be used for authentication
-   * instead of legacy basic auth via `user:password`. Do not provide `password` or `CLOUDANT_PASS` if using IAM!
-   */
-  iamApiKey?: string;
-  /**
    * The name for the database that stores user information like email, hashed passwords, sessions,...
    * This is _distinct_ from CouchDB's _user database. Default: `'sl-users'`.
-   * Alternatively, you can pass in a `nano` instance to the SuperLogin constructor and leave this blank */
+   */
   userDB?: string;
   /**
-   * defaults to CouchDB's _users database. Each session generates the user a unique login and password
+   * defaults to CouchDB's `_users` database. Each session generates the user a unique login and password
    * according to the [CouchDB Users Documents format](https://docs.couchdb.org/en/stable/intro/security.html#users-documents).
    */
   couchAuthDB?: string;

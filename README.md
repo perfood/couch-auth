@@ -15,7 +15,8 @@ Important changes in version `0.14.0`:
 
 Note that I'm only actively working on / performing security testing for the `local` email/PW authentication strategy.
 
-For issues and feature requests visit the [issue tracker](https://github.com/sl-nx/superlogin/issues).
+If you encounter a bug, [open an issue](https://github.com/sl-nx/superlogin/issues).
+If you have trouble setting things up or any other question about the package, [join the discussion]() instead.
 
 Check the [Project board](https://github.com/sl-nx/superlogin-next/projects/1) for upcoming changes or if you want to contribute.
 
@@ -503,14 +504,13 @@ Here is a full list of the events that SuperLogin emits, and parameters provided
 
 ## Main API
 
-##### `new SuperLogin(config, passport, userDB, couchAuthDB)`
+##### `new SuperLogin(config, couchServer, passport)`
 
 Constructs a new instance of SuperLogin. All arguments are optional. If you don't supply any config object, default settings will be used for a local CouchDB instance in admin party mode. Emails will be logged to the console but not sent.
 
 - `config`: Your full configuration object.
+- `couchServer`: You can pass a `ServerScope` from `@cloudant/cloudant` or your own customized version of `nano` here to make the requests to your CouchDB/Cloudant-instance. Typing issues can be ignored as long as the relevant methods work as in `nano`.
 - `passport`: You can pass in your own instance of Passport or SuperLogin will generate one if you do not.
-- `userDB`: This is the database that SuperLogin uses to keep track of users, distinct from CouchDB's `_users` database. You can pass in a [nano](https://www.npmjs.com/package/nano) instance here or otherwise specify your database name in the config under `dbServer.userDB`.
-- `couchAuthDB`: This should point to your CouchDB `_users` database or something else if you just want to test. Specify in config or pass in a `nano` instance here.
 
 **Returns:** the complete SuperLogin API.
 

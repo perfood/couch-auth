@@ -1,18 +1,5 @@
-import {
-  DocumentScope as CloudantDocumentScope,
-  ServerScope as CloudantServerScope
-} from '@cloudant/cloudant';
 import { Request } from 'express';
-import {
-  Document,
-  DocumentScope as NanoDocumentScope,
-  IdentifiedDocument,
-  MaybeRevisionedDocument,
-  ServerScope as NanoServerScope
-} from 'nano';
-
-export type ServerScope = NanoServerScope | CloudantServerScope;
-export type DocumentScope<D> = NanoDocumentScope<D> | CloudantDocumentScope<D>;
+import { Document, IdentifiedDocument, MaybeRevisionedDocument } from 'nano';
 
 export interface IdentifiedObj {
   name: string;
