@@ -278,10 +278,10 @@ export class DBAuth {
       } else {
         dbConfig.designDocs = [];
       }
-      dbConfig.partitioned = dbConfigRef.partitioned || false;
+      dbConfig.partitioned = this.config.userDBs.model._default.partitioned || false;
       dbConfig.type = type || 'private';
     } else {
-      dbConfig.partitioned = dbConfigRef.partitioned || false;
+      dbConfig.partitioned = false;
       dbConfig.type = type || 'private';
     }
     return dbConfig as PersonalDBSettings & IdentifiedObj;
