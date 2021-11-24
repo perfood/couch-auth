@@ -1322,7 +1322,8 @@ export class User {
           dbConfig.designDocs,
           dbConfig.type,
           dbConfig.adminRoles,
-          dbConfig.memberRoles
+          dbConfig.memberRoles,
+          dbConfig.partitioned
         );
       })
       .then(finalDBName => {

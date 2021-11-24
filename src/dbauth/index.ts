@@ -95,7 +95,8 @@ export class DBAuth {
     designDocs?: any[],
     type?: string,
     adminRoles?: string[],
-    memberRoles?: string[]
+    memberRoles?: string[],
+    partitioned?: boolean
   ): Promise<string> {
     const promises = [];
     adminRoles = adminRoles || [];
@@ -108,7 +109,7 @@ export class DBAuth {
     // new in 2.0: use uuid instead of username
     const finalDBName =
       type === 'shared' ? dbName : prefix + dbName + '$' + userDoc._id;
-    await this.createDB(finalDBName);
+    await this.createDB(finalDBName, partitioned);
     const newDB = this.couchServer.db.use(finalDBName);
     await this.adapter.initSecurity(newDB, adminRoles, memberRoles);
     // Seed the design docs
@@ -251,6 +252,7 @@ export class DBAuth {
     if (dbConfigRef) {
       dbConfig.designDocs = dbConfigRef.designDocs || [];
       dbConfig.type = type || dbConfigRef.type || 'private';
+      dbConfig.partitioned = dbConfigRef.partitioned || false;
       const dbAdminRoles = dbConfigRef.adminRoles;
       const dbMemberRoles = dbConfigRef.memberRoles;
       if (dbAdminRoles && dbAdminRoles instanceof Array) {
@@ -275,16 +277,18 @@ export class DBAuth {
       } else {
         dbConfig.designDocs = [];
       }
+      dbConfig.partitioned = dbConfigRef.partitioned || false;
       dbConfig.type = type || 'private';
     } else {
+      dbConfig.partitioned = dbConfigRef.partitioned || false;
       dbConfig.type = type || 'private';
     }
     return dbConfig as PersonalDBSettings & IdentifiedObj;
   }
 
-  async createDB(dbName: string) {
+  async createDB(dbName: string, partitioned: boolean) {
     try {
-      await this.couchServer.db.create(dbName);
+      await this.couchServer.db.create(dbName, {partitioned: partitioned});
     } catch (err) {
       if (err.statusCode === 412) {
         return false; // already exists
