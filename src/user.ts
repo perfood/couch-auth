@@ -1360,7 +1360,8 @@ export class User {
               dbConfig.designDocs,
               type,
               dbConfig.adminRoles,
-              dbConfig.memberRoles
+              dbConfig.memberRoles,
+              dbConfig.partitioned
             )
             .then(finalDBName => {
               delete dbConfig.adminRoles;
