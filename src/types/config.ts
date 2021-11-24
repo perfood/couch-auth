@@ -252,7 +252,7 @@ export interface PersonalDBSettings {
   /** member roles that will be automatically added to the db's _security object of this specific db. Default: [] */
   memberRoles?: string[];
   /** if the database should be partitioned */
-  partitioned: boolean;
+  partitioned?: boolean;
 }
 
 export interface PersonalDBModel {

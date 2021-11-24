@@ -101,6 +101,7 @@ export class DBAuth {
     const promises = [];
     adminRoles = adminRoles || [];
     memberRoles = memberRoles || [];
+    partitioned = partitioned || false;
     // Create and the database and seed it if a designDoc is specified
     const prefix = this.config.userDBs.privatePrefix
       ? this.config.userDBs.privatePrefix + '_'
@@ -286,7 +287,8 @@ export class DBAuth {
     return dbConfig as PersonalDBSettings & IdentifiedObj;
   }
 
-  async createDB(dbName: string, partitioned: boolean) {
+  async createDB(dbName: string, partitioned?: boolean) {
+    partitioned = partitioned || false;
     try {
       await this.couchServer.db.create(dbName, {partitioned: partitioned});
     } catch (err) {
