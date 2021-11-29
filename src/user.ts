@@ -1305,11 +1305,13 @@ export class User {
     login: string,
     dbName: string,
     type: 'private' | 'shared' = 'private',
-    designDocs?
+    designDocs?,
+    partitioned?
   ) {
     let userDoc: SlUserDoc;
     const dbConfig = this.dbAuth.getDBConfig(dbName, type);
     dbConfig.designDocs = designDocs || dbConfig.designDocs || '';
+    dbConfig.partitioned = partitioned || dbConfig.partitioned || false
     return this.getUser(login)
       .then(result => {
         if (!result) {
