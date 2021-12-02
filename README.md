@@ -618,7 +618,7 @@ Changes the user's email. If email verification is enabled (`local.sendConfirmEm
 
 Marks the user's email as verified. `token` comes from the confirmation email.
 
-##### `superlogin.addUserDB(user_id, dbName, type, designDoc, permissions)`
+##### `superlogin.addUserDB(user_id, dbName, type, designDoc, permissions, partitioned)`
 
 Associates a new database with the user's account. Will also authenticate all existing sessions with the new database.
 
@@ -626,7 +626,8 @@ Associates a new database with the user's account. Will also authenticate all ex
 - `type`: 'private' (default) or 'shared' (optional)
 - `designDoc`: the name of the designDoc (if any) that will be seeded. (optional)
 - `permissions`: an array of [permissions](https://docs.cloudant.com/authorization.html) for use with Cloudant. (optional)
-
+- `partitioned`: `false` (default) or `true` if the database should be [partitioned](https://docs.couchdb.org/en/stable/api/partitioned-dbs.html)
+ 
 If the optional fields are not specified they will be taken from `userDBs.model.{dbName}` or `userDBs.model._default` in your config.
 
 ##### `superlogin.removeUserDB(user_id, dbName, deletePrivate, deleteShared)`
