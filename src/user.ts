@@ -333,7 +333,11 @@ export class User {
    * and `confirmPassword`. `name` is optional. Any additional fields must be
    * whitelisted in your config under `userModel` or they will be removed.
    * @param req additional request data passed to the email template
-   * @returns
+   * @returns `SlUserDoc` of the created user. Note that the `_rev` won't be
+   * correct if `config.security.loginOnRegistration` is `false`: This is done
+   * to prevent [time-based attacks](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#authentication-responses).
+   * Send a response right after this function resolves and subscribe to the
+   * `signup` event instead for further processing.
    */
   public async createUser(
     form: RegistrationForm,
