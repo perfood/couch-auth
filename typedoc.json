@@ -1,0 +1,9 @@
+{
+  "entryPoints": [
+    "src/index.ts",
+    "src/types/config.ts",
+    "src/types/typings.ts",
+    "node_modules/@sl-nx/sofa-model/index.d.ts"
+  ],
+  "out": "docs"
+}

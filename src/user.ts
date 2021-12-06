@@ -59,7 +59,7 @@ export class User {
   private onLinkActions: SlAction[];
   private hasher: Hashing;
 
-  passwordConstraints;
+  private passwordConstraints;
   /**
    * Checks that a username is valid and not in use.
    * Resolves with nothing if successful.
@@ -77,9 +77,10 @@ export class User {
     v: Record<string, ConsentRequest>
   ) => string | void;
 
+  /** @internal */
   userModel: Sofa.AsyncOptions;
-  resetPasswordModel: Sofa.AsyncOptions;
-  changePasswordModel: Sofa.AsyncOptions;
+  private resetPasswordModel: Sofa.AsyncOptions;
+  private changePasswordModel: Sofa.AsyncOptions;
 
   constructor(
     protected config: Config,
@@ -766,6 +767,13 @@ export class User {
     return user;
   }
 
+  /**
+   * Changes the password of a user, validating the provided data.
+   * @param login the `email`, `_id` or `key` of the `sl-user` to updated
+   * @param form `newPassword`, `confirmPassword` (same) and `currentPassword`
+   * as sent by the user.
+   * @param req additional data that will be passed to the template as `req`
+   */
   public async changePasswordSecure(login: string, form, req?): Promise<void> {
     req = req || {};
     const ChangePasswordModel = Model(this.changePasswordModel);
@@ -843,17 +851,19 @@ export class User {
   }
 
   /**
-   * Changes the password of a user
+   * Changes the password of a user. Note that this method does not perform
+   * any validations of the supplied password as `changePasswordSecure` does.
    * @param user_uid the UUID of the user (without hypens, `_id` in `sl-users`)
    * @param newPassword the new password for the user
    * @param userDoc the `SlUserDoc` of the user. Will be retrieved by the
+   * `user_uid` if not passed.
    * @param req additional data that will be passed to the template as `req`
    */
   public async changePassword(
     user_uid: string,
     newPassword: string,
-    userDoc: SlUserDoc,
-    req: any
+    userDoc?: SlUserDoc,
+    req?: any
   ): Promise<void> {
     req = req || {};
     if (!userDoc) {

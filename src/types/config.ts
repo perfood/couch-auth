@@ -1,5 +1,11 @@
 import { Sofa } from '@sl-nx/sofa-model';
+import { Transport } from 'nodemailer';
+import JSONTransport from 'nodemailer/lib/json-transport';
 import Mail, { Address } from 'nodemailer/lib/mailer';
+import SendmailTransport from 'nodemailer/lib/sendmail-transport';
+import SESTransport from 'nodemailer/lib/ses-transport';
+import SMTPTransport from 'nodemailer/lib/smtp-transport';
+import StreamTransport from 'nodemailer/lib/stream-transport';
 import { ConsentConfig } from './typings';
 
 export interface TestConfig {
@@ -13,6 +19,7 @@ export interface TestConfig {
   debugEmail?: boolean;
 }
 
+/** Security/Session - related configuration */
 export interface SecurityConfig {
   /** Roles given to a new user. Default: ['user'] */
   defaultRoles: string[];
@@ -163,6 +170,10 @@ export interface DBServerConfig {
   designDocDir?: string;
 }
 
+/**
+ * Configure templates that are sent out by superlogin automatically or
+ * on-demand when using `superlogin.sendEmail`.
+ */
 export interface EmailTemplate {
   /** The subject for the sent out email */
   subject: string;
@@ -179,45 +190,32 @@ export interface EmailTemplate {
   template?: string;
 }
 
-export interface MailOptions {
-  host?: string;
-  port?: number;
-  /** turns off STARTTLS support if true */
-  ignoreTLS?: boolean | undefined;
-  /** forces the client to use STARTTLS. Returns an error if upgrading the connection is not possible or fails. */
-  requireTLS?: boolean | undefined;
-  /** tries to use STARTTLS and continues normally if it fails */
-  opportunisticTLS?: boolean | undefined;
-  secure?: boolean;
-  auth: {
-    user?: string;
-    pass?: string;
-    /** e.g. for sendGrid via `customTransport` */
-    api_user?: string;
-    /** e.g. for sendGrid via `customTransport` */
-    api_key?: string;
-  };
-}
-
+/** Configure how [nodemailer](https://nodemailer.com/about/) sends mails. */
 export interface MailerConfig {
   /** Email address that all your system emails will be from */
   fromEmail: string | Address;
   /**
-   * Use this if you want to specify a custom Nodemailer transport instead of
-   * passing SMTP.
+   * Use this if you want to pass an initialized `Transport` (Sendmail, SES,...)
+   * instead of using SMTP with the credentials provided in `options`.
    */
-  transport?: any;
+  transport?:
+    | SendmailTransport
+    | StreamTransport
+    | JSONTransport
+    | SESTransport
+    | Transport;
   /**
-   * The options that will be passed into `createTransport`. If you do not use a
-   * custom transport, these are simply your SMTP credentials.
+   * If you do not use a custom `transport`, these are your SMTP credentials.
    *
    * See https://nodemailer.com/smtp/#examples for details.
-   * Type this as `any` if you pass custom options.
    */
-  options?: MailOptions;
+  options?: SMTPTransport.Options;
   /**
-   * Additional message fields, see https://nodemailer.com/message/
-   * Don't use it to pass `to`, `from`, `subject`, `html` and `text`.
+   * Additional message fields, e.g. `replyTo` and `cc`.
+   * Note that `to`, `from`, `subject`, `html` and `text` are expected to be
+   * handled by `superlogin` instead.
+   *
+   * See https://nodemailer.com/message/ for details.
    */
   messageConfig?: Mail.Options;
 }
@@ -327,9 +325,12 @@ export interface ProviderConfig {
 export interface Config {
   /** Only necessary for testing/debugging */
   testMode?: Partial<TestConfig>;
+  /** Security/Session - related configuration */
   security?: Partial<SecurityConfig>;
   local: Partial<LocalConfig>;
+  /** Configure the CouchDB server where all your databases are stored on */
   dbServer: DBServerConfig;
+  /** Configure how mails are sent out to users */
   mailer?: MailerConfig;
   /**
    * Customize the templates for the emails that SuperLogin sends out.
@@ -341,16 +342,18 @@ export interface Config {
    * - `'modifiedPassword'`
    * - `'signupExistingEmail'`
    * - `'forgotUsername'`
-   * You can add additional templates and send them out via `sendEmail()`
+   *
+   * You can add additional templates and send them out via `sendEmail()`.
    */
   emails?: Record<string, EmailTemplate>;
   /** Custom settings to manage personal databases for your users */
   userDBs?: UserDBConfig;
+  /** OAuth 2 providers */
   providers?: { [provider: string]: ProviderConfig };
   /**
    * Anything here will be merged with the default async userModel that
    * validates your local sign-up form. For details, check the
-   * [Sofa Model documentation](http://github.com/sl-nx/sofa-model)
+   * [Sofa Model README](http://github.com/sl-nx/sofa-model)
    */
   userModel?: Sofa.Options | Sofa.AsyncOptions;
 }
