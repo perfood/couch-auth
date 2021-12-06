@@ -52,7 +52,7 @@ describe('DBAuth', () => {
     return checkDBExists(testDBName)
       .then(function (result) {
         expect(result).to.equal(false);
-        return dbAuth.createDB(testDBName);
+        return dbAuth.createDB(testDBName, false);
       })
       .then(function () {
         return checkDBExists(testDBName);
