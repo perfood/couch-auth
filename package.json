@@ -1,6 +1,6 @@
 {
   "name": "@sl-nx/superlogin-next",
-  "version": "0.16.0",
+  "version": "0.16.1",
   "description": "The next generation SuperLogin-Fork, rewritten in Typescript and compatible with current versions of Node and CouchDB.",
   "main": "./lib/index.js",
   "files": [
