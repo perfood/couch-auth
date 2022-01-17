@@ -1,5 +1,9 @@
 ## Change Log
 
+##### 0.16.1
+- :sparkles: Add support for partinioned databases
+- :lock: Update `follow-redirects`
+
 ##### 0.16.0: Remove Cloudant
 
 - Core API optionally accepts a `ServerScope` as second argument, but no longer the auth- and user-DB.
