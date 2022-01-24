@@ -1,5 +1,8 @@
 ## Change Log
 
+##### 0.16.2
+- :bug: Fix password auth with special characters
+
 ##### 0.16.1
 - :sparkles: Add support for partinioned databases
 - :lock: Update `follow-redirects`

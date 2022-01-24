@@ -86,6 +86,7 @@ export function getCloudantURL() {
   return url;
 }
 
+/** @internal @deprecated - only used in tests */
 export function getDBURL(db: DBServerConfig) {
   let url;
   if (db.user) {

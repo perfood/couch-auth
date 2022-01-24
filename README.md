@@ -511,7 +511,7 @@ Here is a full list of the events that CouchAuth emits, and parameters provided:
 Constructs a new instance of CouchAuth. All arguments are optional. If you don't supply any config object, default settings will be used for a local CouchDB instance in admin party mode. Emails will be logged to the console but not sent.
 
 - `config`: Your full configuration object.
-- `couchServer`: You can pass a `ServerScope` from `@cloudant/cloudant` or your own customized version of `nano` here to make the requests to your CouchDB/Cloudant-instance. Typing issues can be ignored as long as the relevant methods work as in `nano`.
+- `couchServer`: You can pass a `ServerScope` from `@cloudant/cloudant` or your own customized version of `nano` here to make the requests to your CouchDB/Cloudant-instance. Typing issues can be ignored as long as the relevant methods work as in `nano`. If you don't pass a `ServerScope`, your installed `nano`-Version must be `>=9`.
 - `passport`: You can pass in your own instance of Passport or CouchAuth will generate one if you do not.
 
 **Returns:** the complete CouchAuth API.
