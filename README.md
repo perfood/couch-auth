@@ -1,4 +1,4 @@
-# SuperLogin-Next
+# CouchAuth
 
 ![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)
 ![Build Status](https://github.com/sl-nx/superlogin-next/workflows/Build/badge.svg?branch=master)
@@ -26,7 +26,7 @@ Check the [Project board](https://github.com/sl-nx/superlogin-next/projects/1) f
 
 ## Overview
 
-SuperLogin is a full-featured NodeJS/Express user authentication solution for APIs and Single Page Apps (SPA) using
+CouchAuth is a full-featured NodeJS/Express user authentication solution for APIs and Single Page Apps (SPA) using
 CouchDB or Cloudant.
 
 User authentication is often the hardest part of building any web app, especially if you want to integrate multiple providers. Now all the tough work has been done for you so you can relax and create with less boilerplate!
@@ -59,7 +59,7 @@ User authentication is often the hardest part of building any web app, especiall
 
 ## How It Works
 
-Simply authenticate yourself with SuperLogin using any supported strategy and you will be issued a temporary access token and password. Then include the access token and password in an Authorization Bearer header on every request to access protected endpoints. The same credentials will authenticate you on any CouchDB or Cloudant database you have been authorized to use.
+Simply authenticate yourself with CouchAuth using any supported strategy and you will be issued a temporary access token and password. Then include the access token and password in an Authorization Bearer header on every request to access protected endpoints. The same credentials will authenticate you on any CouchDB or Cloudant database you have been authorized to use.
 
 ## Quick Start
 
@@ -185,7 +185,7 @@ But as soon as you log out your session, that access will be revoked.
 
 **Note:** Session tokens for your API will be unusable as soon as they expire. 
 However, there is no mechanism to automatically revoke expired credentials with CouchDB. 
-Whenever a user logs in, logs out, or refreshes the session, SuperLogin will automatically clean up any expired credentials for that user. 
+Whenever a user logs in, logs out, or refreshes the session, CouchAuth will automatically clean up any expired credentials for that user. 
 But you **have to** periodically run `superlogin.removeExpiredKeys()`, e.g. with `setInterval` or a cron job. This will deauthorize every single expired credential.
 
 ## Securing Your Routes
@@ -231,12 +231,12 @@ SuperLogin also allows you to specify default `_security` roles for members and 
 
 ## CouchDB Document Update Validation
 
-CouchDB provides the [validate_doc_update function](http://guide.couchdb.org/draft/validation.html) to approve or disapprove what gets written. However, since your CouchDB users are temporary random API keys, you have no idea which user is requesting to write. SuperLogin has inserted the original `user_id` into `userCtx.roles[0]`, prefixed by `user:` (e.g. `user:superman`).
+CouchDB provides the [validate_doc_update function](http://guide.couchdb.org/draft/validation.html) to approve or disapprove what gets written. However, since your CouchDB users are temporary random API keys, you have no idea which user is requesting to write. CouchAuth has inserted the original `user_id` into `userCtx.roles[0]`, prefixed by `user:` (e.g. `user:superman`).
 
 
 ## Adding Providers
 
-You can add support for any Passport OAuth2 strategy to SuperLogin with just a few lines of code. _Maintainers Note: haven't tested this._
+You can add support for any Passport OAuth2 strategy to CouchAuth with just a few lines of code. _Maintainers Note: haven't tested this._
 
 #### Configuration
 
@@ -261,7 +261,7 @@ providers: {
 }
 ```
 
-SuperLogin supports two types of workflows for OAuth2 providers: popup window and client access token.
+CouchAuth supports two types of workflows for OAuth2 providers: popup window and client access token.
 
 #### Popup Window Workflow for web browsers (desktop and mobile)
 
@@ -288,7 +288,7 @@ window.addEventListener('message', (event) => {
 }, false);
 ```
 
-After completing the configuration step above, all you have to do is register your new provider with SuperLogin. Simply follow this pattern:
+After completing the configuration step above, all you have to do is register your new provider with CouchAuth. Simply follow this pattern:
 
 ```js
 var DropboxStrategy = require('passport-dropbox-oauth2').Strategy;
@@ -298,7 +298,7 @@ Now, assuming your credentials are valid, you should be able to authenticate wit
 
 #### Client Access Token for Cordova / Phonegap and Native Apps
 
-Cordova and most native app frameworks (including iOS and Android) have plugins which authenticate a user with a provider and provide an `access_token` to the client app. All you have to do is post a request to `/{provider}/token` and include your `access_token` in the request body. SuperLogin will respond with a new session or an error message.
+Cordova and most native app frameworks (including iOS and Android) have plugins which authenticate a user with a provider and provide an `access_token` to the client app. All you have to do is post a request to `/{provider}/token` and include your `access_token` in the request body. CouchAuth will respond with a new session or an error message.
 
 You must use Passport strategies that accept `access_token` posted in the body of the request, such as `passport-facebook-token`, `passport-google-token`, etc.
 
@@ -473,7 +473,7 @@ This will link additional providers to an already authenticated user using the c
 
 ## Event Emitter
 
-SuperLogin also provides an [event emitter](https://nodejs.org/api/events.html), which allows you to receive notifications when important things happen.
+CouchAuth also provides an [event emitter](https://nodejs.org/api/events.html), which allows you to receive notifications when important things happen.
 
 **Example:**
 
@@ -483,7 +483,7 @@ superlogin.emitter.on('login', function (userDoc, provider) {
 });
 ```
 
-Here is a full list of the events that SuperLogin emits, and parameters provided:
+Here is a full list of the events that CouchAuth emits, and parameters provided:
 
 - `signup`: (`userDoc`, `provider`)
 - `signup-attempt`: (`userDoc`, `provider`) // currently only for local
@@ -508,13 +508,13 @@ Here is a full list of the events that SuperLogin emits, and parameters provided
 
 ##### `new SuperLogin(config, couchServer, passport)`
 
-Constructs a new instance of SuperLogin. All arguments are optional. If you don't supply any config object, default settings will be used for a local CouchDB instance in admin party mode. Emails will be logged to the console but not sent.
+Constructs a new instance of CouchAuth. All arguments are optional. If you don't supply any config object, default settings will be used for a local CouchDB instance in admin party mode. Emails will be logged to the console but not sent.
 
 - `config`: Your full configuration object.
 - `couchServer`: You can pass a `ServerScope` from `@cloudant/cloudant` or your own customized version of `nano` here to make the requests to your CouchDB/Cloudant-instance. Typing issues can be ignored as long as the relevant methods work as in `nano`.
-- `passport`: You can pass in your own instance of Passport or SuperLogin will generate one if you do not.
+- `passport`: You can pass in your own instance of Passport or CouchAuth will generate one if you do not.
 
-**Returns:** the complete SuperLogin API.
+**Returns:** the complete CouchAuth API.
 
 ##### `superlogin.config`
 
@@ -522,7 +522,7 @@ A reference to the configuration object. You can use this to lookup and change c
 
 ##### `superlogin.router`
 
-A reference to the Express Router that contains all of SuperLogin's routes.
+A reference to the Express Router that contains all of CouchAuth's routes.
 
 ##### `superlogin.passport`
 
@@ -534,7 +534,7 @@ A reference to the event emitter
 
 ##### `superlogin.userDB`
 
-A `nano` instance that gives direct access to the SuperLogin users database
+A `nano` instance that gives direct access to the CouchAuth users database
 
 ##### `superlogin.couchAuthDB`
 
@@ -642,7 +642,7 @@ Deauthorizes the specified database from the user's account, and optionally dest
 
 ##### `superlogin.logoutUser(user_id, session_id)`
 
-Logs out all of a user's sessions at once. If `user_id` is not specified SuperLogin will look it up from the `session_id`.
+Logs out all of a user's sessions at once. If `user_id` is not specified CouchAuth will look it up from the `session_id`.
 
 ##### `superlogin.logoutSession(session_id)`
 
