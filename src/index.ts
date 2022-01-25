@@ -47,10 +47,9 @@ export class SuperLogin extends User {
         url: config.dbServer.protocol + config.dbServer.host,
         parseUrl: false,
         requestDefaults: {
-          headers: {
-            Authorization: `Basic ${Buffer.from(
-              config.dbServer.user + ':' + config.dbServer.password
-            ).toString('base64')}`
+          auth: {
+            username: config.dbServer.user,
+            password: config.dbServer.password
           }
         }
       });
