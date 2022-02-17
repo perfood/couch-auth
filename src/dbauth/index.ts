@@ -278,7 +278,8 @@ export class DBAuth {
       } else {
         dbConfig.designDocs = [];
       }
-      dbConfig.partitioned = this.config.userDBs.model._default.partitioned || false;
+      dbConfig.partitioned =
+        this.config.userDBs.model._default.partitioned || false;
       dbConfig.type = type || 'private';
     } else {
       dbConfig.partitioned = false;
@@ -290,7 +291,7 @@ export class DBAuth {
   async createDB(dbName: string, partitioned?: boolean) {
     partitioned = partitioned || false;
     try {
-      await this.couchServer.db.create(dbName, {partitioned: partitioned});
+      await this.couchServer.db.create(dbName, { partitioned: partitioned });
     } catch (err) {
       if (err.statusCode === 412) {
         return false; // already exists

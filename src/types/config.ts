@@ -233,6 +233,10 @@ export interface DefaultDBConfig {
    * These will not be prefixed, so type the exact name.
    */
   shared?: string[];
+  /**
+   * Internal databases // TODO: Define Usage
+   */
+  internal?: string[];
 }
 
 export interface SecurityRoles {
@@ -275,6 +279,14 @@ export interface UserDBConfig {
   model?: PersonalDBModel;
   /** Prefix for your private user databases. Default: no prefix. */
   privatePrefix?: string;
+  /** Directory that contains all your design docs. Default: `./designDocs/` */
+  designDocDir?: string;
+}
+
+export interface SystemDBConfig {
+  /** If set, these databases will be set up automatically for each new user */
+  defaultDBs?: DefaultDBConfig;
+
   /** Directory that contains all your design docs. Default: `./designDocs/` */
   designDocDir?: string;
 }
@@ -346,6 +358,8 @@ export interface Config {
   emails?: Record<string, EmailTemplate>;
   /** Custom settings to manage personal databases for your users */
   userDBs?: UserDBConfig;
+  systemDBs?: UserDBConfig;
+
   providers?: { [provider: string]: ProviderConfig };
   /**
    * Anything here will be merged with the default async userModel that

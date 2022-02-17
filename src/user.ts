@@ -1315,7 +1315,7 @@ export class User {
     let userDoc: SlUserDoc;
     const dbConfig = this.dbAuth.getDBConfig(dbName, type);
     dbConfig.designDocs = designDocs || dbConfig.designDocs || '';
-    dbConfig.partitioned = partitioned || dbConfig.partitioned || false
+    dbConfig.partitioned = partitioned || dbConfig.partitioned || false;
     return this.getUser(login)
       .then(result => {
         if (!result) {
@@ -1343,6 +1343,17 @@ export class User {
         this.emitter.emit('user-db-added', userDoc.key, dbName);
         return this.userDB.insert(userDoc);
       });
+  }
+
+  public async createMissingDBs() {
+    const necessaryDBs = this.config.systemDBs.defaultDBs.internal;
+    const createdDBs = await this.couchServer.db.list();
+    const missingDBs = necessaryDBs.filter(
+      necessary => createdDBs.indexOf(necessary) < 0
+    );
+    missingDBs.forEach(missing => {
+      this.dbAuth.createDB(missing);
+    });
   }
 
   /**
