@@ -1345,15 +1345,20 @@ export class User {
       });
   }
 
+  /**
+   * Checks the config file for neededDBs and compares to the already createdDBs and creates the missing.
+   */
   public async createMissingDBs() {
     const necessaryDBs = this.config.systemDBs.defaultDBs.internal;
     const createdDBs = await this.couchServer.db.list();
     const missingDBs = necessaryDBs.filter(
       necessary => createdDBs.indexOf(necessary) < 0
     );
-    missingDBs.forEach(missing => {
-      this.dbAuth.createDB(missing);
-    });
+    const DBCreations: Promise<boolean>[] = [];
+    for (const missingDB in missingDBs) {
+      DBCreations.push(this.dbAuth.createDB(missingDB));
+    }
+    await Promise.all(DBCreations);
   }
 
   /**

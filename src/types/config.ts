@@ -234,7 +234,7 @@ export interface DefaultDBConfig {
    */
   shared?: string[];
   /**
-   * Internal databases // TODO: Define Usage
+   * Internal databases, that will be created by createMissingDBs() in `user.ts`
    */
   internal?: string[];
 }
