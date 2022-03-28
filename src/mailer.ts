@@ -8,21 +8,14 @@ export class Mailer {
   private config: Partial<Config>;
   private transporter: Mail;
   constructor(config: Partial<Config>) {
-    // Initialize the transport mechanism with nodemailer
     this.config = config;
-    const customTransport = config.mailer.transport;
     if (config.testMode?.noEmail) {
       this.transporter = nodemailer.createTransport(
         require('nodemailer-stub-transport')()
       );
-    } else if (customTransport) {
-      this.transporter = nodemailer.createTransport(
-        customTransport(config.mailer.options)
-      );
     } else {
       this.transporter = nodemailer.createTransport(
-        // @ts-ignore
-        config.mailer.options
+        config.mailer.transport ?? config.mailer.options
       );
     }
   }

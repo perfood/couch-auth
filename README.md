@@ -3,9 +3,7 @@
 ![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)
 ![Build Status](https://github.com/sl-nx/superlogin-next/workflows/Build/badge.svg?branch=master)
 
-**Note**: Future versions of this package will be published under `@perfood/couch-auth`. Version `0.16.1` is the last version to be published under `@sl-nx/superlogin-next`. Please switch to the new package in order to continue receiving updates.
-
-This is a heavily modified SuperLogin, re-written in TypeScript and developed with Node 12/14/16 & CouchDB 3. It is compatible with Cloudant when using the CouchDB-style authentication, adapted for current OWASP best practises and can be used on [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry).
+This is a heavily modified [SuperLogin](https://github.com/colinskow/superlogin), re-written in TypeScript and developed with Node 12/14/16 & CouchDB 3. It is compatible with Cloudant when using the CouchDB-style authentication, adapted for current OWASP best practises and can be used on [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry).
 
 If you've used SuperLogin before, the `0.13.X` release should be mostly backwards compatible. New/ migrated projects should use a release >= `0.14.0`.
 
@@ -68,7 +66,7 @@ Here's a simple minimalist configuration that will get you up and running right 
 First:
 
 ```
-npm install @sl-nx/superlogin-next express body-parser morgan
+npm install @perfood/couch-auth express body-parser morgan
 ```
 
 You'll need an email service that is supported by [nodemailer](https://nodemailer.com/smtp/). Then start a server with the following content:
@@ -77,7 +75,7 @@ You'll need an email service that is supported by [nodemailer](https://nodemaile
 var express = require('express');
 var bodyParser = require('body-parser');
 var logger = require('morgan');
-var { SuperLogin } = require('@sl-nx/superlogin-next');
+var { SuperLogin } = require('@perfood/couch-auth');
 
 var app = express();
 app.set('port', process.env.PORT || 3000);
