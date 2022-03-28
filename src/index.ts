@@ -13,7 +13,7 @@ import loadRoutes from './routes';
 import { Config } from './types/config';
 import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
 import { User } from './user';
-import { addProvidersToDesignDoc, getDBURL } from './util';
+import { addProvidersToDesignDoc } from './util';
 
 export class SuperLogin extends User {
   router: Router;
@@ -44,8 +44,14 @@ export class SuperLogin extends User {
 
     if (!couchServer) {
       couchServer = nano({
-        url: getDBURL(config.dbServer),
-        parseUrl: false
+        url: config.dbServer.protocol + config.dbServer.host,
+        parseUrl: false,
+        requestDefaults: {
+          auth: {
+            username: config.dbServer.user,
+            password: config.dbServer.password
+          }
+        }
       });
     }
 
@@ -83,4 +89,6 @@ export class SuperLogin extends User {
     this.requireAnyRole = middleware.requireAnyRole.bind(middleware);
     this.requireAllRoles = middleware.requireAllRoles.bind(middleware);
   }
+
+  private async init() {}
 }

@@ -1,7 +1,7 @@
 {
-  "name": "@sl-nx/superlogin-next",
-  "version": "0.16.0",
-  "description": "The next generation SuperLogin-Fork, rewritten in Typescript and compatible with current versions of Node and CouchDB.",
+  "name": "@perfood/couch-auth",
+  "version": "0.16.3",
+  "description": "Easy and secure authentication for CouchDB/Cloudant. Based on SuperLogin, updated and rewritten in Typescript.",
   "main": "./lib/index.js",
   "files": [
     "lib/",
@@ -10,7 +10,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sl-nx/superlogin-next.git"
+    "url": "git+https://github.com/perfood/couch-auth.git"
   },
   "engines": {
     "node": ">=12.0.0"
@@ -40,9 +40,9 @@
   ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/sl-nx/superlogin-next/issues"
+    "url": "https://github.com/perfood/couch-auth/issues"
   },
-  "homepage": "https://github.com/sl-nx/superlogin-next#readme",
+  "homepage": "https://github.com/perfood/couch-auth",
   "dependencies": {
     "@sl-nx/couch-pwd": "2.0.0",
     "@sl-nx/sofa-model": "^1.0.3",
@@ -52,7 +52,7 @@
     "deepmerge": "^4.2.2",
     "ejs": "^3.1.6",
     "express": "^4.17.1",
-    "nano": "^9.0.5||^8.2.2",
+    "nano": "^10.0.0",
     "nodemailer": "^6.7.0",
     "passport": "^0.4.1",
     "passport-http-bearer-sl": "^1.0.1",
@@ -96,5 +96,10 @@
       "ecmaVersion": 2020,
       "sourceType": "module"
     }
+  },
+  "types": "./lib/index.d.ts",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
   }
 }
