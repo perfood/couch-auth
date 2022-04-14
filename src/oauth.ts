@@ -1,15 +1,14 @@
 'use strict';
 import { NextFunction, Request, Response, Router } from 'express';
-
+import { render } from 'nunjucks';
 import { Authenticator } from 'passport';
-import { callbackify } from 'util';
-import { capitalizeFirstLetter } from './util';
-import { Config } from './types/config';
 import { join } from 'path';
-import { readFileSync } from 'fs';
-import { render } from 'ejs';
+import { callbackify } from 'util';
+import { Config } from './types/config';
 import { SlRequest } from './types/typings';
 import { User } from './user';
+import { capitalizeFirstLetter } from './util';
+
 
 export class OAuth {
   static stateRequired = ['google', 'linkedin'];
@@ -369,29 +368,17 @@ export class OAuth {
    * Gets the template file checking if a custom template was set in the provider options 
    * and if the testMode.oauthTest is enabled.
    */
-  private getTemplate(provider: string) {
+  private getTemplate(provider: string): string {
     const configRef = this.config.providers[provider];
     if (this.config.testMode?.oauthTest) {
       if (configRef?.templateTest) {
-        return readFileSync(
-        configRef.templateTest,
-        'utf8'
-        );
+        return configRef.templateTest;
       }
-      return readFileSync(
-        join(__dirname, '../templates/oauth/auth-callback-test.ejs'),
-        'utf8'
-      );
+      return join(__dirname, '../templates/oauth/authCallbackTest.njk')
     } 
     if (configRef?.template) {
-      return readFileSync(
-        configRef.template,
-        'utf8'
-      );
+      return configRef.template
     }
-    return readFileSync(
-      join(__dirname, '../templates/oauth/auth-callback.ejs'),
-      'utf8'
-    );
+    return join(__dirname, '../templates/oauth/authCallback.ejs')
   }
 }

@@ -6,6 +6,16 @@ export interface IdentifiedObj {
   type: string;
 }
 
+/** copied from https://nodemailer.com/smtp/pooled/ because it's not included in the typings */
+export interface PooledSMTPOptions {
+    /** set to true to use pooled connections (defaults to false) instead of creating a new connection for every email */
+    pool?: boolean;
+    /** is the count of maximum simultaneous connections to make against the SMTP server (defaults to 5) */
+    maxConnections?: number;
+    /** limits the message count to be sent using a single connection (defaults to 100). After maxMessages is reached the connection is dropped and a new one is created for the following messages */
+    maxMessages?: number
+}
+
 export interface CouchDbAuthDoc
   extends IdentifiedDocument,
     MaybeRevisionedDocument,

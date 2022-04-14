@@ -320,10 +320,11 @@ export class User {
     return this.userDbManager.getUser(login, allowUUID);
   }
 
-  private async handleEmailExists(email: string): Promise<void> {
+  private async handleEmailExists(email: string, req?): Promise<void> {
     const existingUser = await this.userDbManager.getUserBy('email', email);
     await this.mailer.sendEmail('signupExistingEmail', email, {
-      user: existingUser
+      user: existingUser,
+      req
     });
     this.emitter.emit('signup-attempt', existingUser, 'local');
   }
@@ -384,7 +385,7 @@ export class User {
           if (err.email.length === 0) {
             delete err.email;
             if (Object.keys(err).length === 0) {
-              this.handleEmailExists(form.email);
+              this.handleEmailExists(form.email, req);
               doThrow = false;
             }
           }
@@ -1000,13 +1001,14 @@ export class User {
         email: newEmail,
         token: URLSafeUUID()
       };
-      const mailType = this.config.emails.confirmEmailChange
-        ? 'confirmEmailChange'
-        : 'confirmEmail';
-      await this.mailer.sendEmail(mailType, user.unverifiedEmail.email, {
-        req: req,
-        user: user
-      });
+      await this.mailer.sendEmail(
+        'confirmEmailChange',
+        user.unverifiedEmail.email,
+        {
+          req: req,
+          user: user
+        }
+      );
     } else {
       user.email = newEmail;
     }
@@ -1325,7 +1327,7 @@ export class User {
     let userDoc: SlUserDoc;
     const dbConfig = this.dbAuth.getDBConfig(dbName, type);
     dbConfig.designDocs = designDocs || dbConfig.designDocs || '';
-    dbConfig.partitioned = partitioned || dbConfig.partitioned || false
+    dbConfig.partitioned = partitioned || dbConfig.partitioned || false;
     return this.getUser(login)
       .then(result => {
         if (!result) {

@@ -1,5 +1,8 @@
+import { join } from "path";
+
 export const config = {
   port: 5000,
+  emailTemplateFolder: join(__dirname, '../templates/email'),
   testMode: {
     noEmail: true,
     debugEmail: false,

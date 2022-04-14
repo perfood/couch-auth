@@ -6,7 +6,7 @@ import SendmailTransport from 'nodemailer/lib/sendmail-transport';
 import SESTransport from 'nodemailer/lib/ses-transport';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
 import StreamTransport from 'nodemailer/lib/stream-transport';
-import { ConsentConfig } from './typings';
+import { ConsentConfig, PooledSMTPOptions } from './typings';
 
 export interface TestConfig {
   /** Use a stub transport so no email is actually sent. Default: false */
@@ -171,23 +171,25 @@ export interface DBServerConfig {
 }
 
 /**
- * Configure templates that are sent out by superlogin automatically or
- * on-demand when using `superlogin.sendEmail`.
+ * Configure templates that are sent out by `couch-auth` automatically or
+ * on-demand when using ``couch-auth`.sendEmail`.
  */
 export interface EmailTemplate {
   /** The subject for the sent out email */
   subject: string;
-  /** The formats in which the email should be send out */
-  formats?: Array<'text' | 'html'>;
   /**
-   * The paths (relative to where your config file) where the templates for the
-   * different formats are is located (in the same order)
+   * Additional data that can be accessed with `data.` in the nunjucks template.
+   * `year` and `paragraphs` are reserved internally.
    */
-  templates?: string[];
-  /** @deprecated The format of the email */
-  format?: 'text' | 'html';
-  /** @deprecated The path of the template */
-  template?: string;
+  data?: Record<string, any>;
+}
+
+export interface RetryMailOptions {
+  /** Retry at most this many times */
+  maxRetries: number;
+  /** Initial amount of seconds to wait. Next attempt will be made after 2x the
+   * previous waiting time. */
+  initialBackoffSeconds: number;
 }
 
 /** Configure how [nodemailer](https://nodemailer.com/about/) sends mails. */
@@ -205,19 +207,22 @@ export interface MailerConfig {
     | SESTransport
     | Transport;
   /**
-   * If you do not use a custom `transport`, these are your SMTP credentials.
+   * If you do not use a custom `transport`, these are your SMTP credentials and
+   * additional options passed to `createTransport`.
    *
    * See https://nodemailer.com/smtp/#examples for details.
    */
-  options?: SMTPTransport.Options;
+  options?: SMTPTransport.Options & PooledSMTPOptions;
   /**
    * Additional message fields, e.g. `replyTo` and `cc`.
    * Note that `to`, `from`, `subject`, `html` and `text` are expected to be
-   * handled by `superlogin` instead.
+   * handled by ``couch-auth`` instead.
    *
    * See https://nodemailer.com/message/ for details.
    */
   messageConfig?: Mail.Options;
+  /** If the call to nodemailer rejected with an error, retry the mail delivery */
+  retryOnError?: RetryMailOptions;
 }
 
 export interface DefaultDBConfig {
@@ -307,10 +312,12 @@ export interface ProviderConfig {
    */
   stateRequired: boolean;
   /**
-   * Custom template for the redirect callback, this needs to pass the data received by the provider authentication
-   * back to the parent window, you can copy the default from `templates/oauth/auth-callback` but modify the
-   * second parameter of the function postMessage, that is the targetOrigin, with the origin of your page server
-   * to avoid posting the data to any potencial malicious site.
+   * Custom `nunjucks` template for the redirect callback, this needs to pass
+   * the data received by the provider authentication back to the parent window,
+   * you can copy the default from `templates/oauth/authCallback` but modify
+   * the second parameter of the function postMessage, that is the targetOrigin,
+   * with the origin of your page server to avoid posting the data to any
+   * potencial malicious site.
    *
    * In the template you have access to
    *  - error: message in case anything went wrong.
@@ -333,9 +340,9 @@ export interface Config {
   /** Configure how mails are sent out to users */
   mailer?: MailerConfig;
   /**
-   * Customize the templates for the emails that SuperLogin sends out.
+   * Customize the templates for the emails that `couch-auth` sends out.
    * Otherwise, the defaults located in `./templates/email` will be used.
-   * The following templates are used by Superlogin:
+   * The following templates are used by `couch-auth`:
    * - `'confirmEmail'`
    * - `'confirmEmailChange'`
    * - `'forgotPassword'`
@@ -343,9 +350,26 @@ export interface Config {
    * - `'signupExistingEmail'`
    * - `'forgotUsername'`
    *
-   * You can add additional templates and send them out via `sendEmail()`.
+   * If a template named `base.njk` exists in the template folder, it will be
+   * used to send out both a HTML and a plain text version based on the contents
+   * of `${template}.njk` templates.
+   * But if both (or any) of `${template}.html.njk` and `${template}.text.njk`
+   * exists, they will be used instead.
+   *
+   * Basic markdown styling is supported:
+   * - `[]()` for URLs
+   * - `_` or `*` for italic
+   * - `**` for bold
+   *
+   * You can add additional templates and send them out via `sendEmail()`, using
+   * the same templating logic.
    */
-  emails?: Record<string, EmailTemplate>;
+  emailTemplates?: Record<string, EmailTemplate>;
+  /**
+   * Folder path relative to which the email templates are located.
+   * If not specified, `./templates/email` is used
+   */
+  emailTemplateFolder?: string;
   /** Custom settings to manage personal databases for your users */
   userDBs?: UserDBConfig;
   /** OAuth 2 providers */

@@ -47,43 +47,24 @@ export const defaultConfig: Config = {
     userDB: 'sl_users',
     couchAuthDB: '_users'
   },
-  emails: {
+  emailTemplates: {
     confirmEmail: {
       subject: 'Please confirm your email',
-      template: path.join(__dirname, '../../templates/email/confirm-email.ejs'),
-      format: 'text'
+    },
+    confirmEmailChange: {
+      subject: 'Please confirm your new email'
     },
     forgotPassword: {
       subject: 'Your password reset link',
-      template: path.join(
-        __dirname,
-        '../../templates/email/forgot-password.ejs'
-      ),
-      format: 'text'
     },
     modifiedPassword: {
       subject: 'Your password has been modified',
-      template: path.join(
-        __dirname,
-        '../../templates/email/modified-password.ejs'
-      ),
-      format: 'text'
     },
     signupExistingEmail: {
       subject: 'You already have registered with us',
-      template: path.join(
-        __dirname,
-        '../../templates/email/signup-email-exists.ejs'
-      ),
-      format: 'text'
     },
     forgotUsername: {
       subject: 'Your username request',
-      template: path.join(
-        __dirname,
-        '../../templates/email/forgot-username.ejs'
-      ),
-      format: 'text'
     }
   }
 };

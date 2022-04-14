@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Authentication {{ 'Failed' if error else 'Success' }}</title>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+</head>
+<body>
+    <p>Session: {{ session | dump }}</p>
+    <p>Link: {{ link | dump }}</p>
+    <p>Error: {{ error | dump }}</p>
+</body>
+</html>

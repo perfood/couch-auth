@@ -1,7 +1,7 @@
 import chai, { expect } from 'chai';
 import events from 'events';
 import nano, { DocumentScope } from 'nano';
-import path from 'path';
+import { join } from 'path';
 import sinon from 'sinon';
 import request from 'superagent';
 import { v4 as uuidv4, validate as isUUID } from 'uuid';
@@ -11,10 +11,10 @@ import { Mailer } from '../src/mailer';
 import { CouchDbAuthDoc, SlUserDoc } from '../src/types/typings';
 import { User } from '../src/user';
 import {
-  addProvidersToDesignDoc,
-  getDBURL,
-  hyphenizeUUID,
-  timeoutPromise
+    addProvidersToDesignDoc,
+    getDBURL,
+    hyphenizeUUID,
+    timeoutPromise
 } from '../src/util';
 import { config } from './test.config';
 chai.use(require('sinon-chai'));
@@ -89,24 +89,16 @@ const userConfigHelper = new Configure({
   mailer: {
     fromEmail: 'noreply@example.com'
   },
-  emails: {
+  emailTemplateFolder: join(__dirname, '../templates/email'),
+  emailTemplates: {
     confirmEmail: {
       subject: 'Please confirm your email',
-      template: path.join(__dirname, '../templates/email/confirm-email.ejs'),
-      format: 'text'
     },
     forgotPassword: {
       subject: 'Your password reset link',
-      template: path.join(__dirname, '../templates/email/forgot-password.ejs'),
-      format: 'text'
     },
     modifiedPassword: {
       subject: 'Your password has been modified',
-      template: path.join(
-        __dirname,
-        '../templates/email/modified-password.ejs'
-      ),
-      format: 'text'
     }
   },
   dbServer: {

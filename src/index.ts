@@ -89,6 +89,4 @@ export class SuperLogin extends User {
     this.requireAnyRole = middleware.requireAnyRole.bind(middleware);
     this.requireAllRoles = middleware.requireAllRoles.bind(middleware);
   }
-
-  private async init() {}
 }

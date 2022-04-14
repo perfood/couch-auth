@@ -1,5 +1,22 @@
 ## Change Log
 
+#### 0.17.X: ejs -> nunjucks
+
+##### 0.17.0: Replace ejs with nunjucks
+
+- :boom: Email templates now use [Nunjucks](https://mozilla.github.io/nunjucks/) instead of EJS
+  - A `confirmEmailChange` in addition to `confirmEmail` is now required, the fallback to `confirmEmail` was removed.
+- :sparkles: Simplified template management with base HTML templates + some markdown features. Look into `templates/email` and the REAMDE to see how it works.
+  - TLDR: you need a `base.njk` which includes a block like this:
+  ```
+  {% block content %}
+    {% for paragraph in paragraphs %}
+      <p>{{paragraph | safe}}</p>
+    {% endfor %}
+  {% endblock %}
+  ```
+- :goal_net: add option for exponential backoff if sending a mail failed
+
 ##### 0.16.2
 - :bug: Fix password auth with special characters
 
