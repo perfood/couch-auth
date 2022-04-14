@@ -6,6 +6,7 @@ import {
   parseTemplatesDirectly
 } from './template-utils';
 import { Config } from './types/config';
+import { timeoutPromise } from './util';
 
 export class Mailer {
   private config: Partial<Config>;
@@ -32,7 +33,11 @@ export class Mailer {
    * @param recepient the recepient's email address
    * @param data additional data can be passed to `nunjucks.render()`
    */
-  sendEmail(templateId: string, recepient: string, data?: Record<string, any>) {
+  public async sendEmail(
+    templateId: string,
+    recepient: string,
+    data?: Record<string, any>
+  ): Promise<any> {
     // load the template and parse it
     const templateConfig = this.config.emailTemplates[templateId];
     if (!templateConfig) {
@@ -74,6 +79,30 @@ export class Mailer {
       console.log(mailOptions);
     }
     // send the message
-    return this.transporter.sendMail(mailOptions);
+    if (this.config.mailer.retryOnError) {
+      return this.sendMailWithBackoff(mailOptions, 0);
+    } else {
+      return this.transporter.sendMail(mailOptions);
+    }
+  }
+
+  private async sendMailWithBackoff(
+    mailOptions: Mail.Options,
+    attempt: number
+  ) {
+    try {
+      return this.transporter.sendMail(mailOptions);
+    } catch (error) {
+      attempt += 1;
+      if (attempt > this.config.mailer.retryOnError.maxRetries) {
+        throw error;
+      }
+      await timeoutPromise(
+        1000 *
+          this.config.mailer.retryOnError.initialBackoffSeconds *
+          2 ** attempt
+      );
+      return this.sendMailWithBackoff(mailOptions, attempt);
+    }
   }
 }

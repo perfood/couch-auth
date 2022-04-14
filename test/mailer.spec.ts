@@ -1,6 +1,7 @@
 'use strict';
 import { expect } from 'chai';
 import { join } from 'path';
+import sinon from 'sinon';
 import { ConfigHelper as Configure } from '../src/config/configure';
 import { Mailer } from '../src/mailer';
 
@@ -9,7 +10,11 @@ const mailerTestConfig = new Configure({
     noEmail: true
   },
   mailer: {
-    fromEmail: 'noreply@example.com'
+    fromEmail: 'noreply@example.com',
+    retryOnError: {
+      maxRetries: 3,
+      initialBackoffSeconds: 0.1
+    }
   },
   emailTemplateFolder: join(__dirname, '../templates/email')
 });
@@ -66,5 +71,21 @@ describe('Mailer', function () {
       templateCount += 1;
     }
     expect(templateCount).to.be.equal(6);
+  });
+
+  it('should retry 3x on error', async () => {
+    mailer['transporter']['sendMail'] = x => {
+      throw 'nope';
+    };
+    const spySendMail = sinon.spy(mailer['transporter'], 'sendMail');
+    try {
+      let res = await mailer.sendEmail('confirmEmail', 'super@example.com', {
+        req,
+        user
+      });
+    } catch (error) {
+      expect(error).to.equal('nope');
+    }
+    expect(spySendMail.callCount).to.equal(4);
   });
 });
