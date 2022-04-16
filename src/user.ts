@@ -31,6 +31,7 @@ import {
   EMAIL_REGEXP,
   extractCurrentConsents,
   getExpiredSessions,
+  getSessionKey,
   getSessions,
   hashToken,
   hyphenizeUUID,
@@ -609,13 +610,20 @@ export class User {
       console.warn('createSession - could not retrieve: ', login);
       throw { error: 'Bad Request', status: 400 };
     }
-    const user_uid = user._id;
-    const token = this.generateSession(user_uid, user.roles, provider);
-    const password = token.password;
-    token.provider = provider;
+    const now = Date.now();
+    const password = URLSafeUUID();
+    const token = {
+      key: user.inactiveSessions?.shift() ?? getSessionKey(),
+      password,
+      _id: user._id,
+      issued: now,
+      expires: now + this.config.security.sessionLife * 1000,
+      roles: user.roles,
+      provider
+    };
     await this.dbAuth.storeKey(
       user.key,
-      hyphenizeUUID(user_uid),
+      hyphenizeUUID(user._id),
       token.key,
       password,
       token.expires,
@@ -1139,6 +1147,7 @@ export class User {
       startSessions = Object.keys(user.session).length;
       if (user.session[session_id]) {
         delete user.session[session_id];
+        user.inactiveSessions = [...(user.inactiveSessions ?? []), session_id];
       }
     }
     // 1.) if this fails, the whole logout has failed! Else ok, will be cleaned up later.
@@ -1205,7 +1214,7 @@ export class User {
     currentSession?: string
   ) {
     // When op is 'other' it will logout all sessions except for the specified 'currentSession'
-    let sessions;
+    let sessions: string[];
     if (op === Cleanup.all || op === Cleanup.other) {
       sessions = getSessions(userDoc);
     } else if (op === Cleanup.expired) {
@@ -1228,6 +1237,10 @@ export class User {
           delete userDoc.session[session];
         });
       }
+      userDoc.inactiveSessions = [
+        ...(userDoc.inactiveSessions ?? []),
+        ...sessions
+      ];
     }
     if (op === Cleanup.all) {
       delete userDoc.session;
@@ -1290,19 +1303,6 @@ export class User {
       await this.session.confirmToken({}, password);
     }
     throw Session.invalidMsg;
-  }
-
-  private generateSession(user_uid: string, roles: string[], provider: string) {
-    const key = this.dbAuth.getApiKey();
-    const now = Date.now();
-    return {
-      ...key,
-      _id: user_uid,
-      issued: now,
-      expires: now + this.config.security.sessionLife * 1000,
-      roles,
-      provider
-    };
   }
 
   /**

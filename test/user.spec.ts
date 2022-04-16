@@ -11,10 +11,10 @@ import { Mailer } from '../src/mailer';
 import { CouchDbAuthDoc, SlUserDoc } from '../src/types/typings';
 import { User } from '../src/user';
 import {
-    addProvidersToDesignDoc,
-    getDBURL,
-    hyphenizeUUID,
-    timeoutPromise
+  addProvidersToDesignDoc,
+  getDBURL,
+  hyphenizeUUID,
+  timeoutPromise
 } from '../src/util';
 import { config } from './test.config';
 chai.use(require('sinon-chai'));
@@ -92,13 +92,13 @@ const userConfigHelper = new Configure({
   emailTemplateFolder: join(__dirname, '../templates/email'),
   emailTemplates: {
     confirmEmail: {
-      subject: 'Please confirm your email',
+      subject: 'Please confirm your email'
     },
     forgotPassword: {
-      subject: 'Your password reset link',
+      subject: 'Your password reset link'
     },
     modifiedPassword: {
-      subject: 'Your password has been modified',
+      subject: 'Your password has been modified'
     }
   },
   dbServer: {
@@ -518,6 +518,7 @@ describe('User Model', async function () {
       )
       .then(function (user) {
         expect(user.session[sessionKey]).to.be.an('undefined');
+        expect(user.inactiveSessions.length).to.equal(1);
         return emitterPromise;
       });
   });
@@ -575,6 +576,7 @@ describe('User Model', async function () {
       )
       .then(function (user) {
         expect(user.session).to.be.an('undefined');
+        expect(user.inactiveSessions.length).to.equal(2);
         // Make sure the sessions are deauthorized in the usertest db
         return userTestDB.get('_security');
       })

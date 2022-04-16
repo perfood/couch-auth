@@ -16,14 +16,23 @@ export function URLSafeUUID(): string {
   return URLSafeBase64.encode(uuidv4(null, Buffer.alloc(16)));
 }
 
-function getKey() {
+export function getSessionKey() {
+  let token = URLSafeUUID();
+  // Make sure our token doesn't start with illegal characters
+  while (token[0] === '_' || token[0] === '-') {
+    token = URLSafeUUID();
+  }
+  return token;
+}
+
+function getUserKey() {
   return URLSafeUUID().substring(0, 8).toLowerCase();
 }
 
 export function generateSlUserKey(): string {
-  let newKey = getKey();
+  let newKey = getUserKey();
   while (!USER_REGEXP.test(newKey)) {
-    newKey = getKey();
+    newKey = getUserKey();
   }
   return newKey;
 }
