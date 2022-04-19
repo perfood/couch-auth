@@ -226,7 +226,7 @@ SuperLogin also allows you to specify default `_security` roles for members and 
 
 ## Email templates
 
-[Nunjucks](https://mozilla.github.io/nunjucks/) is used for the email and oauth callback templates. The defaults in the `templates` folder. Set the `emailTemplateFolder` accordingly when providing your own templates. For each `template`, you have two options of including it with `couch-auth` by placing it into the `emailTemplateFolder`:
+[Nunjucks](https://mozilla.github.io/nunjucks/) is used for the email and oauth callback templates. The defaults in the `templates` folder. Set `emailTemplates.folder` accordingly when providing your own templates. For each `template` defined in `emailTemplates.templates`, you have two options of including it with `couch-auth` by placing it into `emailTemplates.folder`:
 
 1. Provide a `${template}.html.njk` and/or `${template}.text.njk` file
 2. Provide a `base.njk` HTML template and a `${template}.njk` file containing the text
@@ -237,7 +237,7 @@ When using option 2), you'll have pretty HTML emails with little maintenance ove
 
 The `base.njk` needs to contain a block like this for every paragraph that will be rendered into it:
 
-```                                                                                                                                                   {% block content %} 
+```                                                                                                         {% block content %} 
  {% for paragraph in paragraphs %}   
    <p>{{paragraph | safe}}</p> 
  {% endfor %} 
@@ -245,6 +245,8 @@ The `base.njk` needs to contain a block like this for every paragraph that will 
 ```
 
 Be sure to _never_ use `safe` for data that is passed via `req` inside your nunjucks templates!
+
+You can pass additional data for all templates via `emailTemplates.data` or for a single template via its `data` entry. It will be available in nunjucks as `data. ...`.
 
 Support for `ejs` has been dropped with version `0.17.0`.
 ## CouchDB Document Update Validation
@@ -450,6 +452,9 @@ Checks an email to make sure it is valid and not already in use. Responds with s
 ##### `POST /change-email`
 
 Authentication required. Changes the user's email. Required field: `newEmail`.
+
+If `requirePasswordOnEmailChange` is `true`: The `username` (can also be email)
+and `password` are also required.
 
 Note: The server returns an answer once the email has been verified as valid and
 whether this email already exists in the DB, not waiting for the update of the 
