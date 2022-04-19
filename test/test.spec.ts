@@ -424,6 +424,33 @@ describe('SuperLogin', function () {
     });
   });
 
+  it('should change the email', () => {
+    return previous.then(function () {
+      return findUser(newUser.username).then(function (_user) {
+        return new Promise<void>(function (resolve, reject) {
+          request
+            .post(server + '/auth/change-email')
+            .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
+            .send({
+              newEmail: 'kewluzer2@example.com',
+              password: 'newpass2',
+              username: 'kewluzer@example.com'
+            })
+            .then(res => {
+              expect(res.status).to.equal(200);
+              return timeoutPromise(300);
+            })
+            .then(() => {
+              resolve();
+            })
+            .catch(err => {
+              console.error(err);
+            });
+        });
+      });
+    });
+  });
+
   it('should logout the user', function () {
     return previous.then(function () {
       return new Promise<void>(function (resolve, reject) {
@@ -522,7 +549,7 @@ describe('SuperLogin', function () {
       .then(function () {
         return new Promise<void>(function (resolve, reject) {
           request
-            .get(server + '/auth/validate-username/kewluzer@example.com')
+            .get(server + '/auth/validate-username/kewluzer2@example.com')
             .end(function (error, res) {
               expect(res.status).to.equal(409);
               console.log('Validate Email is working');

@@ -92,6 +92,7 @@ export type UserAction =
   | 'forgot-password'
   | 'email-changed'
   | 'logout'
+  | 'logout-others'
   | 'logout-all'
   | 'refresh'
   | 'consents';
@@ -109,6 +110,10 @@ export type UserEvent =
 export interface UserActivity {
   timestamp: string;
   action: UserAction;
+  /**
+   * Depending on the action, this is either the OAuth-provider, `'local'` or
+   * the current session-ID
+   */
   provider: string;
 }
 
@@ -174,17 +179,24 @@ export interface SlLoginSession extends SlRefreshSession {
   name?: string;
 }
 
-export interface SlUser {
+export interface SlRequestUser {
+  /** `"local"` or the OAuth provider */
   provider?: string;
+  /** UUID (without hyphens) of the user */
   _id?: string;
+  /**
+   * In this context, this is the current _session_ of the user, not the `key`
+   * in the SlUserDoc!
+   */
   key?: string;
   roles?: string[];
+  /** @deprecated Also the UUID (without hyphens) - does this make any sense? */
   user_id?: string;
   consents?: Record<string, ConsentRequest>;
 }
 
 export interface SlRequest extends Request {
-  user: SlUser;
+  user: SlRequestUser;
 }
 
 export type SlAction = (a: SlUserDoc, b: string) => Promise<SlUserDoc>;

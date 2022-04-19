@@ -700,19 +700,19 @@ export class User {
    * todo:
    * - handle error if invalid state occurs that doc is not present.
    */
-  public async refreshSession(key: string): Promise<SlRefreshSession> {
-    let userDoc = await this.userDbManager.findUserDocBySession(key);
+  public async refreshSession(sessionId: string): Promise<SlRefreshSession> {
+    let userDoc = await this.userDbManager.findUserDocBySession(sessionId);
     const newExpiration = Date.now() + this.config.security.sessionLife * 1000;
-    userDoc.session[key].expires = newExpiration;
+    userDoc.session[sessionId].expires = newExpiration;
     // Clean out expired sessions on refresh
     userDoc = await this.logoutUserSessions(userDoc, Cleanup.expired);
-    userDoc = this.userDbManager.logActivity('refresh', key, userDoc);
+    userDoc = this.userDbManager.logActivity('refresh', sessionId, userDoc);
     await this.userDB.insert(userDoc);
-    await this.dbAuth.extendKey(key, newExpiration);
+    await this.dbAuth.extendKey(sessionId, newExpiration);
 
     const newSession: SlRefreshSession = {
-      ...userDoc.session[key],
-      token: key,
+      ...userDoc.session[sessionId],
+      token: sessionId,
       user_uid: hyphenizeUUID(userDoc._id),
       user_id: userDoc.key,
       roles: userDoc.roles
@@ -1123,7 +1123,7 @@ export class User {
       });
     }
     await this.logoutUserSessions(user, Cleanup.all);
-    user = this.userDbManager.logActivity('logout-all', login, user);
+    user = this.userDbManager.logActivity('logout-all', session_id, user);
     this.emitter.emit('logout-all', user.key);
     return this.userDB.insert(user);
   }
@@ -1193,16 +1193,14 @@ export class User {
   }
 
   /** Logs out all of a user's sessions, except for the one specified. */
-  public async logoutOthers(session_id: string) {
-    const user = await this.userDbManager.findUserDocBySession(session_id);
+  public async logoutOthers(sessionId: string) {
+    let user = await this.userDbManager.findUserDocBySession(sessionId);
     if (user) {
-      if (user.session && user.session[session_id]) {
-        const finalUser = await this.logoutUserSessions(
-          user,
-          Cleanup.other,
-          session_id
-        );
-        return this.userDB.insert(finalUser);
+      if (user.session && user.session[sessionId]) {
+        user = await this.logoutUserSessions(user, Cleanup.other, sessionId);
+        user = this.userDbManager.logActivity('logout-others', sessionId, user);
+        this.emitter.emit('logout-others', user.key);
+        return this.userDB.insert(user);
       }
     }
     return false;

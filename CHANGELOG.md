@@ -6,6 +6,8 @@
 
 - :boom: Email templates now use [Nunjucks](https://mozilla.github.io/nunjucks/) instead of EJS
   - A `confirmEmailChange` in addition to `confirmEmail` is now required, the fallback to `confirmEmail` was removed.
+  - `req` is available in all mails sent out by couch-auth
+  - Support for `pool` when passing SMTP config
 - :sparkles: Simplified template management with base HTML templates + some markdown features. Look into `templates/email` and the REAMDE to see how it works.
   - TLDR: you need a `base.njk` which includes a block like this:
   ```
@@ -16,6 +18,9 @@
   {% endblock %}
   ```
 - :goal_net: add option for exponential backoff if sending a mail failed
+- :bug: `logout-others` is added to `activityLog` and event emitter
+  - :construction: document the currently used session, when available
+- :zap: Session keys for each user are documented in `inactiveSessions` and re-used if available when logging in
 
 ##### 0.16.2
 - :bug: Fix password auth with special characters
