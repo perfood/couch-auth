@@ -16,7 +16,9 @@ const mailerTestConfig = new Configure({
       initialBackoffSeconds: 0.1
     }
   },
-  emailTemplateFolder: join(__dirname, '../templates/email')
+  emailTemplates: {
+    folder: join(__dirname, '../templates/email')
+  }
 });
 
 const req = {
@@ -58,16 +60,22 @@ describe('Mailer', function () {
       });
   });
 
-  it('should render all default templates', () => {
+  it('should render all default templates', async () => {
     const data = {
       req,
       user
     };
     let templateCount = 0;
     for (const template of Object.keys(
-      mailerTestConfig.config.emailTemplates
+      mailerTestConfig.config.emailTemplates.templates
     )) {
-      mailer.sendEmail(template, 'super@example.com', data);
+      const res = await mailer.sendEmail(template, 'super@example.com', data);
+      expect(
+        res.response
+          .toString()
+          .search(`${new Date().getFullYear()} Fynn Leitow`)
+      ).to.be.greaterThan(-1);
+
       templateCount += 1;
     }
     expect(templateCount).to.be.equal(6);

@@ -1,4 +1,4 @@
-import path from 'path';
+import { join } from 'path';
 import { Config } from '../types/config';
 
 /**
@@ -43,28 +43,32 @@ export const defaultConfig: Config = {
   dbServer: {
     protocol: 'http://',
     host: 'localhost:5984',
-    designDocDir: path.join(__dirname, '/designDocs'),
+    designDocDir: join(__dirname, '/designDocs'),
     userDB: 'sl_users',
     couchAuthDB: '_users'
   },
   emailTemplates: {
-    confirmEmail: {
-      subject: 'Please confirm your email',
-    },
-    confirmEmailChange: {
-      subject: 'Please confirm your new email'
-    },
-    forgotPassword: {
-      subject: 'Your password reset link',
-    },
-    modifiedPassword: {
-      subject: 'Your password has been modified',
-    },
-    signupExistingEmail: {
-      subject: 'You already have registered with us',
-    },
-    forgotUsername: {
-      subject: 'Your username request',
+    folder: join(__dirname, './templates/email'),
+    data: { year: new Date().getFullYear() },
+    templates: {
+      confirmEmail: {
+        subject: 'Please confirm your email'
+      },
+      confirmEmailChange: {
+        subject: 'Please confirm your new email'
+      },
+      forgotPassword: {
+        subject: 'Your password reset link'
+      },
+      modifiedPassword: {
+        subject: 'Your password has been modified'
+      },
+      signupExistingEmail: {
+        subject: 'You already have registered with us'
+      },
+      forgotUsername: {
+        subject: 'Your username request'
+      }
     }
   }
 };

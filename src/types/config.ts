@@ -170,6 +170,46 @@ export interface DBServerConfig {
   designDocDir?: string;
 }
 
+export interface EmailTemplateConfig {
+  /**
+   * Customize the templates for the emails that `couch-auth` sends out.
+   * Otherwise, the defaults located in `./templates/email` will be used.
+   * The following templates are used by `couch-auth`:
+   * - `'confirmEmail'`
+   * - `'confirmEmailChange'`
+   * - `'forgotPassword'`
+   * - `'modifiedPassword'`
+   * - `'signupExistingEmail'`
+   * - `'forgotUsername'`
+   *
+   * If a template named `base.njk` exists in the template folder, it will be
+   * used to send out both a HTML and a plain text version based on the contents
+   * of `${template}.njk` templates.
+   * But if both (or any) of `${template}.html.njk` and `${template}.text.njk`
+   * exists, they will be used instead.
+   *
+   * Basic markdown styling is supported:
+   * - `[]()` for URLs
+   * - `_` or `*` for italic
+   * - `**` for bold
+   *
+   * You can add additional templates and send them out via `sendEmail()`, using
+   * the same templating logic.
+   */
+  templates?: Record<string, EmailTemplate>;
+  /**
+   * Folder path relative to which the email templates are located.
+   * If not specified, `./templates/email` is used
+   */
+  folder?: string;
+  /**
+   * Anything defined here will be available as `data. ...` within `nunjucks`.
+   * If the same property is defined both here _and_ in the `EmailTemplate`,
+   * the latter takes precedence.
+   */
+  data?: Record<string, any>;
+}
+
 /**
  * Configure templates that are sent out by `couch-auth` automatically or
  * on-demand when using ``couch-auth`.sendEmail`.
@@ -179,7 +219,8 @@ export interface EmailTemplate {
   subject: string;
   /**
    * Additional data that can be accessed with `data.` in the nunjucks template.
-   * `year` and `paragraphs` are reserved internally.
+   * Note that `paragraphs` is reserved internally when using the hierarchical
+   * template logic!
    */
   data?: Record<string, any>;
 }
@@ -339,37 +380,8 @@ export interface Config {
   dbServer: DBServerConfig;
   /** Configure how mails are sent out to users */
   mailer?: MailerConfig;
-  /**
-   * Customize the templates for the emails that `couch-auth` sends out.
-   * Otherwise, the defaults located in `./templates/email` will be used.
-   * The following templates are used by `couch-auth`:
-   * - `'confirmEmail'`
-   * - `'confirmEmailChange'`
-   * - `'forgotPassword'`
-   * - `'modifiedPassword'`
-   * - `'signupExistingEmail'`
-   * - `'forgotUsername'`
-   *
-   * If a template named `base.njk` exists in the template folder, it will be
-   * used to send out both a HTML and a plain text version based on the contents
-   * of `${template}.njk` templates.
-   * But if both (or any) of `${template}.html.njk` and `${template}.text.njk`
-   * exists, they will be used instead.
-   *
-   * Basic markdown styling is supported:
-   * - `[]()` for URLs
-   * - `_` or `*` for italic
-   * - `**` for bold
-   *
-   * You can add additional templates and send them out via `sendEmail()`, using
-   * the same templating logic.
-   */
-  emailTemplates?: Record<string, EmailTemplate>;
-  /**
-   * Folder path relative to which the email templates are located.
-   * If not specified, `./templates/email` is used
-   */
-  emailTemplateFolder?: string;
+  /** Configure the email templates, the folder location + additional data */
+  emailTemplates?: EmailTemplateConfig;
   /** Custom settings to manage personal databases for your users */
   userDBs?: UserDBConfig;
   /** OAuth 2 providers */

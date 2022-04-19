@@ -37,7 +37,6 @@ export function parseCompositeTemplate(
   const plainTextContent = render(contentPath, data);
   const contentParagraphs = processMarkdown(plainTextContent).split('\n');
   data.paragraphs = contentParagraphs;
-  data.year = new Date().getFullYear();
 
   return { html: render(baseTemplate, data), text: plainTextContent };
 }

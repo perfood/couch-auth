@@ -5,7 +5,7 @@ import {
   parseCompositeTemplate,
   parseTemplatesDirectly
 } from './template-utils';
-import { Config } from './types/config';
+import { Config, EmailTemplate } from './types/config';
 import { timeoutPromise } from './util';
 
 export class Mailer {
@@ -31,7 +31,8 @@ export class Mailer {
    *
    * @param templateId the entry under the `emails` property in the config
    * @param recepient the recepient's email address
-   * @param data additional data can be passed to `nunjucks.render()`
+   * @param data additional data directly passed to `nunjucks.render()`. Don't
+   * add anything called `data` in here!
    */
   public async sendEmail(
     templateId: string,
@@ -39,14 +40,19 @@ export class Mailer {
     data?: Record<string, any>
   ): Promise<any> {
     // load the template and parse it
-    const templateConfig = this.config.emailTemplates[templateId];
+    const templateConfig: EmailTemplate =
+      this.config.emailTemplates.templates[templateId];
     if (!templateConfig) {
       return Promise.reject('No template entry for "' + templateId + '".');
     }
     const templateDirectory =
-      this.config.emailTemplateFolder ?? join(__dirname, './templates/email');
+      this.config.emailTemplates.folder ?? join(__dirname, './templates/email');
     let templates: { html: string; text: string };
-    const templateData = { ...templateConfig, ...data };
+    const templateData = {
+      subject: templateConfig.subject,
+      data: { ...this.config.emailTemplates.data, ...templateConfig.data },
+      ...data
+    };
 
     try {
       templates = parseCompositeTemplate(

@@ -89,16 +89,18 @@ const userConfigHelper = new Configure({
   mailer: {
     fromEmail: 'noreply@example.com'
   },
-  emailTemplateFolder: join(__dirname, '../templates/email'),
   emailTemplates: {
-    confirmEmail: {
-      subject: 'Please confirm your email'
-    },
-    forgotPassword: {
-      subject: 'Your password reset link'
-    },
-    modifiedPassword: {
-      subject: 'Your password has been modified'
+    folder: join(__dirname, '../templates/email'),
+    templates: {
+      confirmEmail: {
+        subject: 'Please confirm your email'
+      },
+      forgotPassword: {
+        subject: 'Your password reset link'
+      },
+      modifiedPassword: {
+        subject: 'Your password has been modified'
+      }
     }
   },
   dbServer: {
