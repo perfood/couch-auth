@@ -1,7 +1,7 @@
 import chai, { expect } from 'chai';
 import events from 'events';
 import nano, { DocumentScope } from 'nano';
-import path from 'path';
+import { join } from 'path';
 import sinon from 'sinon';
 import request from 'superagent';
 import { v4 as uuidv4, validate as isUUID } from 'uuid';
@@ -89,24 +89,18 @@ const userConfigHelper = new Configure({
   mailer: {
     fromEmail: 'noreply@example.com'
   },
-  emails: {
-    confirmEmail: {
-      subject: 'Please confirm your email',
-      template: path.join(__dirname, '../templates/email/confirm-email.ejs'),
-      format: 'text'
-    },
-    forgotPassword: {
-      subject: 'Your password reset link',
-      template: path.join(__dirname, '../templates/email/forgot-password.ejs'),
-      format: 'text'
-    },
-    modifiedPassword: {
-      subject: 'Your password has been modified',
-      template: path.join(
-        __dirname,
-        '../templates/email/modified-password.ejs'
-      ),
-      format: 'text'
+  emailTemplates: {
+    folder: join(__dirname, '../templates/email'),
+    templates: {
+      confirmEmail: {
+        subject: 'Please confirm your email'
+      },
+      forgotPassword: {
+        subject: 'Your password reset link'
+      },
+      modifiedPassword: {
+        subject: 'Your password has been modified'
+      }
     }
   },
   dbServer: {
@@ -526,6 +520,7 @@ describe('User Model', async function () {
       )
       .then(function (user) {
         expect(user.session[sessionKey]).to.be.an('undefined');
+        expect(user.inactiveSessions.length).to.equal(1);
         return emitterPromise;
       });
   });
@@ -583,6 +578,7 @@ describe('User Model', async function () {
       )
       .then(function (user) {
         expect(user.session).to.be.an('undefined');
+        expect(user.inactiveSessions.length).to.equal(2);
         // Make sure the sessions are deauthorized in the usertest db
         return userTestDB.get('_security');
       })

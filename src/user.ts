@@ -31,6 +31,7 @@ import {
   EMAIL_REGEXP,
   extractCurrentConsents,
   getExpiredSessions,
+  getSessionKey,
   getSessions,
   hashToken,
   hyphenizeUUID,
@@ -320,10 +321,11 @@ export class User {
     return this.userDbManager.getUser(login, allowUUID);
   }
 
-  private async handleEmailExists(email: string): Promise<void> {
+  private async handleEmailExists(email: string, req?): Promise<void> {
     const existingUser = await this.userDbManager.getUserBy('email', email);
     await this.mailer.sendEmail('signupExistingEmail', email, {
-      user: existingUser
+      user: existingUser,
+      req
     });
     this.emitter.emit('signup-attempt', existingUser, 'local');
   }
@@ -384,7 +386,7 @@ export class User {
           if (err.email.length === 0) {
             delete err.email;
             if (Object.keys(err).length === 0) {
-              this.handleEmailExists(form.email);
+              this.handleEmailExists(form.email, req);
               doThrow = false;
             }
           }
@@ -608,13 +610,20 @@ export class User {
       console.warn('createSession - could not retrieve: ', login);
       throw { error: 'Bad Request', status: 400 };
     }
-    const user_uid = user._id;
-    const token = this.generateSession(user_uid, user.roles, provider);
-    const password = token.password;
-    token.provider = provider;
+    const now = Date.now();
+    const password = URLSafeUUID();
+    const token = {
+      key: user.inactiveSessions?.shift() ?? getSessionKey(),
+      password,
+      _id: user._id,
+      issued: now,
+      expires: now + this.config.security.sessionLife * 1000,
+      roles: user.roles,
+      provider
+    };
     await this.dbAuth.storeKey(
       user.key,
-      hyphenizeUUID(user_uid),
+      hyphenizeUUID(user._id),
       token.key,
       password,
       token.expires,
@@ -691,19 +700,19 @@ export class User {
    * todo:
    * - handle error if invalid state occurs that doc is not present.
    */
-  public async refreshSession(key: string): Promise<SlRefreshSession> {
-    let userDoc = await this.userDbManager.findUserDocBySession(key);
+  public async refreshSession(sessionId: string): Promise<SlRefreshSession> {
+    let userDoc = await this.userDbManager.findUserDocBySession(sessionId);
     const newExpiration = Date.now() + this.config.security.sessionLife * 1000;
-    userDoc.session[key].expires = newExpiration;
+    userDoc.session[sessionId].expires = newExpiration;
     // Clean out expired sessions on refresh
     userDoc = await this.logoutUserSessions(userDoc, Cleanup.expired);
-    userDoc = this.userDbManager.logActivity('refresh', key, userDoc);
+    userDoc = this.userDbManager.logActivity('refresh', sessionId, userDoc);
     await this.userDB.insert(userDoc);
-    await this.dbAuth.extendKey(key, newExpiration);
+    await this.dbAuth.extendKey(sessionId, newExpiration);
 
     const newSession: SlRefreshSession = {
-      ...userDoc.session[key],
-      token: key,
+      ...userDoc.session[sessionId],
+      token: sessionId,
       user_uid: hyphenizeUUID(userDoc._id),
       user_id: userDoc.key,
       roles: userDoc.roles
@@ -1000,13 +1009,14 @@ export class User {
         email: newEmail,
         token: URLSafeUUID()
       };
-      const mailType = this.config.emails.confirmEmailChange
-        ? 'confirmEmailChange'
-        : 'confirmEmail';
-      await this.mailer.sendEmail(mailType, user.unverifiedEmail.email, {
-        req: req,
-        user: user
-      });
+      await this.mailer.sendEmail(
+        'confirmEmailChange',
+        user.unverifiedEmail.email,
+        {
+          req: req,
+          user: user
+        }
+      );
     } else {
       user.email = newEmail;
     }
@@ -1113,7 +1123,7 @@ export class User {
       });
     }
     await this.logoutUserSessions(user, Cleanup.all);
-    user = this.userDbManager.logActivity('logout-all', login, user);
+    user = this.userDbManager.logActivity('logout-all', session_id, user);
     this.emitter.emit('logout-all', user.key);
     return this.userDB.insert(user);
   }
@@ -1137,6 +1147,7 @@ export class User {
       startSessions = Object.keys(user.session).length;
       if (user.session[session_id]) {
         delete user.session[session_id];
+        user.inactiveSessions = [...(user.inactiveSessions ?? []), session_id];
       }
     }
     // 1.) if this fails, the whole logout has failed! Else ok, will be cleaned up later.
@@ -1182,16 +1193,14 @@ export class User {
   }
 
   /** Logs out all of a user's sessions, except for the one specified. */
-  public async logoutOthers(session_id: string) {
-    const user = await this.userDbManager.findUserDocBySession(session_id);
+  public async logoutOthers(sessionId: string) {
+    let user = await this.userDbManager.findUserDocBySession(sessionId);
     if (user) {
-      if (user.session && user.session[session_id]) {
-        const finalUser = await this.logoutUserSessions(
-          user,
-          Cleanup.other,
-          session_id
-        );
-        return this.userDB.insert(finalUser);
+      if (user.session && user.session[sessionId]) {
+        user = await this.logoutUserSessions(user, Cleanup.other, sessionId);
+        user = this.userDbManager.logActivity('logout-others', sessionId, user);
+        this.emitter.emit('logout-others', user.key);
+        return this.userDB.insert(user);
       }
     }
     return false;
@@ -1203,7 +1212,7 @@ export class User {
     currentSession?: string
   ) {
     // When op is 'other' it will logout all sessions except for the specified 'currentSession'
-    let sessions;
+    let sessions: string[];
     if (op === Cleanup.all || op === Cleanup.other) {
       sessions = getSessions(userDoc);
     } else if (op === Cleanup.expired) {
@@ -1226,6 +1235,10 @@ export class User {
           delete userDoc.session[session];
         });
       }
+      userDoc.inactiveSessions = [
+        ...(userDoc.inactiveSessions ?? []),
+        ...sessions
+      ];
     }
     if (op === Cleanup.all) {
       delete userDoc.session;
@@ -1290,19 +1303,6 @@ export class User {
     throw Session.invalidMsg;
   }
 
-  private generateSession(user_uid: string, roles: string[], provider: string) {
-    const key = this.dbAuth.getApiKey();
-    const now = Date.now();
-    return {
-      ...key,
-      _id: user_uid,
-      issued: now,
-      expires: now + this.config.security.sessionLife * 1000,
-      roles,
-      provider
-    };
-  }
-
   /**
    * Associates a new database with the user's account. Will also authenticate
    * all existing sessions with the new database. If the optional fields are not
@@ -1325,7 +1325,7 @@ export class User {
     let userDoc: SlUserDoc;
     const dbConfig = this.dbAuth.getDBConfig(dbName, type);
     dbConfig.designDocs = designDocs || dbConfig.designDocs || '';
-    dbConfig.partitioned = partitioned || dbConfig.partitioned || false
+    dbConfig.partitioned = partitioned || dbConfig.partitioned || false;
     return this.getUser(login)
       .then(result => {
         if (!result) {

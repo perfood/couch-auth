@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Nachricht von couch-auth</title>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    </head>
+    <body
+        bgcolor="#F2F2F2"
+        width="100%"
+        style=" margin: 0 !important; padding: 0px !important; height: 100% !important; width: 100% !important; "
+        yahoo="yahoo">
+        <table
+            bgcolor="#F2F2F2"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            height="100%"
+            width="100%"
+            style="border-collapse: collapse; border: 0px">
+            <tr>
+                <td>
+                    <div style=" display: none; font-size: 1px; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;
+                            mso-hide: all; font-family: sans-serif; ">
+                        Nachricht von couch-auth
+                    </div>
+                    <table cellspacing="0" cellpadding="0" border="0" align="center" bgcolor="#ffffff" width="600" class="email-container">
+                        <tr></tr>
+                        <tr>
+                            <td style=" padding: 40px; text-align: left; font-family: sans-serif; font-size: 15px; mso-height-rule: exactly; line-height:
+                                    20px; color: #555555; ">
+                                {% block content %}
+                                    {% for paragraph in paragraphs %}
+                                        <p>{{ paragraph | safe }}</p>
+                                    {% endfor %}
+                                {% endblock %}
+                            </td>
+                        </tr>
+                    </table>
+                    <table
+                        cellpadding="0"
+                        cellspacing="0"
+                        border="0"
+                        align="center"
+                        width="600"
+                        class="email-container"
+                        style="background-color: #ececec">
+                        <tr>
+                            <td style=" padding: 30px 10px; width: 100%; font-size: 12px; font-family: sans-serif; mso-height-rule: exactly; line-height:
+                                    18px; text-align: center; color: #555555; ">
+                                <p>
+                                    <a href="https://github.com/perfood/couch-auth" style="color: #69b972">Github
+                                    </a>
+                                    |
+                                    <a href="https://www.npmjs.com/package/@perfood/couch-auth" style="color: #69b972">NPM</a>
+                                    |
+                                    <a href="https://perfood.de/career/" style="color: #69b972">Work with us</a>
+                                </p>
+                                <p>
+                                    <span class="mobile-link--footer">
+                                        © {{ data.year }} Fynn Leitow
+                                    </span>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr bgcolor="#F2F2F2" cellpadding="0" cellspacing="0" border="0">
+                            <td style="padding: 20px; color: #f2f2f2" bgcolor="#F2F2F2" border="0">
+                                .
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>

@@ -6,6 +6,16 @@ export interface IdentifiedObj {
   type: string;
 }
 
+/** copied from https://nodemailer.com/smtp/pooled/ because it's not included in the typings */
+export interface PooledSMTPOptions {
+  /** set to true to use pooled connections (defaults to false) instead of creating a new connection for every email */
+  pool?: boolean;
+  /** is the count of maximum simultaneous connections to make against the SMTP server (defaults to 5) */
+  maxConnections?: number;
+  /** limits the message count to be sent using a single connection (defaults to 100). After maxMessages is reached the connection is dropped and a new one is created for the following messages */
+  maxMessages?: number;
+}
+
 export interface CouchDbAuthDoc
   extends IdentifiedDocument,
     MaybeRevisionedDocument,
@@ -82,6 +92,7 @@ export type UserAction =
   | 'forgot-password'
   | 'email-changed'
   | 'logout'
+  | 'logout-others'
   | 'logout-all'
   | 'refresh'
   | 'consents';
@@ -99,6 +110,10 @@ export type UserEvent =
 export interface UserActivity {
   timestamp: string;
   action: UserAction;
+  /**
+   * Depending on the action, this is either the OAuth-provider, `'local'` or
+   * the current session-ID
+   */
   provider: string;
 }
 
@@ -121,6 +136,8 @@ export interface SlUserDoc extends Document, IdentifiedObj {
   personalDBs: PersonalDBCollection;
   email: string;
   session: SessionCollection;
+  /** from Version 0.17.0 onwards, expired session keys are reused */
+  inactiveSessions: string[];
   profile: any;
   consents?: Record<string, ConsentSlEntry[]>;
 }
@@ -162,17 +179,24 @@ export interface SlLoginSession extends SlRefreshSession {
   name?: string;
 }
 
-export interface SlUser {
+export interface SlRequestUser {
+  /** `"local"` or the OAuth provider */
   provider?: string;
+  /** UUID (without hyphens) of the user */
   _id?: string;
+  /**
+   * In this context, this is the current _session_ of the user, not the `key`
+   * in the SlUserDoc!
+   */
   key?: string;
   roles?: string[];
+  /** @deprecated Also the UUID (without hyphens) - does this make any sense? */
   user_id?: string;
   consents?: Record<string, ConsentRequest>;
 }
 
 export interface SlRequest extends Request {
-  user: SlUser;
+  user: SlRequestUser;
 }
 
 export type SlAction = (a: SlUserDoc, b: string) => Promise<SlUserDoc>;

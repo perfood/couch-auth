@@ -366,7 +366,7 @@ export default function (
         if (config.local.requirePasswordOnEmailChange) {
           loginLocal(req, res, next);
         } else {
-          next();
+          next(req);
         }
       },
       function (req: SlRequest, res: Response, next: NextFunction) {

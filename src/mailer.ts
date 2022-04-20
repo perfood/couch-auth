@@ -1,8 +1,12 @@
-import { render } from 'ejs';
-import { readFileSync } from 'fs';
 import nodemailer from 'nodemailer';
 import Mail from 'nodemailer/lib/mailer';
-import { Config } from './types/config';
+import { join } from 'path';
+import {
+  parseCompositeTemplate,
+  parseTemplatesDirectly
+} from './template-utils';
+import { Config, EmailTemplate } from './types/config';
+import { timeoutPromise } from './util';
 
 export class Mailer {
   private config: Partial<Config>;
@@ -21,68 +25,90 @@ export class Mailer {
   }
 
   /**
-   * Use the same nodemailer config that Superlogin uses to send out an email.
-   * @param templateName the entry under the `emails` property in the config
+   * Use the same nodemailer config that couch-auth uses to send out an email.
+   * Internally, `req` (the sent request), `user` (the sl-user doc) and `data`
+   * defined in the config are always available.
+   *
+   * @param templateId the entry under the `emails` property in the config
    * @param recepient the recepient's email address
-   * @param data additional data can be passed to `ejs.render()`
+   * @param data additional data directly passed to `nunjucks.render()`. Don't
+   * add anything called `data` in here!
    */
-  sendEmail(
-    templateName: string,
+  public async sendEmail(
+    templateId: string,
     recepient: string,
     data?: Record<string, any>
-  ) {
+  ): Promise<any> {
     // load the template and parse it
-    let templateFiles = this.config.emails[templateName]?.templates;
-    if (!templateFiles) {
-      const templateFile = this.config.emails[templateName]?.template;
-      if (!templateFile) {
-        return Promise.reject('No templates found for "' + templateName + '".');
-      }
-      templateFiles = [templateFile];
+    const templateConfig: EmailTemplate =
+      this.config.emailTemplates.templates[templateId];
+    if (!templateConfig) {
+      return Promise.reject('No template entry for "' + templateId + '".');
     }
+    const templateDirectory =
+      this.config.emailTemplates.folder ?? join(__dirname, './templates/email');
+    let templates: { html: string; text: string };
+    const templateData = {
+      subject: templateConfig.subject,
+      data: { ...this.config.emailTemplates.data, ...templateConfig.data },
+      ...data
+    };
 
-    const readTemplates = templateFiles.map(t => readFileSync(t, 'utf8'));
-    for (let i = 0; i < templateFiles.length; i++) {
-      if (!readTemplates[i]) {
-        return Promise.reject(
-          'Failed to locate template file: ' + templateFiles[i]
-        );
+    try {
+      templates = parseCompositeTemplate(
+        templateDirectory,
+        templateId,
+        templateData
+      );
+    } catch (error) {
+      templates = parseTemplatesDirectly(
+        templateDirectory,
+        templateId,
+        templateData
+      );
+      if (!templates.html && !templates.text) {
+        return Promise.reject(`No template file found for "${templateId}"`);
       }
     }
-    const renderedTemplates = readTemplates.map(t => render(t, data));
 
     // form the email
-    const subject = this.config.emails[templateName].subject;
-    let formats = this.config.emails[templateName].formats;
-    if (!formats) {
-      const format = this.config.emails[templateName].format;
-      if (!format) {
-        return Promise.reject('No formats specified for: ' + templateName);
-      }
-      formats = [format];
-    }
-    if (formats.length !== renderedTemplates.length) {
-      return Promise.reject(
-        'Different number of read templates and requested formats for template: ' +
-          templateName
-      );
-    }
     let mailOptions: Mail.Options = {
       from: this.config.mailer.fromEmail,
       to: recepient,
-      subject: subject
+      subject: templateConfig.subject,
+      ...templates
     };
     if (this.config.mailer.messageConfig) {
       mailOptions = { ...this.config.mailer.messageConfig, ...mailOptions };
-    }
-
-    for (let i = 0; i < formats.length; i++) {
-      mailOptions[formats[i]] = renderedTemplates[i];
     }
     if (this.config.testMode?.debugEmail) {
       console.log(mailOptions);
     }
     // send the message
-    return this.transporter.sendMail(mailOptions);
+    if (this.config.mailer.retryOnError) {
+      return this.sendMailWithBackoff(mailOptions, 0);
+    } else {
+      return this.transporter.sendMail(mailOptions);
+    }
+  }
+
+  private async sendMailWithBackoff(
+    mailOptions: Mail.Options,
+    attempt: number
+  ) {
+    try {
+      return this.transporter.sendMail(mailOptions);
+    } catch (error) {
+      attempt += 1;
+      if (attempt > this.config.mailer.retryOnError.maxRetries) {
+        throw error;
+      }
+      await timeoutPromise(
+        1000 *
+          this.config.mailer.retryOnError.initialBackoffSeconds *
+          2 ** attempt
+      );
+      return this.sendMailWithBackoff(mailOptions, attempt);
+    }
   }
 }

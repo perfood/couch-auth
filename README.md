@@ -1,24 +1,20 @@
 # CouchAuth
 
 ![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)
-![Build Status](https://github.com/sl-nx/superlogin-next/workflows/Build/badge.svg?branch=master)
+![Build Status](https://github.com/perfood/couch-auth/workflows/Build/badge.svg?branch=master)
 
-This is a heavily modified [SuperLogin](https://github.com/colinskow/superlogin), re-written in TypeScript and developed with Node 12/14/16 & CouchDB 3. It is compatible with Cloudant when using the CouchDB-style authentication, adapted for current OWASP best practises and can be used on [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry).
+This is a heavily modified [SuperLogin](https://github.com/colinskow/superlogin), re-written in TypeScript and developed with Node 14/16/18 & CouchDB 3. It is compatible with Cloudant when using the CouchDB-style authentication, adapted for current OWASP best practises and can be used on [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry).
 
-If you've used SuperLogin before, the `0.13.X` release should be mostly backwards compatible. New/ migrated projects should use a release >= `0.14.0`.
-
-Important changes in version `0.14.0`:
-- db and doc ids no longer include PII, but be UUIDs instead. Existing user docs in `sl-users` and user-DBs **must be migrated**. Check `CHANGELOG.md` for details.
-- The adapters for sessions (e.g `redis`) are no longer used.
-- signup with e-Mail only instead of `username` is preferred: now prevents account-guessing via `forgot-pass`, `login`, `signup` and `change-pass`
-- some functionality has been removed (Cloudant legacy auth, `lockedUntil`, IP logging,...)
+Important breaking changes, see the [Changelog](https://github.com/perfood/couch-auth/blob/master/CHANGELOG.md) for details:
+- `0.17.0`: Replaced `ejs` with `nunjucks`, new templating logic
+- `0.14.0`: Moved db and `sl-users` - structure to UUIDs
 
 Note that I'm only actively working on / performing security testing for the `local` email/PW authentication strategy.
 
-If you encounter a bug, [open an issue](https://github.com/sl-nx/superlogin/issues).
-If you have trouble setting things up or any other question about the package, [join the discussion]() instead.
+If you encounter a bug, [open an issue](https://github.com/perfood/couch-auth/issues).
+If you have trouble setting things up or any other question about the package, [join the discussion](https://github.com/perfood/couch-auth/discussions) instead.
 
-Check the [Project board](https://github.com/sl-nx/superlogin-next/projects/1) for upcoming changes or if you want to contribute.
+Check the [Project board](https://github.com/perfood/couch-auth/projects/1) for upcoming changes or if you want to contribute.
 
 ## Below is the (partially adjusted) original README:
 
@@ -37,6 +33,7 @@ User authentication is often the hardest part of building any web app, especiall
 - [Quick Start](#quick-start)
 - [Securing Your Routes](#securing-your-routes)
 - [Database Security](#database-security)
+- [Email Templates](#email-templates)
 - [CouchDB Document Update Validation](#couchdb-document-update-validation)
 - [Adding Providers](#adding-providers)
 - [Adding additional fields](#adding-additional-fields)
@@ -227,6 +224,31 @@ For CouchDB versions `< 3`, Admin Party is default and all your databases are re
 
 SuperLogin also allows you to specify default `_security` roles for members and admins in the `userDBs` section of your config file. See `config.example.js` for details.
 
+## Email templates
+
+[Nunjucks](https://mozilla.github.io/nunjucks/) is used for the email and oauth callback templates. The defaults in the `templates` folder. Set `emailTemplates.folder` accordingly when providing your own templates. For each `template` defined in `emailTemplates.templates`, you have two options of including it with `couch-auth` by placing it into `emailTemplates.folder`:
+
+1. Provide a `${template}.html.njk` and/or `${template}.text.njk` file
+2. Provide a `base.njk` HTML template and a `${template}.njk` file containing the text
+
+When using option 2), you'll have pretty HTML emails with little maintenance overhead:
+- Use line breaks to start new paragraphs
+- Use `*..*` or `_..._`, `**...**`, `[desc](url)` for basic markdown styling
+
+The `base.njk` needs to contain a block like this for every paragraph that will be rendered into it:
+
+```                                                                                                         {% block content %} 
+ {% for paragraph in paragraphs %}   
+   <p>{{paragraph | safe}}</p> 
+ {% endfor %} 
+{% endblock %}    
+```
+
+Be sure to _never_ use `safe` for data that is passed via `req` inside your nunjucks templates!
+
+You can pass additional data for all templates via `emailTemplates.data` or for a single template via its `data` entry. It will be available in nunjucks as `data. ...`.
+
+Support for `ejs` has been dropped with version `0.17.0`.
 ## CouchDB Document Update Validation
 
 CouchDB provides the [validate_doc_update function](http://guide.couchdb.org/draft/validation.html) to approve or disapprove what gets written. However, since your CouchDB users are temporary random API keys, you have no idea which user is requesting to write. CouchAuth has inserted the original `user_id` into `userCtx.roles[0]`, prefixed by `user:` (e.g. `user:superman`).
@@ -251,10 +273,10 @@ providers: {
     options: {
       // Options here will be passed in on the call to passport.authenticate
     },
-    // You should copy the template from this repo that is in `templates/oauth/auth-callback.ejs` and modify the second parameter
+    // You should copy the template from this repo that is in `templates/oauth/authCallback.njk` and modify the second parameter
     // from '*' to your page origin, e.g. 'https://example.com', to avoid any malicious site receiving the auth data returned by the pop-up
     // window workflow. The template can be the same for all providers.
-    template: path.join(__dirname, './templates/oauth/my-custom-secure-auth-callback.ejs')
+    template: path.join(__dirname, './templates/oauth/my-custom-secure-authCallback.njk')
   }
 }
 ```
@@ -430,6 +452,9 @@ Checks an email to make sure it is valid and not already in use. Responds with s
 ##### `POST /change-email`
 
 Authentication required. Changes the user's email. Required field: `newEmail`.
+
+If `requirePasswordOnEmailChange` is `true`: The `username` (can also be email)
+and `password` are also required.
 
 Note: The server returns an answer once the email has been verified as valid and
 whether this email already exists in the DB, not waiting for the update of the 
@@ -671,5 +696,5 @@ Renders an email and sends it out. Server settings are specified under `mailer` 
 
 - `templateName`: the name of a template object specified under `emails` in your config. See [`config.example.js`](https://github.com/sl-nx/superlogin-next/blob/master/config.example.js) for details.
 - `email`: the email address that the email
-- `locals`: local variables that will be passed into the ejs template to be rendered
+- `locals`: local variables that will be passed into the nunjucks template to be rendered
 

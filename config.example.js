@@ -115,36 +115,21 @@ const exampleConfig = {
     // Customize the templates for the emails that SuperLogin sends out
     confirmEmail: {
       subject: 'Please confirm your email',
-      template: path.join(__dirname, './templates/email/confirm-email.ejs'),
-      format: 'text'
     },
     forgotUsername: {
       subject: 'Your username request',
-      template: path.join(__dirname, './templates/email/forgot-username.ejs'),
-      format: 'text'
     },
     forgotPassword: {
       subject: 'Your password reset link',
-      template: path.join(__dirname, './templates/email/forgot-password.ejs'),
-      format: 'text'
     },
     modifiedPassword: {
       subject: 'Your password has been modified',
-      template: path.join(__dirname, './templates/email/modified-password.ejs'),
-      format: 'text'
     },
     confirmEmailChange: {
       subject: 'Please confirm your new email',
-      template: path.join(__dirname, './templates/email/email-change.ejs'),
-      format: 'text'
     },
     signupExistingEmail: {
       subject: 'You already have registered with us',
-      template: path.join(
-        __dirname,
-        './templates/email/signup-email-exists.ejs'
-      ),
-      format: 'text'
     }
   },
   // Custom settings to manage personal databases for your users
@@ -203,12 +188,12 @@ const exampleConfig = {
       // This will pass in the user's auth token as a variable called 'state' when linking to this provider
       // Defaults to true for Google and LinkedIn, but you can enable it for other providers if needed
       stateRequired: false,
-      // You should copy the template from `templates/oauth/auth-callback.ejs` and modify the second parameter
+      // You should copy the template from `templates/oauth/authCallback.ejs` and modify the second parameter
       // from '*' to your page origin, e.g. 'https://example.com', to avoid any malicious site receiving the auth data returned by the pop-up
       // window workflow. The template can be the same for all providers.
       template: path.join(
         __dirname,
-        './templates/oauth/my-custom-secure-auth-callback.ejs'
+        './templates/oauth/my-custom-secure-authCallback.ejs'
       )
     }
   },

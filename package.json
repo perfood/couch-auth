@@ -1,6 +1,6 @@
 {
   "name": "@perfood/couch-auth",
-  "version": "0.16.4",
+  "version": "0.17.0-beta.1",
   "description": "Easy and secure authentication for CouchDB/Cloudant. Based on SuperLogin, updated and rewritten in Typescript.",
   "main": "./lib/index.js",
   "files": [
@@ -50,10 +50,10 @@
     "@types/nodemailer": "^6.4.0",
     "@types/passport": "^1.0.6",
     "deepmerge": "^4.2.2",
-    "ejs": "^3.1.6",
     "express": "^4.17.1",
     "nano": "^10.0.0",
     "nodemailer": "^6.7.0",
+    "nunjucks": "^3.2.3",
     "passport": "^0.4.1",
     "passport-http-bearer-sl": "^1.0.1",
     "passport-local": "^1.0.0",
@@ -65,7 +65,6 @@
   },
   "devDependencies": {
     "@types/chai": "^4.2.22",
-    "@types/ejs": "^3.0.6",
     "@types/mocha": "^9.0.0",
     "@types/passport-local": "^1.0.33",
     "@typescript-eslint/eslint-plugin": "^5.3.0",

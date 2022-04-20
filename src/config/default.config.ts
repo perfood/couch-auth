@@ -1,4 +1,4 @@
-import path from 'path';
+import { join } from 'path';
 import { Config } from '../types/config';
 
 /**
@@ -43,47 +43,32 @@ export const defaultConfig: Config = {
   dbServer: {
     protocol: 'http://',
     host: 'localhost:5984',
-    designDocDir: path.join(__dirname, '/designDocs'),
+    designDocDir: join(__dirname, '/designDocs'),
     userDB: 'sl_users',
     couchAuthDB: '_users'
   },
-  emails: {
-    confirmEmail: {
-      subject: 'Please confirm your email',
-      template: path.join(__dirname, '../../templates/email/confirm-email.ejs'),
-      format: 'text'
-    },
-    forgotPassword: {
-      subject: 'Your password reset link',
-      template: path.join(
-        __dirname,
-        '../../templates/email/forgot-password.ejs'
-      ),
-      format: 'text'
-    },
-    modifiedPassword: {
-      subject: 'Your password has been modified',
-      template: path.join(
-        __dirname,
-        '../../templates/email/modified-password.ejs'
-      ),
-      format: 'text'
-    },
-    signupExistingEmail: {
-      subject: 'You already have registered with us',
-      template: path.join(
-        __dirname,
-        '../../templates/email/signup-email-exists.ejs'
-      ),
-      format: 'text'
-    },
-    forgotUsername: {
-      subject: 'Your username request',
-      template: path.join(
-        __dirname,
-        '../../templates/email/forgot-username.ejs'
-      ),
-      format: 'text'
+  emailTemplates: {
+    folder: join(__dirname, './templates/email'),
+    data: { year: new Date().getFullYear() },
+    templates: {
+      confirmEmail: {
+        subject: 'Please confirm your email'
+      },
+      confirmEmailChange: {
+        subject: 'Please confirm your new email'
+      },
+      forgotPassword: {
+        subject: 'Your password reset link'
+      },
+      modifiedPassword: {
+        subject: 'Your password has been modified'
+      },
+      signupExistingEmail: {
+        subject: 'You already have registered with us'
+      },
+      forgotUsername: {
+        subject: 'Your username request'
+      }
     }
   }
 };
