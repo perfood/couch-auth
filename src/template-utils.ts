@@ -2,6 +2,7 @@ import { render } from 'nunjucks';
 import { join } from 'path';
 
 /**
+ * @internal
  * Converts basic inline markdown formatting (urls, bold and italic) with
  * regular expressions.
  * Note that they must be greedy (*?) to format the markdown correctly.
@@ -9,16 +10,19 @@ import { join } from 'path';
  */
 function processMarkdown(text: string) {
   return text
-    .replaceAll(/\*\*(.*?)\*\*/gim, '<b>$1</b>')
-    .replaceAll(/\_(.*?)\_/gim, '<i>$1</i>')
+    .replaceAll(/(\s)\*\*(.*?)\*\*(\s)/gim, '$1<b>$2</b>$3')
+    .replaceAll(/(\s)\_(.*?)\_(\s)/gim, '$1<i>$2</i>$3')
     .replaceAll(
       /\[(.*?)\]\((.*?)\)/gim,
       '<a style="text-decoration: underline; color: #193b92" href="$2">$1</a>'
     )
-    .replaceAll(/\*(.*?)\*/gim, '<i>$1</i>');
+    .replaceAll(/(\s)\*(.*?)\*(\s)/gim, '$1<i>$2</i>$3');
 }
 
 /**
+ * @internal
+ * Combines a base html template and the content, returning both a html and
+ * plain text version of the email
  *
  * @param folderPath template directory
  * @param template plain text template whose paragraphs will be formatted into the base template. `.njk` gets appended.
