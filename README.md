@@ -3,10 +3,10 @@
 ![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)
 ![Build Status](https://github.com/perfood/couch-auth/workflows/Build/badge.svg?branch=master)
 
-This is a heavily modified [SuperLogin](https://github.com/colinskow/superlogin), re-written in TypeScript and developed with Node 14/16/18 & CouchDB 3. It is compatible with Cloudant when using the CouchDB-style authentication, adapted for current OWASP best practises and can be used on [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry).
+This is a heavily modified [SuperLogin](https://github.com/colinskow/superlogin), re-written in TypeScript and developed with Node 16 & CouchDB 3. It is compatible with Cloudant when using the CouchDB-style authentication, adapted for current OWASP best practises and can be used on [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry).
 
 Important breaking changes, see the [Changelog](https://github.com/perfood/couch-auth/blob/master/CHANGELOG.md) for details:
-- `0.17.0`: Replaced `ejs` with `nunjucks`, new templating logic
+- `0.17.0`: Replaced `ejs` with `nunjucks`, new templating logic, requires Node 16 or higher
 - `0.14.0`: Moved db and `sl-users` - structure to UUIDs
 
 Note that I'm only actively working on / performing security testing for the `local` email/PW authentication strategy.
@@ -237,11 +237,11 @@ When using option 2), you'll have pretty HTML emails with little maintenance ove
 
 The `base.njk` needs to contain a block like this for every paragraph that will be rendered into it:
 
-```                                                                                                         {% block content %} 
- {% for paragraph in paragraphs %}   
+```                                                                                                  {% block content %} 
+ {% for paragraph in paragraphs %}
    <p>{{paragraph | safe}}</p> 
- {% endfor %} 
-{% endblock %}    
+ {% endfor %}
+{% endblock %}
 ```
 
 Be sure to _never_ use `safe` for data that is passed via `req` inside your nunjucks templates!

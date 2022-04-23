@@ -48,7 +48,7 @@ export const defaultConfig: Config = {
     couchAuthDB: '_users'
   },
   emailTemplates: {
-    folder: join(__dirname, './templates/email'),
+    folder: join(__dirname, './../../templates/email'),
     data: { year: new Date().getFullYear() },
     templates: {
       confirmEmail: {

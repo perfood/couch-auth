@@ -67,7 +67,7 @@ export class Mailer {
         templateData
       );
       if (!templates.html && !templates.text) {
-        return Promise.reject(`No template file found for "${templateId}"`);
+        return Promise.reject(`No template file found for ${templateId} in ${templateDirectory}`);
       }
     }
 
