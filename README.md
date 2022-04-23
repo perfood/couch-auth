@@ -237,7 +237,8 @@ When using option 2), you'll have pretty HTML emails with little maintenance ove
 
 The `base.njk` needs to contain a block like this for every paragraph that will be rendered into it:
 
-```                                                                                                  {% block content %} 
+```                                                                                                  
+{% block content %} 
  {% for paragraph in paragraphs %}
    <p>{{paragraph | safe}}</p> 
  {% endfor %}
