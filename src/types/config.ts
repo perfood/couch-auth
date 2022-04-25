@@ -194,7 +194,8 @@ export interface EmailTemplateConfig {
    * - `**` for bold
    *
    * You can add additional templates and send them out via `sendEmail()`, using
-   * the same templating logic.
+   * the same templating logic. The name of the template is available as
+   * `templateId` within nunjucks.
    */
   templates?: Record<string, EmailTemplate>;
   /**

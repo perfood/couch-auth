@@ -50,8 +50,12 @@ export class Mailer {
     let templates: { html: string; text: string };
     const templateData = {
       subject: templateConfig.subject,
-      data: { ...this.config.emailTemplates.data, ...templateConfig.data },
-      ...data
+      data: {
+        ...this.config.emailTemplates.data,
+        ...templateConfig.data
+      },
+      ...data,
+      templateId
     };
 
     try {
@@ -67,7 +71,9 @@ export class Mailer {
         templateData
       );
       if (!templates.html && !templates.text) {
-        return Promise.reject(`No template file found for ${templateId} in ${templateDirectory}`);
+        return Promise.reject(
+          `Could not parse ${templateId} in ${templateDirectory}. ` + error
+        );
       }
     }
 

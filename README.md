@@ -247,7 +247,7 @@ The `base.njk` needs to contain a block like this for every paragraph that will 
 
 Be sure to _never_ use `safe` for data that is passed via `req` inside your nunjucks templates!
 
-You can pass additional data for all templates via `emailTemplates.data` or for a single template via its `data` entry. It will be available in nunjucks as `data. ...`.
+You can pass additional data for all templates via `emailTemplates.data` or for a single template via its `data` entry. It will be available in nunjucks as `data. ...`. The `${template}` is available under `templateId`.
 
 Support for `ejs` has been dropped with version `0.17.0`.
 ## CouchDB Document Update Validation
