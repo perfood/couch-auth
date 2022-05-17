@@ -3,10 +3,10 @@
 ![Known Vulnerabilities](https://dev.snyk.io/test/github/sl-nx/superlogin/badge.svg)
 ![Build Status](https://github.com/perfood/couch-auth/workflows/Build/badge.svg?branch=master)
 
-This is a heavily modified [SuperLogin](https://github.com/colinskow/superlogin), re-written in TypeScript and developed with Node 16 & CouchDB 3. It is compatible with Cloudant when using the CouchDB-style authentication, adapted for current OWASP best practises and can be used on [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry).
+This is a heavily modified [SuperLogin](https://github.com/colinskow/superlogin), re-written in TypeScript and developed with Node 14/16 & CouchDB 3. It is compatible with Cloudant when using the CouchDB-style authentication, adapted for current OWASP best practises and can be used on [CloudFoundry](https://www.ibm.com/cloud/cloud-foundry).
 
 Important breaking changes, see the [Changelog](https://github.com/perfood/couch-auth/blob/master/CHANGELOG.md) for details:
-- `0.17.0`: Replaced `ejs` with `nunjucks`, new templating logic, requires Node 16 or higher
+- `0.17.0`: Replaced `ejs` with `nunjucks`, new templating logic, Node >= 14
 - `0.14.0`: Moved db and `sl-users` - structure to UUIDs
 
 Note that I'm only actively working on / performing security testing for the `local` email/PW authentication strategy.
@@ -72,7 +72,7 @@ You'll need an email service that is supported by [nodemailer](https://nodemaile
 var express = require('express');
 var bodyParser = require('body-parser');
 var logger = require('morgan');
-var { SuperLogin } = require('@perfood/couch-auth');
+var { CouchAuth } = require('@perfood/couch-auth');
 
 var app = express();
 app.set('port', process.env.PORT || 3000);
@@ -106,11 +106,11 @@ var config = {
   }
 };
 
-// Initialize SuperLogin
-var superlogin = new SuperLogin(config);
+// Initialize CouchAuth
+var couchAuth = new CouchAuth(config);
 
-// Mount SuperLogin's routes to our app
-app.use('/auth', superlogin.router);
+// Mount CouchAuth's routes to our app
+app.use('/auth', couchAuth.router);
 app.listen(app.get("port"));
 ```
 
@@ -181,7 +181,7 @@ But as soon as you log out your session, that access will be revoked.
 **Note:** Session tokens for your API will be unusable as soon as they expire. 
 However, there is no mechanism to automatically revoke expired credentials with CouchDB. 
 Whenever a user logs in, logs out, or refreshes the session, CouchAuth will automatically clean up any expired credentials for that user. 
-But you **have to** periodically run `superlogin.removeExpiredKeys()`, e.g. with `setInterval` or a cron job. This will deauthorize every single expired credential.
+But you **have to** periodically run `couchAuth.removeExpiredKeys()`, e.g. with `setInterval` or a cron job. This will deauthorize every single expired credential.
 
 ## Securing Your Routes
 
@@ -190,8 +190,8 @@ Securing your routes is very simple:
 ```js
 app.get(
   '/admin',
-  superlogin.requireAuth,
-  superlogin.requireRole('admin'),
+  couchAuth.requireAuth,
+  couchAuth.requireRole('admin'),
   function (req, res) {
     res.send('Welcome Admin');
   }
@@ -200,19 +200,19 @@ app.get(
 
 Note that you must use `requireAuth` prior to checking any roles or an error will be thrown.
 
-##### `superlogin.requireAuth`
+##### `couchAuth.requireAuth`
 
 Middleware that authenticates a user with a token and password in the request header. (`"Authorization": "Bearer {token}:{password}"`)
 
-##### `superlogin.requireRole(role)`
+##### `couchAuth.requireRole(role)`
 
 Middleware that makes sure the authenticated user possesses the specified `role` (string).
 
-##### `superlogin.requireAnyRole(possibleRoles)`
+##### `couchAuth.requireAnyRole(possibleRoles)`
 
 Middleware that makes sure the user possesses at least one of the specified `possibleRoles` (array).
 
-##### `superlogin.requireAllRoles(requiredRoles)`
+##### `couchAuth.requireAllRoles(requiredRoles)`
 
 Middleware that makes sure the user possesses ALL of the specified `requiredRoles` (array).
 
@@ -222,7 +222,7 @@ When using CouchDB, you should block anonymous reads across all databases by set
 
 For CouchDB versions `< 3`, Admin Party is default and all your databases are readable and writable by the public until you implement the correct security measures. 
 
-SuperLogin also allows you to specify default `_security` roles for members and admins in the `userDBs` section of your config file. See `config.example.js` for details.
+CouchAuth also allows you to specify default `_security` roles for members and admins in the `userDBs` section of your config file. See `config.example.js` for details.
 
 ## Email templates
 
@@ -313,7 +313,7 @@ After completing the configuration step above, all you have to do is register yo
 
 ```js
 var DropboxStrategy = require('passport-dropbox-oauth2').Strategy;
-superlogin.registerOAuth2('dropbox', DroboxStrategy);
+couchAuth.registerOAuth2('dropbox', DroboxStrategy);
 ```
 Now, assuming your credentials are valid, you should be able to authenticate with Dropbox by opening a popup window to `/dropbox`. See below in the Routes documentation for more detail.
 
@@ -327,7 +327,7 @@ Here is how to setup the Client Access Token strategy:
 
 ```js
 var FacebookTokenStrategy = require('passport-facebook-token');
-superlogin.registerTokenProvider('facebook', FacebookTokenStrategy);
+couchAuth.registerTokenProvider('facebook', FacebookTokenStrategy);
 ```
 
 Note that this uses the exact settings in your config as the popup window workflow.
@@ -336,7 +336,7 @@ Note that this uses the exact settings in your config as the popup window workfl
 
 It's easy to add custom fields to user documents. When added to a `profile` field it will automatically be included with the session information (in a profile object).
 
-1. First whitelist the fields in the [config](https://github.com/sl-nx/superlogin-next/blob/master/config.example.js), for example:
+1. First whitelist the fields in the [config](https://github.com/perfood/couch-auth/blob/master/config.example.js), for example:
 
    ```js
    userModel: {
@@ -345,10 +345,10 @@ It's easy to add custom fields to user documents. When added to a `profile` fiel
    ```
 
 2. Include the fields with [registrations](#post-register).
-3. To also fill in custom fields after social authentications use the [superlogin.onCreate](#superloginoncreatefn) handler. Example:
+3. To also fill in custom fields after social authentications use the `onCreate` handler. Example:
 
    ```js
-   superlogin.onCreate(function (userDoc, provider) {
+   couchAuth.onCreate(function (userDoc, provider) {
      if (userDoc.profile === undefined) {
        userDoc.profile = {};
      }
@@ -502,7 +502,7 @@ CouchAuth also provides an [event emitter](https://nodejs.org/api/events.html), 
 **Example:**
 
 ```js
-superlogin.emitter.on('login', function (userDoc, provider) {
+couchAuth.emitter.on('login', function (userDoc, provider) {
   console.log('User: ' + userDoc._id + ' logged in with ' + provider);
 });
 ```
@@ -530,7 +530,7 @@ Here is a full list of the events that CouchAuth emits, and parameters provided:
 
 ## Main API
 
-##### `new SuperLogin(config, couchServer, passport)`
+##### `new CouchAuth(config, couchServer, passport)`
 
 Constructs a new instance of CouchAuth. All arguments are optional. If you don't supply any config object, default settings will be used for a local CouchDB instance in admin party mode. Emails will be logged to the console but not sent.
 
@@ -540,47 +540,47 @@ Constructs a new instance of CouchAuth. All arguments are optional. If you don't
 
 **Returns:** the complete CouchAuth API.
 
-##### `superlogin.config`
+##### `couchAuth.config`
 
 A reference to the configuration object. You can use this to lookup and change configuration settings at runtime. See `src/types/config.d.ts` for details.
 
-##### `superlogin.router`
+##### `couchAuth.router`
 
 A reference to the Express Router that contains all of CouchAuth's routes.
 
-##### `superlogin.passport`
+##### `couchAuth.passport`
 
 A reference to Passport
 
-#### `superlogin.events`
+#### `couchAuth.events`
 
 A reference to the event emitter
 
-##### `superlogin.userDB`
+##### `couchAuth.userDB`
 
 A `nano` instance that gives direct access to the CouchAuth users database
 
-##### `superlogin.couchAuthDB`
+##### `couchAuth.couchAuthDB`
 
 A `nano` instance that gives direct access to the CouchDB authentication (`_users`) database.
 
-##### `superlogin.registerProvider(provider, configFunction)`
+##### `couchAuth.registerProvider(provider, configFunction)`
 
 Adds support for additional Passport strategies. See below under Adding Providers for more information.
 
-##### `superlogin.validateUsername(username)`
+##### `couchAuth.validateUsername(username)`
 
 Checks that a username is valid and not in use. Resolves with nothing if successful. Resolves with an error object in failed.
 
-##### `superlogin.validateEmail(email)`
+##### `couchAuth.validateEmail(email)`
 
 Checks that an email is valid and not in use. Resolves with nothing if successful. Resolves with an error object in failed.
 
-##### `superlogin.getUser(login)`
+##### `couchAuth.getUser(login)`
 
 Fetches a user document by either username, email or UUID.
 
-##### `superlogin.createUser(form, req)`
+##### `couchAuth.createUser(form, req)`
 
 Creates a new local user with a username and password.
 
@@ -588,15 +588,15 @@ Creates a new local user with a username and password.
 
 `req` should contain `protocol` and `headers.host` to properly generate the confirmation email link. `ip` will be logged if given.
 
-##### `superlogin.onCreate(fn)`
+##### `couchAuth.onCreate(fn)`
 
 Use this to add as many functions as you want to transform the new user document before it is saved. Your function should accept two arguments `(userDoc, provider)` and return a `Promise` that resolves to the modified user document. onCreate functions will be chained in the order they were added.
 
-##### `superlogin.onLink(fn)`
+##### `couchAuth.onLink(fn)`
 
 Does the same thing as `onCreate`, but is called every time a user links a new provider, or their profile information is refreshed. This allows you to process profile information and, for example, create a master profile. If an object called `profile` exists inside the user doc it will be passed to the client along with session information at each login.
 
-##### `superlogin.createUserSocial(provider, auth, profile)`
+##### `couchAuth.createUserSocial(provider, auth, profile)`
 
 Creates a new user following authentication from an OAuth provider. If the user already exists it will update the profile.
 
@@ -604,47 +604,47 @@ Creates a new user following authentication from an OAuth provider. If the user 
 - `auth`: credentials supplied by the provider
 - `profile`: the profile supplied by the provider
 
-##### `superlogin.linkUserSocial(login, provider, auth, profile)`
+##### `couchAuth.linkUserSocial(login, provider, auth, profile)`
 
 like `createUserSocial`, but for an existing user identified by `login`
 
-##### `superlogin.unlinkUserSocial(login, provider)
+##### `couchAuth.unlinkUserSocial(login, provider)`
 
 Removes the specified provider from the user's account.
 `local` cannot be removed. If there is only one provider left it will fail.
-##### `superlogin.hashPassword(password)`
+##### `couchAuth.hashPassword(password)`
 
 Hashes a password using PBKDF2 and returns an object containing `salt` and `derived_key`.
 
-##### `superlogin.verifyPassword(hashObj, password)`
+##### `couchAuth.verifyPassword(hashObj, password)`
 
 Verifies a password using a hash object. If you have a user doc, pass in `local` as the hash object.
 
-##### `superlogin.createSession(user_id, provider, req)`
+##### `couchAuth.createSession(user_id, provider, req)`
 
 Creates a new session for a user. `provider` is the name of the provider. (eg. 'local', 'facebook', twitter.) `req` is used to log the IP if provided.
 
-##### `superlogin.changePassword(user_id, password)`
+##### `couchAuth.changePassword(user_id, password)`
 
 Changes the user's password.
 
-##### `superlogin.forgotPassword(email, req)`
+##### `couchAuth.forgotPassword(email, req)`
 
 Sends out the forgot password email and issues a reset token.
 
-##### `superlogin.resetPassword(form, req)`
+##### `couchAuth.resetPassword(form, req)`
 
 Resets the user's password. Required fields are `token` (from the forgot password email), `password`, and `confirmPassword`.
 
-##### `superlogin.changeEmail(user_id, newEmail)`
+##### `couchAuth.changeEmail(user_id, newEmail)`
 
 Changes the user's email. If email verification is enabled (`local.sendConfirmEmail`) then a new confirmation email will be sent out.
 
-##### `superlogin.verifyEmail(token, req)`
+##### `couchAuth.verifyEmail(token, req)`
 
 Marks the user's email as verified. `token` comes from the confirmation email.
 
-##### `superlogin.addUserDB(user_id, dbName, type, designDoc, permissions, partitioned)`
+##### `couchAuth.addUserDB(user_id, dbName, type, designDoc, permissions, partitioned)`
 
 Associates a new database with the user's account. Will also authenticate all existing sessions with the new database.
 
@@ -656,7 +656,7 @@ Associates a new database with the user's account. Will also authenticate all ex
  
 If the optional fields are not specified they will be taken from `userDBs.model.{dbName}` or `userDBs.model._default` in your config.
 
-##### `superlogin.removeUserDB(user_id, dbName, deletePrivate, deleteShared)`
+##### `couchAuth.removeUserDB(user_id, dbName, deletePrivate, deleteShared)`
 
 Deauthorizes the specified database from the user's account, and optionally destroys it.
 
@@ -664,38 +664,38 @@ Deauthorizes the specified database from the user's account, and optionally dest
 - `deletePrivate`: when `true`, will destroy a db if it is marked as private
 - `deleteShared`: when `true`, will destroy a db if it is marked as shared. Caution: may destroy other users' data!
 
-##### `superlogin.logoutUser(user_id, session_id)`
+##### `couchAuth.logoutUser(user_id, session_id)`
 
 Logs out all of a user's sessions at once. If `user_id` is not specified CouchAuth will look it up from the `session_id`.
 
-##### `superlogin.logoutSession(session_id)`
+##### `couchAuth.logoutSession(session_id)`
 
 Logs out the specified session.
 
-##### `superlogin.logoutOthers(session_id)`
+##### `couchAuth.logoutOthers(session_id)`
 
 Logs out all of a user's sessions, except for the one specified.
 
-##### `superlogin.logoutAll(login, session_id)`
+##### `couchAuth.logoutAll(login, session_id)`
 
 Logs out all of a user's sessions. Retrieves the user by `login` or `session_id`
-##### `superlogin.removeUser(user_id, destroyDBs)`
+##### `couchAuth.removeUser(user_id, destroyDBs)`
 
 Deletes a user, deauthorizes all the sessions, and optionally destroys all private databases if `destroyDBs` is true.
 
-##### `superlogin.confirmSession(token, password)`
+##### `couchAuth.confirmSession(token, password)`
 
 Verifies a user's session.
 
-##### `superlogin.removeExpiredKeys()`
+##### `couchAuth.removeExpiredKeys()`
 
 Deauthorizes every single expired session found in the user database.
 
-##### `superlogin.sendEmail(templateName, email, locals)`
+##### `couchAuth.sendEmail(templateName, email, locals)`
 
 Renders an email and sends it out. Server settings are specified under `mailer` in your config.
 
-- `templateName`: the name of a template object specified under `emails` in your config. See [`config.example.js`](https://github.com/sl-nx/superlogin-next/blob/master/config.example.js) for details.
+- `templateName`: the name of a template object specified under `emails` in your config. See [here](#email-templates) for details.
 - `email`: the email address that the email
 - `locals`: local variables that will be passed into the nunjucks template to be rendered
 

@@ -10,13 +10,13 @@ import { join } from 'path';
  */
 function processMarkdown(text: string) {
   return text
-    .replaceAll(/(\s)\*\*(.*?)\*\*(\s)/gim, '$1<b>$2</b>$3')
-    .replaceAll(/(\s)\_(.*?)\_(\s)/gim, '$1<i>$2</i>$3')
-    .replaceAll(
+    .replace(/(\s)\*\*(.*?)\*\*(\s)/gim, '$1<b>$2</b>$3')
+    .replace(/(\s)\_(.*?)\_(\s)/gim, '$1<i>$2</i>$3')
+    .replace(
       /\[(.*?)\]\((.*?)\)/gim,
       '<a style="text-decoration: underline; color: #193b92" href="$2">$1</a>'
     )
-    .replaceAll(/(\s)\*(.*?)\*(\s)/gim, '$1<i>$2</i>$3');
+    .replace(/(\s)\*(.*?)\*(\s)/gim, '$1<i>$2</i>$3');
 }
 
 /**

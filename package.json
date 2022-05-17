@@ -13,7 +13,7 @@
     "url": "git+https://github.com/perfood/couch-auth.git"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=14.0.0"
   },
   "scripts": {
     "test": "mocha",
@@ -92,7 +92,7 @@
   },
   "eslintConfig": {
     "parserOptions": {
-      "ecmaVersion": 2021,
+      "ecmaVersion": 2020,
       "sourceType": "module"
     }
   },
