@@ -89,8 +89,7 @@ var config = {
     userDB: 'sl-users',
     couchAuthDB: '_users'
   },
-  // login with username is disabled by default
-  // uncomment this if you want to enable it
+  // uncomment this if you want your users to select their own username an login with the username
   // local: {
   //   emailUsername: false, // store the username in the database instead of an auto-generated key
   //   usernameLogin: true, // allow login with username
@@ -119,6 +118,9 @@ var couchAuth = new CouchAuth(config);
 app.use('/auth', couchAuth.router);
 app.listen(app.get("port"));
 ```
+
+Enabling login via username instead of via email is only recommended if the usernames are public anyways. 
+Otherwise, using email only is more secure and prevents account guessing. Read the [OWASP Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html) for more information.
 
 Now let's create our first user by sending a POST request with the following JSON content to `http://localhost:3000/auth/register`. 
 Replace the example E-Mail with one that you can access:
