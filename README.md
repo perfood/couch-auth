@@ -89,6 +89,12 @@ var config = {
     userDB: 'sl-users',
     couchAuthDB: '_users'
   },
+  // login with username is disabled by default
+  // uncomment this if you want to enable it
+  // local: {
+  //   emailUsername: false, // store the username in the database instead of an auto-generated key
+  //   usernameLogin: true, // allow login with username
+  // },
   mailer: {
     fromEmail: 'gmail.user@gmail.com',
     options: {
