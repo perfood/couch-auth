@@ -72,7 +72,7 @@ You'll need an email service that is supported by [nodemailer](https://nodemaile
 var express = require('express');
 var bodyParser = require('body-parser');
 var logger = require('morgan');
-var { CouchAuth } = require('@perfood/couch-auth');
+var { SuperLogin } = require('@perfood/couch-auth');
 
 var app = express();
 app.set('port', process.env.PORT || 3000);
@@ -112,7 +112,7 @@ var config = {
 };
 
 // Initialize CouchAuth
-var couchAuth = new CouchAuth(config);
+var couchAuth = new SuperLogin(config);
 
 // Mount CouchAuth's routes to our app
 app.use('/auth', couchAuth.router);
