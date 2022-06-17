@@ -1300,7 +1300,7 @@ export class User {
     } catch {
       await this.session.confirmToken({}, password);
     }
-    throw Session.invalidMsg;
+    throw Session.invalidErr;
   }
 
   /**

@@ -44,7 +44,7 @@ describe('Session', async function () {
     previous.then(function () {
       return session.confirmToken(badToken, 'pass123').catch(function (err) {
         console.log('rejected invalid token');
-        expect(err).to.equal('invalid token');
+        expect(err.message).to.equal('invalid token');
         done();
       });
     });
@@ -54,7 +54,7 @@ describe('Session', async function () {
     previous.then(function () {
       return session.confirmToken(testToken, 'wrongpass').catch(function (err) {
         console.log('rejected invalid token');
-        expect(err).to.equal('invalid token');
+        expect(err.message).to.equal('invalid token');
         done();
       });
     });

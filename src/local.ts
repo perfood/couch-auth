@@ -28,12 +28,8 @@ export default function (
         theuser => {
           done(null, theuser);
         },
-        err => {
-          if (err instanceof Error) {
-            done(err, false);
-          } else {
-            done(null, false, { message: err });
-          }
+        _err => {
+          return done(null, false, { message: 'invalid token' });
         }
       );
     })

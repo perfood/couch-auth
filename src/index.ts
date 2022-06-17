@@ -15,7 +15,7 @@ import { CouchDbAuthDoc, SlUserDoc } from './types/typings';
 import { User } from './user';
 import { addProvidersToDesignDoc } from './util';
 
-export class SuperLogin extends User {
+export class CouchAuth extends User {
   router: Router;
   passport: Authenticator;
   registerProvider: OAuth['registerProvider'];
@@ -92,3 +92,4 @@ export class SuperLogin extends User {
 }
 
 export * as TemplateUtils from './template-utils';
+export { CouchAuth as SuperLogin };

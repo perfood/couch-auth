@@ -2,6 +2,9 @@
 
 #### 0.17.X: ejs -> nunjucks
 
+##### 0.17.1: Invalid token rejection
+
+- Reject with `{status: 401, message: 'invalid token'}` instead of just a string in `confirmSession`
 ##### 0.17.0: Replace ejs with nunjucks
 
 - :boom: Email templates now use [Nunjucks](https://mozilla.github.io/nunjucks/) instead of EJS

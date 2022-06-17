@@ -3,7 +3,7 @@ import { Hashing } from './hashing';
 import { LocalHashObj } from './types/typings';
 
 export class Session {
-  static invalidMsg = 'invalid token';
+  static invalidErr = { status: 401, message: 'invalid token' };
   constructor(private hasher: Hashing) {}
 
   /**
@@ -22,7 +22,7 @@ export class Session {
       delete token.iterations;
       return token;
     } catch (error) {
-      throw Session.invalidMsg;
+      throw Session.invalidErr;
     }
   }
 }

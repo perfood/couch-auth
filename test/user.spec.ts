@@ -514,7 +514,7 @@ describe('User Model', async function () {
           throw new Error('Failed to log out of session');
         },
         function (err) {
-          expect(err).to.equal('invalid token');
+          expect(err.message).to.equal('invalid token');
           return userDB.get(superuserUUID);
         }
       )
@@ -572,7 +572,7 @@ describe('User Model', async function () {
           throw new Error('Failed to delete user sessions');
         },
         function (error) {
-          expect(error).to.equal('invalid token');
+          expect(error.message).to.equal('invalid token');
           return userDB.get(superuserUUID);
         }
       )
