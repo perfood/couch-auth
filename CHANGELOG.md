@@ -2,6 +2,9 @@
 
 #### 0.17.X: ejs -> nunjucks
 
+##### 0.17.2: Dependency Upgrade
+
+- Bump `passport` and other dependencies
 ##### 0.17.1: Invalid token rejection
 
 - Reject with `{status: 401, message: 'invalid token'}` instead of just a string in `confirmSession`
