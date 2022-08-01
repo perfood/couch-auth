@@ -6,6 +6,8 @@ export interface IdentifiedObj {
   type: string;
 }
 
+export type SessionCleanupType = 'all' | 'expired' | 'other';
+
 /** copied from https://nodemailer.com/smtp/pooled/ because it's not included in the typings */
 export interface PooledSMTPOptions {
   /** set to true to use pooled connections (defaults to false) instead of creating a new connection for every email */

@@ -16,7 +16,7 @@ export function URLSafeUUID(): string {
   return URLSafeBase64.encode(uuidv4(null, Buffer.alloc(16)));
 }
 
-export function getSessionKey() {
+export function getSessionKey(): string {
   let token = URLSafeUUID();
   // Make sure our token doesn't start with illegal characters
   while (token[0] === '_' || token[0] === '-') {
@@ -25,7 +25,7 @@ export function getSessionKey() {
   return token;
 }
 
-function getUserKey() {
+function getUserKey(): string {
   return URLSafeUUID().substring(0, 8).toLowerCase();
 }
 
@@ -37,7 +37,7 @@ export function generateSlUserKey(): string {
   return newKey;
 }
 
-export function hyphenizeUUID(uuid: string) {
+export function hyphenizeUUID(uuid: string): string {
   return (
     uuid.substring(0, 8) +
     '-' +
@@ -55,7 +55,7 @@ export function removeHyphens(uuid: string) {
   return uuid.split('-').join('');
 }
 
-export function hashToken(token: string) {
+export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
@@ -63,7 +63,7 @@ export function putSecurityDoc(
   server: ServerScope,
   db: DocumentScope<any>,
   doc
-) {
+): Promise<any> {
   // @ts-ignore
   return server.request({
     db: db.config.db,
@@ -161,7 +161,7 @@ export function getSessionToken(req: Request) {
 /**
  * Generates views for each registered provider in the user design doc
  */
-export function addProvidersToDesignDoc(config: Partial<Config>, ddoc: any) {
+export function addProvidersToDesignDoc(config: Partial<Config>, ddoc: any): any {
   const providers = config.providers;
   if (!providers) {
     return ddoc;
@@ -178,14 +178,14 @@ export function addProvidersToDesignDoc(config: Partial<Config>, ddoc: any) {
 }
 
 /** Capitalizes the first letter of a string */
-export function capitalizeFirstLetter(str: string) {
+export function capitalizeFirstLetter(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 /**
  * adds the nested properties of `source` to `dest`, overwriting present entries
  */
-export function mergeConfig(dest: any, source: any) {
+export function mergeConfig(dest: any, source: any): any {
   for (const [k, v] of Object.entries(source)) {
     if (typeof dest[k] === 'object' && !Array.isArray(dest[k])) {
       dest[k] = mergeConfig(dest[k], source[k]);
@@ -204,7 +204,7 @@ export function mergeConfig(dest: any, source: any) {
  * @return  resulting array
  */
 
-export function arrayUnion<T>(a: Array<T>, b: Array<T>) {
+export function arrayUnion<T>(a: Array<T>, b: Array<T>): T[] {
   const result = a.concat(b);
   for (let i = 0; i < result.length; ++i) {
     for (let j = i + 1; j < result.length; ++j) {
@@ -220,7 +220,7 @@ export function arrayUnion<T>(a: Array<T>, b: Array<T>) {
  * `status`, `error` and optionally one of
  * `validationErrors` or `message`.
  */
-export function isUserFacingError(errObj: any) {
+export function isUserFacingError(errObj: any): boolean {
   if (!errObj || typeof errObj !== 'object') {
     return false;
   }
@@ -242,11 +242,11 @@ export function isUserFacingError(errObj: any) {
   return requiredProps.size === 0;
 }
 
-export function replaceAt(str: string, idx: number, repl: string) {
+export function replaceAt(str: string, idx: number, repl: string): string {
   return str.substring(0, idx) + repl + str.substring(idx + 1, str.length);
 }
 
-export function timeoutPromise(duration) {
+export function timeoutPromise(duration): Promise<unknown> {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       resolve(true);

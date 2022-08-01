@@ -8,7 +8,7 @@ import { join } from 'path';
  * Note that they must be greedy (*?) to format the markdown correctly.
  * @param text the markdown text to process
  */
-function processMarkdown(text: string) {
+function processMarkdown(text: string): string {
   return text
     .replace(/(\s)\*\*(.*?)\*\*(\s)/gim, '$1<b>$2</b>$3')
     .replace(/(\s)\_(.*?)\_(\s)/gim, '$1<i>$2</i>$3')

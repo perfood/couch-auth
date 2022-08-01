@@ -2,8 +2,13 @@
 import { DocumentScope, ServerScope } from 'nano';
 import seed from '../design/seed';
 import { Config, PersonalDBSettings, PersonalDBType } from '../types/config';
-import { CouchDbAuthDoc, IdentifiedObj, SlUserDoc } from '../types/typings';
-import { getSessions, toArray, URLSafeUUID } from '../util';
+import {
+  CouchDbAuthDoc,
+  IdentifiedObj,
+  SessionCleanupType,
+  SlUserDoc
+} from '../types/typings';
+import { getExpiredSessions, getSessions, toArray, URLSafeUUID } from '../util';
 import { CouchAdapter } from './couchdb';
 
 export class DBAuth {
@@ -66,6 +71,50 @@ export class DBAuth {
       key: token,
       password: URLSafeUUID()
     };
+  }
+
+  /**
+   * Removes the affected from the `_users` db and from the `_security` of the
+   * user's personal DBs, returning the modified `sl-users` doc
+   *
+   *  - 'all' -> logs out all sessions
+   *  - 'other' -> logout all sessions except for 'currentSession'
+   *  - 'expired' -> only logs out expired sessions
+   */
+  public async logoutUserSessions(
+    userDoc: SlUserDoc,
+    op: SessionCleanupType,
+    currentSession?: string
+  ): Promise<SlUserDoc> {
+    let sessionsToEnd: string[];
+    if (op === 'expired') {
+      sessionsToEnd = getExpiredSessions(userDoc, Date.now());
+    } else {
+      sessionsToEnd = getSessions(userDoc);
+      if (op === 'other' && currentSession) {
+        sessionsToEnd = sessionsToEnd.filter(s => s !== currentSession);
+      }
+    }
+
+    if (sessionsToEnd.length) {
+      // 1.) Remove the keys from our couchDB auth database. Must happen first.
+      await this.removeKeys(sessionsToEnd);
+      // 2.) Deauthorize keys from each personal database
+      await this.deauthorizeUser(userDoc, sessionsToEnd);
+
+      sessionsToEnd.forEach(session => {
+        delete userDoc.session[session];
+      });
+      if (Object.keys(userDoc.session).length === 0) {
+        delete userDoc.session;
+      }
+
+      userDoc.inactiveSessions = [
+        ...(userDoc.inactiveSessions ?? []),
+        ...sessionsToEnd
+      ];
+    }
+    return userDoc;
   }
 
   async authorizeKeys(
@@ -154,49 +203,32 @@ export class DBAuth {
    * @throws This method can fail due to Connection/ CouchDB-Problems.
    */
   async removeExpiredKeys(): Promise<string[]> {
-    const keysByUser = {};
-    const userDocs = {};
-    const expiredKeys: string[] = [];
+    const alreadyProcessedUsers: Set<string> = new Set();
+    let revokedSessions: string[] = [];
+
     // query a list of expired keys by user
     const results = await this.userDB.view('auth', 'expiredKeys', {
       endkey: Date.now(),
       include_docs: true
     });
-    // group by user
-    results.rows.forEach(row => {
-      const val = row.value as { key: string; user: string };
-      keysByUser[val.user] = val.key;
-      expiredKeys.push(val.key);
-      // Add the user doc if it doesn't already exist
-      if (typeof userDocs[val.user] === 'undefined') {
-        userDocs[val.user] = row.doc;
-      }
-      // remove each key from user.session
-      if (userDocs[val.user].session) {
-        Object.keys(userDocs[val.user].session).forEach(session => {
-          if (val.key === session) {
-            delete userDocs[val.user].session[session];
-          }
-        });
-      }
-    });
-    if (expiredKeys.length > 0) {
-      // 1. remove from `_users` s.t. access is blocked.
-      // TODO: clean up properly if not in `_users` but in roles
-      await this.removeKeys(expiredKeys);
-      for (const user of Object.keys(keysByUser)) {
-        // 2. deauthorize from the user's personal DB. Not necessary for Session Adapter here.
-        await this.deauthorizeUser(userDocs[user], keysByUser[user]);
-      }
 
-      const userUpdates = [];
-      Object.keys(userDocs).forEach(user => {
-        userUpdates.push(userDocs[user]);
-      });
-      // 3. save the changes to the SL-doc
-      await this.userDB.bulk({ docs: userUpdates });
+    // clean up expired session for each user in the results
+    for (const row of results.rows) {
+      const val = row.value as { key: string; user: string };
+      const userId = val.user;
+      if (alreadyProcessedUsers.has(userId)) {
+        continue;
+      }
+      const sessionsBefore = Object.keys(row.doc.session ?? {});
+      const userDoc = await this.logoutUserSessions(row.doc, 'expired');
+      await this.userDB.insert(userDoc);
+      revokedSessions = revokedSessions.concat(
+        sessionsBefore.filter(s => !userDoc.session[s])
+      );
+      alreadyProcessedUsers.add(userId);
     }
-    return expiredKeys;
+
+    return revokedSessions;
   }
 
   /** deauthenticates the keys from the user's personal DB */
@@ -278,7 +310,8 @@ export class DBAuth {
       } else {
         dbConfig.designDocs = [];
       }
-      dbConfig.partitioned = this.config.userDBs.model._default.partitioned || false;
+      dbConfig.partitioned =
+        this.config.userDBs.model._default.partitioned || false;
       dbConfig.type = type || 'private';
     } else {
       dbConfig.partitioned = false;
@@ -290,7 +323,7 @@ export class DBAuth {
   async createDB(dbName: string, partitioned?: boolean) {
     partitioned = partitioned || false;
     try {
-      await this.couchServer.db.create(dbName, {partitioned: partitioned});
+      await this.couchServer.db.create(dbName, { partitioned: partitioned });
     } catch (err) {
       if (err.statusCode === 412) {
         return false; // already exists

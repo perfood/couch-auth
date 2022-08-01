@@ -30,9 +30,7 @@ import {
   arrayUnion,
   EMAIL_REGEXP,
   extractCurrentConsents,
-  getExpiredSessions,
   getSessionKey,
-  getSessions,
   hashToken,
   hyphenizeUUID,
   removeHyphens,
@@ -41,11 +39,6 @@ import {
   verifyConsentUpdate
 } from './util';
 
-enum Cleanup {
-  'expired' = 'expired',
-  'other' = 'other',
-  'all' = 'all'
-}
 export enum ValidErr {
   'exists' = 'already in use',
   'emailInvalid' = 'invalid email',
@@ -651,7 +644,7 @@ export class User {
     }
     const userDoc = this.userDbManager.logActivity('login', provider, user);
     // Clean out expired sessions on login
-    const finalUser = await this.logoutUserSessions(userDoc, Cleanup.expired);
+    const finalUser = await this.dbAuth.logoutUserSessions(userDoc, 'expired');
     user = finalUser;
     await this.userDB.insert(finalUser);
     newSession.token = token.key;
@@ -705,7 +698,7 @@ export class User {
     const newExpiration = Date.now() + this.config.security.sessionLife * 1000;
     userDoc.session[sessionId].expires = newExpiration;
     // Clean out expired sessions on refresh
-    userDoc = await this.logoutUserSessions(userDoc, Cleanup.expired);
+    userDoc = await this.dbAuth.logoutUserSessions(userDoc, 'expired');
     userDoc = this.userDbManager.logActivity('refresh', sessionId, userDoc);
     await this.userDB.insert(userDoc);
     await this.dbAuth.extendKey(sessionId, newExpiration);
@@ -764,7 +757,7 @@ export class User {
       user.providers.push('local');
     }
     // logout user completely
-    user = await this.logoutUserSessions(user, Cleanup.all);
+    user = await this.dbAuth.logoutUserSessions(user, 'all');
     delete user.forgotPassword;
     if (user.unverifiedEmail) {
       user = await this.markEmailAsVerified(user);
@@ -1122,7 +1115,7 @@ export class User {
         status: 401
       });
     }
-    await this.logoutUserSessions(user, Cleanup.all);
+    await this.dbAuth.logoutUserSessions(user, 'all');
     user = this.userDbManager.logActivity('logout-all', session_id, user);
     this.emitter.emit('logout-all', user.key);
     return this.userDB.insert(user);
@@ -1160,7 +1153,7 @@ export class User {
       //console.log('2.) - deauthorized user for ', session_id);
 
       // Clean out expired sessions
-      user = await this.logoutUserSessions(user, Cleanup.expired);
+      user = await this.dbAuth.logoutUserSessions(user, 'expired');
       //console.log('3.) - cleaned up for user', user.key);
       if (user.session) {
         endSessions = Object.keys(user.session).length;
@@ -1197,53 +1190,13 @@ export class User {
     let user = await this.userDbManager.findUserDocBySession(sessionId);
     if (user) {
       if (user.session && user.session[sessionId]) {
-        user = await this.logoutUserSessions(user, Cleanup.other, sessionId);
+        user = await this.dbAuth.logoutUserSessions(user, 'other', sessionId);
         user = this.userDbManager.logActivity('logout-others', sessionId, user);
         this.emitter.emit('logout-others', user.key);
         return this.userDB.insert(user);
       }
     }
     return false;
-  }
-
-  private async logoutUserSessions(
-    userDoc: SlUserDoc,
-    op: Cleanup,
-    currentSession?: string
-  ) {
-    // When op is 'other' it will logout all sessions except for the specified 'currentSession'
-    let sessions: string[];
-    if (op === Cleanup.all || op === Cleanup.other) {
-      sessions = getSessions(userDoc);
-    } else if (op === Cleanup.expired) {
-      sessions = getExpiredSessions(userDoc, Date.now());
-    }
-    if (op === Cleanup.other && currentSession) {
-      // Remove the current session from the list of sessions we are going to delete
-      const index = sessions.indexOf(currentSession);
-      if (index > -1) {
-        sessions.splice(index, 1);
-      }
-    }
-    if (sessions.length) {
-      // 1.) Remove the keys from our couchDB auth database. Must happen first.
-      await this.dbAuth.removeKeys(sessions);
-      // 2.) Deauthorize keys from each personal database and from session store
-      await this.dbAuth.deauthorizeUser(userDoc, sessions);
-      if (op === Cleanup.expired || op === Cleanup.other) {
-        sessions.forEach(session => {
-          delete userDoc.session[session];
-        });
-      }
-      userDoc.inactiveSessions = [
-        ...(userDoc.inactiveSessions ?? []),
-        ...sessions
-      ];
-    }
-    if (op === Cleanup.all) {
-      delete userDoc.session;
-    }
-    return userDoc;
   }
 
   /**
@@ -1258,7 +1211,7 @@ export class User {
     if (!user) {
       throw { status: 404, error: 'not found' };
     }
-    user = await this.logoutUserSessions(user, Cleanup.all);
+    user = await this.dbAuth.logoutUserSessions(user, 'all');
     if (destroyDBs && user.personalDBs) {
       Object.keys(user.personalDBs).forEach(userdb => {
         if (user.personalDBs[userdb].type === 'private') {
