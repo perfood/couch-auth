@@ -956,7 +956,7 @@ describe('User Model', async function () {
       .then(function () {
         console.log('Cleaning expired sessions');
         // @ts-ignore
-        return user.logoutUserSessions(testUser, 'expired');
+        return user.dbAuth.logoutUserSessions(testUser, 'expired');
       })
       .then(function (finalDoc) {
         expect(Object.keys(finalDoc.session).length).to.equal(1);
