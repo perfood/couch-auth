@@ -150,7 +150,7 @@ const req = {
   protocol: 'http'
 };
 
-const createdDBs = ['superlogin_test_users', 'superlogin_test_keys'];
+let createdDBs = ['superlogin_test_users', 'superlogin_test_keys'];
 
 describe('User Model', async function () {
   const mailer = new Mailer(userConfig);
@@ -184,17 +184,12 @@ describe('User Model', async function () {
     // 'should destroy all the test databases'
     return previous.finally(async () => {
       console.log('Destroying databases');
-      for (const testDb of createdDBs) {
-        try {
-          await couch.db.destroy(testDb);
-        } catch (err) {
-          if (!['test_superdb', 'test_usertest$superuser'].includes(testDb)) {
-            console.log('Expected but could not delete db: ', testDb);
-          }
-        }
-      }
+      const allDbs = await couch.db.list();
+      createdDBs = createdDBs.concat(
+        allDbs.filter(db => db.startsWith('test_usertest$'))
+      );
+      await Promise.all(createdDBs.map(db => couch.db.destroy(db)));
       return Promise.resolve();
-      //return Promise.(testDbs.map(db => couch.db.destroy(db)));
     });
   });
 
@@ -299,7 +294,6 @@ describe('User Model', async function () {
       })
       .then(newUser => {
         superuserUUID = newUser._id;
-        createdDBs.push('test_usertest$' + superuserUUID);
         return userDB.get(superuserUUID);
       })
       .then(function (newUser) {
@@ -810,7 +804,6 @@ describe('User Model', async function () {
       })
       .then(newUser => {
         misterxUUID = newUser._id;
-        createdDBs.push('test_usertest$' + misterxUUID);
         return userDB.get(misterxUUID);
       })
       .then(result => {
@@ -1068,6 +1061,8 @@ describe('User Model', async function () {
         return user.createUser(emailUserForm, req);
       })
       .then(newUser => {
+        //userEmailUUID = newUser._id;
+        //createdDBs.push('test_usertest$' + userEmailUUID);
         expect(newUser.unverifiedEmail.email).to.equal(emailUserForm.email);
         expect(newUser.key).to.exist;
         return timeoutPromise(500);
