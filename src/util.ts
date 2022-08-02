@@ -4,7 +4,7 @@ import { Request } from 'express';
 import { DocumentScope, ServerScope } from 'nano';
 import URLSafeBase64 from 'urlsafe-base64';
 import { v4 as uuidv4 } from 'uuid';
-import { Config, DBServerConfig } from './types/config';
+import { Config, DBServerConfig, SessionConfigEntry } from './types/config';
 import { ConsentRequest, ConsentSlEntry, SlUserDoc } from './types/typings';
 
 // regexp from https://emailregex.com/
@@ -161,7 +161,10 @@ export function getSessionToken(req: Request) {
 /**
  * Generates views for each registered provider in the user design doc
  */
-export function addProvidersToDesignDoc(config: Partial<Config>, ddoc: any): any {
+export function addProvidersToDesignDoc(
+  config: Partial<Config>,
+  ddoc: any
+): any {
   const providers = config.providers;
   if (!providers) {
     return ddoc;
@@ -289,6 +292,28 @@ export function verifyConsentUpdate(
     // it's not possible to revoke a required consents -> delete user instead.
     if (configEntry.required && consentRequest.accepted !== true) {
       return 'must include all required consents';
+    }
+  }
+}
+
+export function verifySessionConfigRoles(
+  roles: string[],
+  sessionConfig: SessionConfigEntry
+) {
+  if (!sessionConfig) {
+    throw { error: 'Bad Request', status: 400 };
+  }
+  const userRoles = new Set(roles);
+  if (!sessionConfig.includedRoles.some(r => userRoles.has(r))) {
+    throw { error: 'Forbidden', status: 403 };
+  }
+  if (sessionConfig.excludedRolePrefixes) {
+    for (const excludedPrefix of sessionConfig.excludedRolePrefixes) {
+      for (const userRole of roles) {
+        if (userRole.startsWith(excludedPrefix)) {
+          throw { error: 'Forbidden', status: 403 };
+        }
+      }
     }
   }
 }

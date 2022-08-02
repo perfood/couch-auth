@@ -1,5 +1,27 @@
 ## Change Log
 
+#### 0.18.X: Dynamic session config
+
+##### 0.18.0:
+
+- :boom: `createSession` now expects a parameter object instead of a list of parameters.
+- :sparkles: `security.sessionConfig` allows to have different session lengths depending on the requested `sessionType` and the user's `roles`, e.g.:
+
+```
+    sessionConfig: {
+      default: {
+        lifetime: 30 * 60, // 30 minutes
+        includedRoles: ['user'],
+      },
+      extended: {
+        lifetime: 60 * 60 * 24 * 14, // 14 days
+        includedRoles: ['user', 'support'],
+        excludedRolePrefixes: ['dangerous_superadmin'],
+      },
+    },
+```
+
+
 #### 0.17.X: ejs -> nunjucks
 
 ##### 0.17.2: Dependency Upgrade

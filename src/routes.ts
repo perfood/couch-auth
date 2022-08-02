@@ -49,7 +49,8 @@ export default function (
           .createSession({
             login: req.user._id,
             provider: 'local',
-            byUUID: true
+            byUUID: true,
+            sessionType: req.body.sessionType
           })
           .then(
             function (mySession) {
@@ -155,7 +156,8 @@ export default function (
                 .createSession({
                   login: newUser._id,
                   provider: 'local',
-                  byUUID: true
+                  byUUID: true,
+                  sessionType: req.body.sessionType
                 })
                 .then(
                   function (mySession) {
@@ -216,7 +218,8 @@ export default function (
                 .createSession({
                   login: currentUser._id,
                   provider: 'local',
-                  byUUID: true
+                  byUUID: true,
+                  sessionType: req.body.sessionType
                 })
                 .then(
                   function (mySession) {

@@ -37,7 +37,8 @@ import {
   removeHyphens,
   URLSafeUUID,
   USER_REGEXP,
-  verifyConsentUpdate
+  verifyConsentUpdate,
+  verifySessionConfigRoles
 } from './util';
 
 export enum ValidErr {
@@ -158,6 +159,7 @@ export class User {
       }
     };
 
+    // `consents`, `sessionType` are added dynamically based on the config
     const userModel: Sofa.AsyncOptions = {
       async: true,
       whitelist: ['name', 'username', 'email', 'password', 'confirmPassword'],
@@ -196,20 +198,6 @@ export class User {
       }
     };
 
-    if (config.local.emailUsername) {
-      delete userModel.validate.username;
-    }
-    if (config.local.consents) {
-      userModel.whitelist.push('consents');
-      userModel.validate.consents = {
-        validateConsents: true
-      };
-      if (requiredConsents.length) {
-        userModel.validate.consents.presence = true;
-      }
-    }
-    this.userModel = userModel;
-
     this.resetPasswordModel = {
       async: true,
       customValidators: {
@@ -238,6 +226,32 @@ export class User {
         }
       }
     };
+
+    if (config.local.emailUsername) {
+      delete userModel.validate.username;
+    }
+    if (config.local.consents) {
+      userModel.whitelist.push('consents');
+      userModel.validate.consents = {
+        validateConsents: true
+      };
+      if (requiredConsents.length) {
+        userModel.validate.consents.presence = true;
+      }
+    }
+
+    if (config.security.sessionConfig) {
+      userModel.whitelist.push('sessionType');
+      const sessionValidator = {
+        inclusion: {
+          within: Object.keys(config.security.sessionConfig)
+        }
+      };
+      userModel.validate.sessionType = sessionValidator;
+      this.resetPasswordModel.validate.sessionType = sessionValidator;
+    }
+
+    this.userModel = userModel;
   }
 
   /**
@@ -591,6 +605,7 @@ export class User {
    *    - `login`: the email, username or UUID (depending on your config)
    *    - `provider`: 'local' or one of the configured OAuth providers
    *    - `byUUID`: if `true`, interpret `login` always as UUID
+   *    - `sessionType`: see `security` -> `sessionConfig` for details
    * @returns the new session
    */
   public async createSession(
@@ -607,13 +622,19 @@ export class User {
     }
     const now = Date.now();
     const password = URLSafeUUID();
+    let sessionLife = this.config.security.sessionLife * 1000;
+    if (params.sessionType) {
+      const sessionConfig =
+        this.config.security.sessionConfig[params.sessionType];
+      verifySessionConfigRoles(user.roles, sessionConfig);
+      sessionLife = sessionConfig.lifetime * 1000;
+    }
     const token = {
       key: user.inactiveSessions?.shift() ?? getSessionKey(),
       password,
       _id: user._id,
       issued: now,
-      // IF sessionType was provided -> extend here accordingly
-      expires: now + this.config.security.sessionLife * 1000,
+      expires: now + sessionLife,
       roles: user.roles,
       provider
     };
@@ -636,8 +657,8 @@ export class User {
     const newSession: Partial<SlLoginSession> = {
       issued: token.issued,
       expires: token.expires,
-      provider: provider
-      // if provided: save session type here, not just the provider
+      provider: provider,
+      sessionType: params.sessionType ?? undefined
     };
     user.session[token.key] = newSession as SessionObj;
     // Clear any failed login attempts
@@ -699,7 +720,14 @@ export class User {
    */
   public async refreshSession(sessionId: string): Promise<SlRefreshSession> {
     let userDoc = await this.userDbManager.findUserDocBySession(sessionId);
-    const newExpiration = Date.now() + this.config.security.sessionLife * 1000;
+    let minutesToExtend = this.config.security.sessionLife;
+    if (userDoc.session[sessionId].sessionType) {
+      minutesToExtend =
+        this.config.security.sessionConfig[
+          userDoc.session[sessionId].sessionType
+        ].lifetime;
+    }
+    const newExpiration = Date.now() + minutesToExtend * 1000;
     userDoc.session[sessionId].expires = newExpiration;
     // Clean out expired sessions on refresh
     userDoc = await this.dbAuth.logoutUserSessions(userDoc, 'expired');

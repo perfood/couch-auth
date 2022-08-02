@@ -90,6 +90,7 @@ export interface TimeRestricted {
 
 export interface SessionObj extends TimeRestricted {
   provider: string;
+  sessionType?: string;
 }
 
 export interface SessionCollection {
@@ -185,6 +186,12 @@ export interface SlRefreshSession extends TimeRestricted {
   user_id: string;
   /** unique identifier of the user's DB, `including` the hyphens. */
   user_uid: string;
+  /**
+   * If `config.security.sessionConfig` is used, this stores the type of session
+   * that was issued when logging in. Necessary to select the correct lifetime
+   * when extending the session.
+   */
+  sessionType?: string;
 }
 
 export interface SlLoginSession extends SlRefreshSession {
@@ -208,7 +215,13 @@ export interface SlRequestUser {
   roles?: string[];
   /** @deprecated Also the UUID (without hyphens) - does this make any sense? */
   user_id?: string;
+  /** If set up via `local.consents` in the config, the consents need to passed for registration. */
   consents?: Record<string, ConsentRequest>;
+  /**
+   * If set up via `security.sessionConfig`, a custom session type can be
+   * requested during `login`, `register`, and `password-reset`.
+   */
+  sessionType?: string;
 }
 
 export interface SlRequest extends Request {

@@ -628,9 +628,16 @@ Hashes a password using PBKDF2 and returns an object containing `salt` and `deri
 
 Verifies a password using a hash object. If you have a user doc, pass in `local` as the hash object.
 
-##### `couchAuth.createSession(user_id, provider, req)`
+##### `couchAuth.createSession(params)`
 
-Creates a new session for a user. `provider` is the name of the provider. (eg. 'local', 'facebook', twitter.) `req` is used to log the IP if provided.
+Creates a new session for a user. 
+
+params has the properties:
+- `login`: username, email or UUID - if supported by your config
+- `provider`: the name of the provider. (eg. `'local'`, `'facebook'`, `'twitter'`.)
+- `sessionType`: Optional. See `security` -> `sessionConfig` for details. Allows a dynamic session length by role.
+- `byUUID`: Optional. Allows to identify a user by UUID, even if login via UUID is not allowed in your config
+
 
 ##### `couchAuth.changePassword(user_id, password)`
 
