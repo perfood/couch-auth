@@ -9,7 +9,6 @@ import { SlRequest } from './types/typings';
 import { User } from './user';
 import { capitalizeFirstLetter } from './util';
 
-
 export class OAuth {
   static stateRequired = ['google', 'linkedin'];
 
@@ -24,7 +23,7 @@ export class OAuth {
   private initSession(req: SlRequest, res: Response, next: NextFunction) {
     const provider = this.getProvider(req.path);
     return this.user
-      .createSession(req.user._id, provider, true)
+      .createSession({ login: req.user._id, provider, byUUID: true })
       .then(mySession => {
         return Promise.resolve({
           error: null,
@@ -48,7 +47,7 @@ export class OAuth {
   private initTokenSession(req: SlRequest, res: Response, next: NextFunction) {
     const provider = this.getProviderToken(req.path);
     return this.user
-      .createSession(req.user._id, provider, true)
+      .createSession({ login: req.user._id, provider, byUUID: true })
       .then(mySession => {
         return Promise.resolve(mySession);
       })
@@ -204,7 +203,7 @@ export class OAuth {
   /**
    * Registers a provider that accepts an access_token directly from the client, skipping the popup window and callback
    * This is for supporting Cordova, native IOS and Android apps, as well as other devices
-   */ 
+   */
   public registerTokenProvider(providerName: string, Strategy) {
     providerName = providerName.toLowerCase();
     const configRef = this.config.providers[providerName];
@@ -251,7 +250,7 @@ export class OAuth {
    * This is called after a user has successfully authenticated with a provider
    * If a user is authenticated with a bearer token we will link an account, otherwise log in
    * auth is an object containing 'access_token' and optionally 'refresh_token'
-   */ 
+   */
   private authHandler(req: SlRequest, provider: string, auth, profile) {
     // todo: is this already the UUID here?
     if (req.user && req.user._id && req.user.key) {
@@ -365,7 +364,7 @@ export class OAuth {
   }
 
   /**
-   * Gets the template file checking if a custom template was set in the provider options 
+   * Gets the template file checking if a custom template was set in the provider options
    * and if the testMode.oauthTest is enabled.
    */
   private getTemplate(provider: string): string {
@@ -374,11 +373,11 @@ export class OAuth {
       if (configRef?.templateTest) {
         return configRef.templateTest;
       }
-      return join(__dirname, '../templates/oauth/authCallbackTest.njk')
-    } 
-    if (configRef?.template) {
-      return configRef.template
+      return join(__dirname, '../templates/oauth/authCallbackTest.njk');
     }
-    return join(__dirname, '../templates/oauth/authCallback.ejs')
+    if (configRef?.template) {
+      return configRef.template;
+    }
+    return join(__dirname, '../templates/oauth/authCallback.ejs');
   }
 }

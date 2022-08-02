@@ -45,14 +45,20 @@ export default function (
         loginLocal(req, res, next);
       },
       function (req: SlRequest, res, next) {
-        return user.createSession(req.user._id, 'local', true).then(
-          function (mySession) {
-            res.status(200).json(mySession);
-          },
-          function (err) {
-            return next(err);
-          }
-        );
+        return user
+          .createSession({
+            login: req.user._id,
+            provider: 'local',
+            byUUID: true
+          })
+          .then(
+            function (mySession) {
+              res.status(200).json(mySession);
+            },
+            function (err) {
+              return next(err);
+            }
+          );
       }
     );
 
@@ -145,14 +151,20 @@ export default function (
             if (!newUser || !config.security.loginOnRegistration) {
               res.status(200).json({ success: 'Request processed.' });
             } else if (newUser && config.security.loginOnRegistration) {
-              return user.createSession(newUser._id, 'local', true).then(
-                function (mySession) {
-                  res.status(200).json(mySession);
-                },
-                function (err) {
-                  return next(err);
-                }
-              );
+              return user
+                .createSession({
+                  login: newUser._id,
+                  provider: 'local',
+                  byUUID: true
+                })
+                .then(
+                  function (mySession) {
+                    res.status(200).json(mySession);
+                  },
+                  function (err) {
+                    return next(err);
+                  }
+                );
             }
           },
           function (err) {
@@ -200,14 +212,20 @@ export default function (
         user.resetPassword(req.body, req).then(
           function (currentUser) {
             if (config.security.loginOnPasswordReset) {
-              return user.createSession(currentUser._id, 'local', true).then(
-                function (mySession) {
-                  res.status(200).json(mySession);
-                },
-                function (err) {
-                  return next(err);
-                }
-              );
+              return user
+                .createSession({
+                  login: currentUser._id,
+                  provider: 'local',
+                  byUUID: true
+                })
+                .then(
+                  function (mySession) {
+                    res.status(200).json(mySession);
+                  },
+                  function (err) {
+                    return next(err);
+                  }
+                );
             } else {
               res.status(200).json({ success: 'Password successfully reset.' });
             }

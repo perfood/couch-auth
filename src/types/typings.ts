@@ -8,6 +8,20 @@ export interface IdentifiedObj {
 
 export type SessionCleanupType = 'all' | 'expired' | 'other';
 
+export type CreateSessionOpts = {
+  /** the email, username or UUID (depending on your config) */
+  login: string;
+  /** 'local' or one of the configured OAuth providers */
+  provider: string;
+  /** if `true`, interpret `login` always as UUID */
+  byUUID?: boolean;
+  /**
+   * see `security` -> `sessionConfig`. Custom session lifetime depending on the
+   * user's roles and the config entry for this session type.
+   */
+  sessionType?: string;
+};
+
 /** copied from https://nodemailer.com/smtp/pooled/ because it's not included in the typings */
 export interface PooledSMTPOptions {
   /** set to true to use pooled connections (defaults to false) instead of creating a new connection for every email */

@@ -413,7 +413,10 @@ describe('User Model', async function () {
     return previous
       .then(() => {
         console.log('Creating session');
-        return user.createSession(testUserForm.username, 'local');
+        return user.createSession({
+          login: testUserForm.username,
+          provider: 'local'
+        });
       })
       .then(result => {
         sessionKey = result.token;
@@ -543,12 +546,18 @@ describe('User Model', async function () {
     return previous
       .then(function () {
         console.log('Logging user out completely');
-        return user.createSession(testUserForm.username, 'local');
+        return user.createSession({
+          login: testUserForm.username,
+          provider: 'local'
+        });
       })
       .then(function (session1) {
         sessions[0] = session1.token;
         passes[0] = session1.password;
-        return user.createSession(testUserForm.username, 'local');
+        return user.createSession({
+          login: testUserForm.username,
+          provider: 'local'
+        });
       })
       .then(function (session2) {
         sessions[1] = session2.token;

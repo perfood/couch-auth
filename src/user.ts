@@ -14,6 +14,7 @@ import { Config } from './types/config';
 import {
   ConsentRequest,
   CouchDbAuthDoc,
+  CreateSessionOpts,
   HashResult,
   LocalHashObj,
   RegistrationForm,
@@ -586,17 +587,18 @@ export class User {
 
   /**
    * Creates a new session for a user
-   * @param login the email, username or UUID (depending on your config)
-   * @param provider 'local' or one of the configured OAuth providers
-   * @param byUUID if `true`, interpret `login` always as UUID
+   * @param params: The login options.
+   *    - `login`: the email, username or UUID (depending on your config)
+   *    - `provider`: 'local' or one of the configured OAuth providers
+   *    - `byUUID`: if `true`, interpret `login` always as UUID
    * @returns the new session
    */
   public async createSession(
-    login: string,
-    provider: string,
-    byUUID = false
+    params: CreateSessionOpts
   ): Promise<SlLoginSession> {
-    let user = byUUID
+    const login = params.login;
+    const provider = params.provider;
+    let user = params.byUUID
       ? await this.userDbManager.getUserByUUID(login)
       : await this.getUser(login);
     if (!user) {
@@ -610,6 +612,7 @@ export class User {
       password,
       _id: user._id,
       issued: now,
+      // IF sessionType was provided -> extend here accordingly
       expires: now + this.config.security.sessionLife * 1000,
       roles: user.roles,
       provider
@@ -634,6 +637,7 @@ export class User {
       issued: token.issued,
       expires: token.expires,
       provider: provider
+      // if provided: save session type here, not just the provider
     };
     user.session[token.key] = newSession as SessionObj;
     // Clear any failed login attempts

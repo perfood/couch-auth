@@ -19,6 +19,32 @@ export interface TestConfig {
   debugEmail?: boolean;
 }
 
+export interface SessionConfigEntry {
+  /**
+   * If the user has _any_ of these roles, he can request this kind of session,
+   * unless overridden by `excludedRoles`.
+   */
+  includedRoles: string[];
+
+  /**
+   * If a user has _any_ role which starts with any of these prefixes, he
+   * _cannot_ request this kind of session and the request will be rejected.
+   *
+   * This is useful for preventing users with admin permissions from getting
+   * a usual `user` session duration.
+   */
+  excludedRolePrefixes?: string[];
+
+  /** The number of seconds a new session is valid */
+  lifetime: number;
+}
+/**
+ * Each key is a type of session that can be included in login/PW reset/social
+ * auth requests. Each value defines the roles that must be present in order
+ * to retrieve such a session and the session life.
+ */
+export type SessionConfig = Record<string, SessionConfigEntry>;
+
 /** Security/Session - related configuration */
 export interface SecurityConfig {
   /** Roles given to a new user. Default: ['user'] */
@@ -28,8 +54,14 @@ export interface SecurityConfig {
    * Default: false
    */
   disableLinkAccounts: boolean;
-  /** The number of seconds a new session is valid (default: 24 hours) */
+  /**
+   * The number of seconds a new session is valid (default: 24 hours).
+   * `sessionConfig` takes precedence, if set up and included in the login/ PW
+   * reset/ social auth request.
+   */
   sessionLife: number;
+  /** More granular control of possible session lifetimes by role */
+  sessionConfig?: SessionConfig;
   /** The number of seconds a password reset token is valid (default: 24h) */
   tokenLife: number;
   /**
