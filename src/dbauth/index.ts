@@ -223,7 +223,7 @@ export class DBAuth {
       const userDoc = await this.logoutUserSessions(row.doc, 'expired');
       await this.userDB.insert(userDoc);
       revokedSessions = revokedSessions.concat(
-        sessionsBefore.filter(s => !userDoc.session[s])
+        sessionsBefore.filter(s => !userDoc.session || !userDoc.session[s])
       );
       alreadyProcessedUsers.add(userId);
     }
