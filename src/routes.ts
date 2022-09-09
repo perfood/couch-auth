@@ -458,12 +458,16 @@ export default function (
         console.error(err.stack);
       }
     }
-    if (env !== 'development') {
-      isExpected
-        ? res.status(err.status).json(err)
-        : res.status(500).json({ status: 500, error: 'Internal Server Error' });
+    if (config.security?.forwardErrors === true) {
+      next(err);
     } else {
-      res.status(err.status || 500).json(err);
+      if (env !== 'development') {
+        isExpected
+          ? res.status(err.status).json(err)
+          : res.status(500).json({ status: 500, error: 'Internal Server Error' });
+      } else {
+        res.status(err.status || 500).json(err);
+      }
     }
   });
 }

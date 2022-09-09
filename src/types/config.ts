@@ -92,6 +92,11 @@ export interface SecurityConfig {
    * next timestamp in the array. Default: `undefined` uses only 10 iterations.
    */
   iterations?: [number, number][];
+  /** 
+   * Whether couch-auth should handle errors itself or 
+   * forward to the express error mechanism (`next(err)`)
+   */
+  forwardErrors?: boolean;
 }
 
 export interface LengthConstraint {
