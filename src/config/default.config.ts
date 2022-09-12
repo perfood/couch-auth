@@ -18,7 +18,8 @@ export const defaultConfig: Config = {
       'unlink',
       'session',
       'forgot-username'
-    ]
+    ],
+    forwardErrors: false,
   },
   local: {
     passwordConstraints: {

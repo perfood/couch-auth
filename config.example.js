@@ -31,7 +31,9 @@ const exampleConfig = {
     // If set to true, the user will be logged in automatically after registering
     loginOnRegistration: false,
     // If set to true, the user will be logged in automatically after resetting the password
-    loginOnPasswordReset: false
+    loginOnPasswordReset: false,
+    // If set to true, any errors will not be logged and handled by couch-auth but insteadf forwarded to the express error handlers
+    forwardErrors: false,
   },
   local: {
     // Send out a confirm email after each user signs up with local login
