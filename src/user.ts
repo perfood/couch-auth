@@ -638,15 +638,28 @@ export class User {
       roles: user.roles,
       provider
     };
-    await this.dbAuth.storeKey(
-      user.key,
-      hyphenizeUUID(user._id),
-      token.key,
-      password,
-      token.expires,
-      user.roles,
-      provider
-    );
+    try {
+      await this.dbAuth.storeKey(
+        user.key,
+        hyphenizeUUID(user._id),
+        token.key,
+        password,
+        token.expires,
+        user.roles,
+        provider
+      );
+    } catch (error) {
+      let msg =
+        'Could not create session token with key: ' +
+        token.key +
+        ' - was inactiveSessions copied and does the key already exist?';
+      if (error.status) {
+        msg += ', status: ' + error.status;
+      }
+      console.error(msg);
+      throw error;
+    }
+
     // authorize the new session across all dbs
     if (user.personalDBs) {
       await this.dbAuth.authorizeUserSessions(user.personalDBs, token.key);

@@ -24,6 +24,11 @@
 
 #### 0.17.X: ejs -> nunjucks
 
+##### 0.17.3: Improve error handling
+
+- Add `config.security.forwardErrors` to use `next(err)` instead of sending a response
+- Log a rare error that can occur if devs mess around with docs in `sl-users`
+
 ##### 0.17.2: Dependency Upgrade
 
 - Bump `passport` and other dependencies

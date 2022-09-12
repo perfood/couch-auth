@@ -32,8 +32,8 @@ const exampleConfig = {
     loginOnRegistration: false,
     // If set to true, the user will be logged in automatically after resetting the password
     loginOnPasswordReset: false,
-    // If set to true, any errors will not be logged and handled by couch-auth but insteadf forwarded to the express error handlers
-    forwardErrors: false,
+    // If set to true, any errors will not be logged and handled by couch-auth but instead forwarded to the express error handlers
+    forwardErrors: false
   },
   local: {
     // Send out a confirm email after each user signs up with local login
@@ -116,22 +116,22 @@ const exampleConfig = {
   emails: {
     // Customize the templates for the emails that SuperLogin sends out
     confirmEmail: {
-      subject: 'Please confirm your email',
+      subject: 'Please confirm your email'
     },
     forgotUsername: {
-      subject: 'Your username request',
+      subject: 'Your username request'
     },
     forgotPassword: {
-      subject: 'Your password reset link',
+      subject: 'Your password reset link'
     },
     modifiedPassword: {
-      subject: 'Your password has been modified',
+      subject: 'Your password has been modified'
     },
     confirmEmailChange: {
-      subject: 'Please confirm your new email',
+      subject: 'Please confirm your new email'
     },
     signupExistingEmail: {
-      subject: 'You already have registered with us',
+      subject: 'You already have registered with us'
     }
   },
   // Custom settings to manage personal databases for your users
