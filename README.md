@@ -54,7 +54,7 @@ User authentication is often the hardest part of building any web app, especiall
 
 ## How It Works
 
-Simply authenticate yourself with CouchAuth using any supported strategy and you will be issued a temporary access token and password. Then include the access token and password in an Authorization Bearer header on every request to access protected endpoints. The same credentials will authenticate you on any CouchDB or Cloudant database you have been authorized to use.
+Simply authenticate yourself with CouchAuth using any supported strategy and you will be issued a temporary access token and password. Then include the access token and password in an Authorization Bearer header on every request to access protected endpoints. The same credentials (using Basic rather than Bearer Authorization) will authenticate you on any CouchDB or Cloudant database you have been authorized to use.
 
 ## Quick Start
 
