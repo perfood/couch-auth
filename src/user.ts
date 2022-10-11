@@ -957,6 +957,8 @@ export class User {
    * @param req additional request data, passed to the template as `req`
    */
   public async forgotPassword(email: string, req: any): Promise<void> {
+    email = email.toLowerCase();
+
     if (!email || !email.match(EMAIL_REGEXP)) {
       return Promise.reject({ error: 'invalid email', status: 400 });
     }
