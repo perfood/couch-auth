@@ -18,6 +18,7 @@ describe('SuperLogin', function () {
   let accessPass;
   let expireCompare;
   let resetToken = null;
+  let emailToken;
 
   const server = 'http://localhost:5000';
   const dbUrl = getDBURL(config.dbServer);
@@ -182,7 +183,6 @@ describe('SuperLogin', function () {
   });
 
   it('should verify the email', function () {
-    let emailToken;
     return previous.then(function () {
       return findUser('kewluzer')
         .then(function (record) {
@@ -198,6 +198,16 @@ describe('SuperLogin', function () {
               return Promise.resolve();
             });
         });
+    });
+  });
+
+  it('should also accept the confirm-email token on the 2nd attempt', () => {
+    return previous.then(() => {
+      request.get(server + '/auth/confirm-email/' + emailToken).then(res => {
+        expect(res.status).to.equal(200);
+        console.log('Email successfully verified.');
+        return Promise.resolve();
+      });
     });
   });
 

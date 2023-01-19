@@ -610,6 +610,7 @@ describe('User Model', async function () {
       .then(function (verifiedUser) {
         expect(verifiedUser.email).to.equal(testUserForm.email);
         expect(verifiedUser.activity[0].action).to.equal('email-verified');
+        expect(verifiedUser.lastEmailToken).to.equal(verifyEmailToken);
         return emitterPromise;
       });
   });
@@ -763,7 +764,7 @@ describe('User Model', async function () {
       });
   });
 
-  it('should change the email', function () {
+  it('should request to change the email', function () {
     const emitterPromise = new Promise<any>(resolve => {
       emitter.once('email-changed', user => {
         expect(user.key).to.equal('superuser');
@@ -787,6 +788,7 @@ describe('User Model', async function () {
         expect(userAfterChange.unverifiedEmail.email).to.equal(
           'superuser2@example.com'
         );
+        expect(userAfterChange.lastEmailToken).to.be.undefined;
         return Promise.resolve();
       });
   });
