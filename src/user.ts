@@ -1009,26 +1009,39 @@ export class User {
 
   /**
    * Marks the user's email as verified. `token` comes from the confirmation
-   * email. Resolves if successful, rejects if token is invalid.
+   * email. Resolves if the verification is successful or the token was still
+   * saved from a previous verification. Rejects if token is invalid.
    * @param token
    */
-  public verifyEmail(token: string) {
-    let user: SlUserDoc;
-    return this.userDB
-      .view('auth', 'verifyEmail', { key: token, include_docs: true })
-      .then(result => {
-        if (!result.rows.length) {
-          return Promise.reject({ error: 'Invalid token', status: 400 });
-        }
-        user = result.rows[0].doc;
-        return this.markEmailAsVerified(user);
+  public async verifyEmail(token: string): Promise<void> {
+    const [verifyResult, lastTokenResult] = await Promise.all([
+      this.userDB.view('auth', 'verifyEmail', {
+        key: token,
+        include_docs: true
+      }),
+      this.userDB.view('auth', 'lastEmailToken', {
+        key: token,
+        include_docs: true
       })
-      .then(finalUser => {
-        return this.userDB.insert(finalUser);
+    ]);
+    if (!verifyResult.rows.length && !lastTokenResult.rows.length) {
+      return Promise.reject({ error: 'Invalid token', status: 400 });
+    }
+    if (verifyResult.rows.length > 1) {
+      return Promise.reject({
+        status: 500,
+        error: 'Internal Server Error'
       });
+    }
+    if (verifyResult.rows.length === 1) {
+      let user: SlUserDoc = verifyResult.rows[0].doc;
+      user = await this.markEmailAsVerified(user);
+      await this.userDB.insert(user);
+    }
   }
 
-  private async markEmailAsVerified(userDoc) {
+  private async markEmailAsVerified(userDoc: SlUserDoc) {
+    userDoc.lastEmailToken = userDoc.unverifiedEmail.token;
     userDoc.email = userDoc.unverifiedEmail.email;
     delete userDoc.unverifiedEmail;
     this.emitter.emit('email-verified', userDoc);
@@ -1045,6 +1058,7 @@ export class User {
       throw { error: 'Bad Request', status: 400 }; // should exist.
     }
     if (this.config.local.sendConfirmEmail) {
+      delete user.lastEmailToken;
       user.unverifiedEmail = {
         email: newEmail,
         token: URLSafeUUID()

@@ -139,7 +139,6 @@ export interface PasswortResetEntry extends TimeRestricted {
 }
 
 export interface SlUserDoc extends Document, IdentifiedObj {
-  /** todo: remove this, it's confusing. */
   user_uid?: string;
   /** this is the `_id` in version 1 of superlogin - for login with username */
   key: string;
@@ -149,6 +148,11 @@ export interface SlUserDoc extends Document, IdentifiedObj {
   activity?: UserActivity[];
   forgotPassword?: PasswortResetEntry;
   unverifiedEmail?: { email: string; token: string };
+  /**
+   * After an `unverifiedEmail` was confirmed, the used token is documented
+   * until a new email change token is requested.
+   */
+  lastEmailToken?: string;
   signUp: SignUpObj;
   personalDBs: PersonalDBCollection;
   email: string;

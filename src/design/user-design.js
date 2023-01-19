@@ -23,6 +23,13 @@ module.exports = {
           }
         }
       },
+      lastEmailToken: {
+        map: function (doc) {
+          if (doc.lastEmailToken) {
+            emit(doc.lastEmailToken, null);
+          }
+        }
+      },
       passwordReset: {
         map: function (doc) {
           if (doc.forgotPassword && doc.forgotPassword.token) {
