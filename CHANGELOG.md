@@ -1,6 +1,28 @@
 ## Change Log
 
-#### 0.18.X: Dynamic session config
+
+#### 0.19.X: Token validation idempotency
+
+##### 0.19.0
+
+- :sparkles: Email confirmation now returns a `200` after the initial confirmation.
+  - This is useful for users of mail providers like Office365 which follow links before the user can click on them.
+  - Instead of being redirected to the error page, they'll be redirected to the success page.
+  - A new view and property for `lastEmailToken` is introduced.
+
+#### 0.18.X: Dynamic session duration
+
+##### 0.18.3
+
+- :bug: Emails are now also lowercased when requesting a password reset
+
+##### 0.18.2
+
+- Adds config option `security.forwardErrors` to propagate expressjs errors
+
+##### 0.18.1:
+
+- :bug: Fixes a TypeError in session cleanup
 
 ##### 0.18.0:
 
@@ -20,7 +42,6 @@
       },
     },
 ```
-
 
 #### 0.17.X: ejs -> nunjucks
 

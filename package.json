@@ -82,7 +82,6 @@
     "sinon-chai": "^3.5.0",
     "superagent": "^5.3.1",
     "ts-node": "^10.4.0",
-    "typedoc": "^0.23.16",
     "typescript": "^4.8.4"
   },
   "husky": {
