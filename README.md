@@ -9,7 +9,10 @@ Important breaking changes, see the [Changelog](https://github.com/perfood/couch
 - `0.17.0`: Replaced `ejs` with `nunjucks`, new templating logic, Node >= 14
 - `0.14.0`: Moved db and `sl-users` - structure to UUIDs
 
-Note that I'm only actively working on / performing security testing for the `local` email/PW authentication strategy.
+Important notes from the maintainer:
+- I assume that the express server using `couch-auth` runs behind a load balancer which handles _rate limiting_. Use something like HAProxy which is also [recommended by CouchDB](https://docs.couchdb.org/en/stable/best-practices/reverse-proxies.html#reverse-proxying-with-haproxy) and configure it to prevent brute force attacks.
+- I'm only actively working on / testing the `local` email/PW authentication strategy, not for the OAuth part. Feel free to use it and to contribute, but you're on your own.
+
 
 If you encounter a bug, [open an issue](https://github.com/perfood/couch-auth/issues).
 If you have trouble setting things up or any other question about the package, [join the discussion](https://github.com/perfood/couch-auth/discussions) instead.
