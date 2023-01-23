@@ -5,7 +5,7 @@
 
 ##### 0.19.0
 
-- :sparkles: Email confirmation now returns a `200` after the initial confirmation.
+- :sparkles: If `local.keepEmailConfirmToken` is set, email confirmation also returns a `200` _after_ the initial confirmation.
   - This is useful for users of mail providers like Office365 which follow links before the user can click on them.
   - Instead of being redirected to the error page, they'll be redirected to the success page.
   - A new view and property for `lastEmailToken` is introduced.

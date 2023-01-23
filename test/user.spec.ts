@@ -69,6 +69,7 @@ const userConfigHelper = new Configure({
   local: {
     sendConfirmEmail: true,
     requireEmailConfirm: false,
+    keepEmailConfirmToken: true,
     sendPasswordChangedEmail: true,
     passwordConstraints: {
       length: {

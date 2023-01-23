@@ -40,6 +40,8 @@ const exampleConfig = {
     sendConfirmEmail: true,
     // Require the email be confirmed before the user can login  or before his changed email is updated
     requireEmailConfirm: false,
+    // Return 200 even after the initial confirmation of an email token
+    keepEmailConfirmToken: false,
     // Requires the correct `password` to be sent in the body in order to change the email
     requirePasswordOnEmailChange: false,
     // send a confirmation E-Mail to the user after the password has successfully been changed or resetted
