@@ -92,8 +92,8 @@ export interface SecurityConfig {
    * next timestamp in the array. Default: `undefined` uses only 10 iterations.
    */
   iterations?: [number, number][];
-  /** 
-   * Whether couch-auth should handle errors itself or 
+  /**
+   * Whether couch-auth should handle errors itself or
    * forward to the express error mechanism (`next(err)`)
    */
   forwardErrors?: boolean;
@@ -136,6 +136,12 @@ export interface LocalConfig {
    * succesfully been changed or resetted. Default: `true`.
    */
   sendPasswordChangedEmail: boolean;
+  /**
+   * If set, the token to confirm the initial registration or a new email
+   * address will be saved and subsequent requests to confirm the token will
+   * return as valid. Default: `false`.
+   */
+  keepEmailConfirmToken: boolean;
   /**
    * If this is set, the user will be redirected to this location after
    * confirming email instead of JSON response

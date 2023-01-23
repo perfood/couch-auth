@@ -31,6 +31,7 @@ export const config = {
     usernameLogin: true,
     emailUsername: false,
     requireEmailConfirm: false,
+    keepEmailConfirmToken: true,
     consents: {
       privacy: {
         minVersion: 2,

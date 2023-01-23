@@ -19,7 +19,7 @@ export const defaultConfig: Config = {
       'session',
       'forgot-username'
     ],
-    forwardErrors: false,
+    forwardErrors: false
   },
   local: {
     passwordConstraints: {
@@ -34,6 +34,7 @@ export const defaultConfig: Config = {
     passwordField: 'password',
     emailUsername: true,
     emailLogin: true,
+    keepEmailConfirmToken: false,
     usernameLogin: false,
     uuidLogin: false,
     requireEmailConfirm: true,

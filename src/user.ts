@@ -1014,20 +1014,29 @@ export class User {
    * @param token
    */
   public async verifyEmail(token: string): Promise<void> {
+    const lastTokenQuery = this.config.local.keepEmailConfirmToken
+      ? this.userDB.view('auth', 'lastEmailToken', {
+          key: token,
+          include_docs: true
+        })
+      : Promise.resolve({ rows: [] });
     const [verifyResult, lastTokenResult] = await Promise.all([
       this.userDB.view('auth', 'verifyEmail', {
         key: token,
         include_docs: true
       }),
-      this.userDB.view('auth', 'lastEmailToken', {
-        key: token,
-        include_docs: true
-      })
+      lastTokenQuery
     ]);
-    if (!verifyResult.rows.length && !lastTokenResult.rows.length) {
+    if (
+      !verifyResult.rows.length &&
+      (!this.config.local.keepEmailConfirmToken || !lastTokenResult.rows.length)
+    ) {
       return Promise.reject({ error: 'Invalid token', status: 400 });
     }
     if (verifyResult.rows.length > 1) {
+      console.error(
+        'Duplicate email confirm token for verifyEmail view: ' + token
+      );
       return Promise.reject({
         status: 500,
         error: 'Internal Server Error'
@@ -1041,7 +1050,9 @@ export class User {
   }
 
   private async markEmailAsVerified(userDoc: SlUserDoc) {
-    userDoc.lastEmailToken = userDoc.unverifiedEmail.token;
+    if (this.config.local.keepEmailConfirmToken) {
+      userDoc.lastEmailToken = userDoc.unverifiedEmail.token;
+    }
     userDoc.email = userDoc.unverifiedEmail.email;
     delete userDoc.unverifiedEmail;
     this.emitter.emit('email-verified', userDoc);

@@ -393,7 +393,9 @@ If `local.sendConfirmEmail` is true (_recommended_), a confirmation email will
 be sent with a verification link. If `local.requireEmailConfirm` is true, 
 (_recommended_) the user will not be able to login until the confirmation is 
 complete. If `security.loginOnRegistration` is true (_discouraged_), a session will 
-be automatically created and sent as the response.
+be automatically created and sent as the response. If `local.keepEmailConfirmToken` 
+is `true`, the confirmation link will also return `200` if the link
+is opened multiple times.
 
 ##### `POST /login`
 

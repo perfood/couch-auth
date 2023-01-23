@@ -27,6 +27,13 @@ export class ConfigHelper {
     ) {
       throw 'sendConfirmEmail must also be set if requireEmailConfirm is.';
     }
+    if (
+      this.config.local?.keepEmailConfirmToken &&
+      !this.config.local.sendConfirmEmail
+    ) {
+      throw 'sendConfirmEmail must also be set if keepEmailConfirmToken is.';
+    }
+
     if (this.config.security?.iterations) {
       const itArr = this.config.security.iterations;
       let prev = 0;
