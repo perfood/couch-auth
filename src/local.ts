@@ -45,7 +45,8 @@ export default function (
         passReqToCallback: true
       },
       (req: Request, username: string, password: string, done: Function) => {
-        user.getUser(username).then(
+        const login = username.trim().toLowerCase();
+        user.getUser(login).then(
           theuser => {
             const invalid = !theuser?.local?.derived_key;
             const hashInput = invalid ? {} : theuser.local;
