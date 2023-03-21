@@ -1305,6 +1305,12 @@ export class User {
   public async confirmSession(key: string, password: string) {
     try {
       const doc = await this.dbAuth.retrieveKey(key);
+      if (!doc.provider || !doc.expires) {
+        const msg = `_users doc ${key} is not managed by CouchAuth`;
+        console.warn(msg);
+        throw msg;
+      }
+
       if (doc.expires > Date.now()) {
         doc._id = doc.user_id;
         delete doc.user_id;
