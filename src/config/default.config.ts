@@ -53,6 +53,9 @@ export const defaultConfig: Config = {
     folder: join(__dirname, './../../templates/email'),
     data: { year: new Date().getFullYear() },
     templates: {
+      changeIntoExistingEmail: {
+        subject: 'You already have an account for this email'
+      },
       confirmEmail: {
         subject: 'Please confirm your email'
       },

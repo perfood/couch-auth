@@ -329,13 +329,21 @@ export class User {
     return this.userDbManager.getUser(login, allowUUID);
   }
 
-  private async handleEmailExists(email: string, req?): Promise<void> {
+  private async handleEmailExists(
+    email: string,
+    eventType: 'signup-attempt' | 'email-change-attempt',
+    req?
+  ): Promise<void> {
     const existingUser = await this.userDbManager.getUserBy('email', email);
-    await this.mailer.sendEmail('signupExistingEmail', email, {
+    const template =
+      eventType === 'signup-attempt'
+        ? 'signupExistingEmail'
+        : 'changeIntoExistingEmail';
+    await this.mailer.sendEmail(template, email, {
       user: existingUser,
       req
     });
-    this.emitter.emit('signup-attempt', existingUser, 'local');
+    this.emitter.emit(eventType, existingUser, 'local');
   }
 
   /**
@@ -394,7 +402,7 @@ export class User {
           if (err.email.length === 0) {
             delete err.email;
             if (Object.keys(err).length === 0) {
-              this.handleEmailExists(form.email, req);
+              this.handleEmailExists(form.email, 'signup-attempt', req);
               doThrow = false;
             }
           }
@@ -1118,6 +1126,7 @@ export class User {
         this.config.local.requireEmailConfirm &&
         emailError === ValidErr.exists
       ) {
+        this.handleEmailExists(newEmail, 'email-change-attempt', req);
         return;
       } else {
         throw emailError;

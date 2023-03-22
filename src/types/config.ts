@@ -218,6 +218,7 @@ export interface EmailTemplateConfig {
    * Customize the templates for the emails that `couch-auth` sends out.
    * Otherwise, the defaults located in `./templates/email` will be used.
    * The following templates are used by `couch-auth`:
+   * - `'changeIntoExistingEmail'`
    * - `'confirmEmail'`
    * - `'confirmEmailChange'`
    * - `'forgotPassword'`
