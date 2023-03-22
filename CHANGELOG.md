@@ -3,6 +3,11 @@
 
 #### 0.19.X: Token validation idempotency
 
+##### 0.19.1
+
+- :bug: Emails are now also lowercased when logging in
+- :bug: Entries in `_users` are only deleted by the session logic if they were created by `couchAuth`
+
 ##### 0.19.0
 
 - :sparkles: If `local.keepEmailConfirmToken` is set, email confirmation also returns a `200` _after_ the initial confirmation.
