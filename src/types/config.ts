@@ -7,6 +7,7 @@ import SESTransport from 'nodemailer/lib/ses-transport';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
 import StreamTransport from 'nodemailer/lib/stream-transport';
 import { ConsentConfig, PooledSMTPOptions } from './typings';
+import { Options as ExpressSlowDownOptions } from 'express-slow-down';
 
 export interface TestConfig {
   /** Use a stub transport so no email is actually sent. Default: false */
@@ -97,6 +98,7 @@ export interface SecurityConfig {
    * forward to the express error mechanism (`next(err)`)
    */
   forwardErrors?: boolean;
+  loginRateLimit?: ExpressSlowDownOptions;
 }
 
 export interface LengthConstraint {
