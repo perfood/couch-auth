@@ -1,6 +1,7 @@
 'use strict';
 import { NextFunction, Request, Response, Router } from 'express';
 import { Authenticator } from 'passport';
+import slowDown from 'express-slow-down';
 import { Config } from './types/config';
 import { SlRequest } from './types/typings';
 import { User, ValidErr } from './user';
@@ -38,9 +39,32 @@ export default function (
     })(req, res, next);
   }
 
-  if (!disabled.includes('login'))
+  if (!disabled.includes('login')) {
+    const speedLimiter = slowDown({
+      windowMs: config.security.loginRateLimit?.windowMs || 5 * 60 * 1000,
+      delayAfter: config.security.loginRateLimit?.delayAfter || 3,
+      delayMs: config.security.loginRateLimit
+        ? config.security.loginRateLimit.delayMs || 500
+        : 0,
+      maxDelayMs: config.security.loginRateLimit?.maxDelayMs || 10000,
+      skipSuccessfulRequests:
+        config.security.loginRateLimit?.skipSuccessfulRequests || true,
+      skipFailedRequests:
+        config.security.loginRateLimit?.skipFailedRequests || false,
+      keyGenerator: function (req) {
+        const usernameField = config.local.usernameField || 'username';
+
+        return req.body[usernameField];
+      },
+      onLimitReached:
+        config.security.loginRateLimit?.onLimitReached || function () {},
+      store: config.security.loginRateLimit?.store || undefined,
+      headers: config.security.loginRateLimit?.headers || false
+    });
+
     router.post(
       '/login',
+      speedLimiter,
       function (req, res, next) {
         loginLocal(req, res, next);
       },
@@ -62,6 +86,7 @@ export default function (
           );
       }
     );
+  }
 
   if (!disabled.includes('refresh'))
     router.post(
@@ -464,7 +489,9 @@ export default function (
       if (env !== 'development') {
         isExpected
           ? res.status(err.status).json(err)
-          : res.status(500).json({ status: 500, error: 'Internal Server Error' });
+          : res
+              .status(500)
+              .json({ status: 500, error: 'Internal Server Error' });
       } else {
         res.status(err.status || 500).json(err);
       }
