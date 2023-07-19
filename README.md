@@ -54,6 +54,7 @@ User authentication is often the hardest part of building any web app, especiall
 - Link multiple authentication strategies to the same account for user convenience
 - Provides seamless token access to both your CouchDB server (or Cloudant) and your private API
 - Manages permissions on an unlimited number of private or shared user databases and seeds them with the correct design documents
+- Enable slowing down requests to /login on errors to [prevent brute force attacks](#brute-force-protection)
 
 ## How It Works
 
@@ -372,6 +373,40 @@ It's easy to add custom fields to user documents. When added to a `profile` fiel
      return Promise.resolve(userDoc);
    });
    ```
+
+## Brute force protection
+
+To enable brute force protection for the `/login` route you just need to add `loginRateLimit: {}` to `security` in your `config`. Adding just the empty object uses following defaults that can be overriden as needed:
+
+```ts
+const config {
+
+  ...
+
+  security: {
+    
+    ...
+
+    loginRateLimit: {
+      windowMs: 5 * 60 * 1000,
+      delayAfter: 3,
+      delayMs: 500
+      maxDelayMs: 10000,
+      skipSuccessfulRequests: true,
+      skipFailedRequests: false,
+      onLimitReached: function () {},
+      store: undefined, // if undefined uses Memor Store by default
+      headers: false
+    }
+  }
+}
+```
+
+couch-auth uses [express-slow-down](https://www.npmjs.com/package/express-slow-down) under the hood, feel free to check the docs to dig deeper into configuration options.
+
+### Important notes:
+- You won't be able to override the keyGenerator option, as we use usernameField from the config.
+- If you want to use Redis Store instead of Memory Store you currently need to use [rate-limit-redis@2x](https://github.com/wyattjoh/rate-limit-redis/tree/v2.1.0) for now [due to known issues](https://github.com/express-rate-limit/express-slow-down/issues/40#issuecomment-1548011953) with newer versions of rate-limit-redis.
 
 ## Advanced Configuration
 
