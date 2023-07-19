@@ -395,7 +395,7 @@ const config {
       skipSuccessfulRequests: true,
       skipFailedRequests: false,
       onLimitReached: function () {},
-      store: undefined, // if undefined uses Memor Store by default
+      store: undefined, // if undefined uses Memory Store by default
       headers: false
     }
   }
