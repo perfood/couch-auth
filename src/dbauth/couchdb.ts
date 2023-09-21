@@ -65,7 +65,21 @@ export class CouchAdapter implements DBAdapter {
       ...(await hashCouchPassword(password))
     };
 
-    await this.couchAuthDB.insert(newKey);
+    try {
+      await this.couchAuthDB.insert(newKey);
+    } catch (e) {
+      if (e.statusCode === 409) {
+        //Conflict
+        let doc = await this.couchAuthDB.get(newKey._id);
+        if (doc.user_uid === newKey.user_uid) {
+          newKey._rev = doc._rev;
+          await this.couchAuthDB.insert(newKey);
+        } else {
+          throw e;
+        }
+      }
+    }
+
     newKey._id = key;
     return newKey;
   }
