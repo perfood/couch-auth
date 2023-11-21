@@ -99,6 +99,7 @@ export interface SecurityConfig {
    */
   forwardErrors?: boolean;
   loginRateLimit?: ExpressSlowDownOptions;
+  passwordResetRateLimit?: ExpressSlowDownOptions;
 }
 
 export interface LengthConstraint {

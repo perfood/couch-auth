@@ -376,7 +376,7 @@ It's easy to add custom fields to user documents. When added to a `profile` fiel
 
 ## Brute force protection
 
-To enable brute force protection for the `/login` route you just need to add `loginRateLimit: {}` to `security` in your `config`. Adding just the empty object uses following defaults that can be overriden as needed:
+To enable brute force protection for the `/login` route you just need to add `loginRateLimit: {}` to `security` in your `config`. The same goes for the `/password-reset` route, where you just need to add `passwordResetRateLimit: {}` accordingly. Adding just the empty object uses following defaults that can be overriden as needed:
 
 ```ts
 const config {
@@ -406,6 +406,7 @@ couch-auth uses [express-slow-down](https://www.npmjs.com/package/express-slow-d
 
 ### Important notes:
 - You won't be able to override the keyGenerator option, as we use usernameField from the config.
+- When activating rate limiting for the `/password-reset` route, `username` field is required in the request body!
 - If you want to use Redis Store instead of Memory Store you currently need to use [rate-limit-redis@2x](https://github.com/wyattjoh/rate-limit-redis/tree/v2.1.0) for now [due to known issues](https://github.com/express-rate-limit/express-slow-down/issues/40#issuecomment-1548011953) with newer versions of rate-limit-redis.
 
 ## Advanced Configuration
