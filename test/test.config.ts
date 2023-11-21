@@ -22,7 +22,10 @@ export const config = {
   },
   security: {
     disabledRoutes: [],
-    userActivityLogSize: 10
+    userActivityLogSize: 10,
+    passwordResetRateLimit: {
+      delayMs: 500
+    }
   },
   local: {
     sendConfirmEmail: true,

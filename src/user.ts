@@ -28,15 +28,15 @@ import {
 } from './types/typings';
 import { DbManager } from './user/DbManager';
 import {
-  arrayUnion,
   EMAIL_REGEXP,
+  URLSafeUUID,
+  USER_REGEXP,
+  arrayUnion,
   extractCurrentConsents,
   getSessionKey,
   hashToken,
   hyphenizeUUID,
   removeHyphens,
-  URLSafeUUID,
-  USER_REGEXP,
   verifyConsentUpdate,
   verifySessionConfigRoles
 } from './util';
@@ -792,6 +792,20 @@ export class User {
     if (user.forgotPassword.expires < Date.now()) {
       return Promise.reject({ status: 400, error: 'Token expired' });
     }
+
+    if (this.config.security.passwordResetRateLimit) {
+      const username = form[this.config.local.usernameField || 'username'];
+      if (!username) {
+        throw { status: 400, error: 'Invalid token' };
+      }
+      const slUser = await this.getUser(
+        form[this.config.local.usernameField || 'username']
+      );
+      if (user._id !== slUser._id) {
+        throw { status: 400, error: 'Invalid token' };
+      }
+    }
+
     const hash = await this.hashPassword(form.password);
 
     if (!user.local) {
