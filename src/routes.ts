@@ -232,9 +232,50 @@ export default function (
       }
     );
 
-  if (!disabled.includes('password-reset'))
+  if (!disabled.includes('password-reset')) {
+    const speedLimiter = slowDown({
+      windowMs:
+        config.security.passwordResetRateLimit?.windowMs || 5 * 60 * 1000,
+      delayAfter: config.security.passwordResetRateLimit?.delayAfter || 3,
+      delayMs: config.security.passwordResetRateLimit
+        ? config.security.passwordResetRateLimit.delayMs || 500
+        : 0,
+      maxDelayMs: config.security.passwordResetRateLimit?.maxDelayMs || 10000,
+      skipSuccessfulRequests:
+        config.security.passwordResetRateLimit?.skipSuccessfulRequests || true,
+      skipFailedRequests:
+        config.security.passwordResetRateLimit?.skipFailedRequests || false,
+      keyGenerator: function (req) {
+        const usernameField = config.local.usernameField || 'username';
+
+        return req.body[usernameField];
+      },
+      onLimitReached:
+        config.security.passwordResetRateLimit?.onLimitReached ||
+        function () {},
+      store: config.security.passwordResetRateLimit?.store || undefined,
+      headers: config.security.passwordResetRateLimit?.headers || false
+    });
+
     router.post(
       '/password-reset',
+      function (req: Request, res: Response, next: NextFunction) {
+        if (!config.security.passwordResetRateLimit) {
+          return next();
+        }
+
+        const usernameField = config.local.usernameField || 'username';
+
+        if (!req.body[usernameField]) {
+          return next({
+            error: 'username required',
+            status: 422
+          });
+        }
+
+        return next();
+      },
+      speedLimiter,
       function (req: Request, res: Response, next: NextFunction) {
         user.resetPassword(req.body, req).then(
           function (currentUser) {
@@ -264,6 +305,7 @@ export default function (
         );
       }
     );
+  }
 
   if (!disabled.includes('password-change'))
     router.post(

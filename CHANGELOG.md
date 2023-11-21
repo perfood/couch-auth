@@ -1,5 +1,13 @@
 ## Change Log
 
+#### 0.20.X: Brute force protection
+
+##### 0.20.1
+- :sparkles: if `security.passwordResetRateLimit` is set, password reset request are rate limited per username/email and the correct username/email must be included in the password reset requests
+- :bug: sporadic session creation errors are fixed
+
+##### 0.20.0
+- :sparkles: if `security.loginRateLimit` is set, login requests are rate limited per username/email
 
 #### 0.19.X: Token validation idempotency
 
