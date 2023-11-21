@@ -309,6 +309,7 @@ describe('SuperLogin', function () {
             .post(server + '/auth/password-reset')
             .send({
               token: resetToken,
+              username: newUser.email,
               password: 'newpass1',
               confirmPassword: 'newpass1'
             })
