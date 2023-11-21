@@ -1,6 +1,6 @@
 {
   "name": "@perfood/couch-auth",
-  "version": "0.20.1-1",
+  "version": "0.20.1",
   "description": "Easy and secure authentication for CouchDB/Cloudant. Based on SuperLogin, updated and rewritten in Typescript.",
   "main": "./lib/index.js",
   "files": [
