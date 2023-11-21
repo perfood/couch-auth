@@ -482,6 +482,8 @@ forgot-password `token` and new password
 ##### `POST /password-reset`
 
 Resets the password. Required fields: `token`, `password`, and `confirmPassword`.
+If `security.passwordResetRateLimit` is set, `username` (or your configured 
+username field) must be provided as for `/login`.
 
 ##### `POST /password-change`
 
