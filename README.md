@@ -546,6 +546,10 @@ This will invoke the client `access_token` strategy for the specified provider i
 
 This will link additional providers to an already authenticated user using the client `access_token` strategy.
 
+##### `POST /change-profile`
+
+This link will allow you to update the current user's document profile.  Authentication required.  The profile is sent as a standard JSON object.
+
 ## Event Emitter
 
 CouchAuth also provides an [event emitter](https://nodejs.org/api/events.html), which allows you to receive notifications when important things happen.

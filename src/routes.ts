@@ -57,7 +57,7 @@ export default function (
         return req.body[usernameField];
       },
       onLimitReached:
-        config.security.loginRateLimit?.onLimitReached || function () {},
+        config.security.loginRateLimit?.onLimitReached || function () { },
       store: config.security.loginRateLimit?.store || undefined,
       headers: config.security.loginRateLimit?.headers || false
     });
@@ -96,6 +96,22 @@ export default function (
         return user.refreshSession(req.user.key).then(
           function (mySession) {
             res.status(200).json(mySession);
+          },
+          function (err) {
+            return next(err);
+          }
+        );
+      }
+    );
+
+  if (!disabled.includes('change-profile'))
+    router.post(
+      '/change-profile',
+      passport.authenticate('bearer', { session: false }),
+      function (req: Request, res: Response, next: NextFunction) {
+        user.changeProfile(req).then(
+          function () {
+            res.status(200).json({ success: 'profile changed' });
           },
           function (err) {
             return next(err);
@@ -252,7 +268,7 @@ export default function (
       },
       onLimitReached:
         config.security.passwordResetRateLimit?.onLimitReached ||
-        function () {},
+        function () { },
       store: config.security.passwordResetRateLimit?.store || undefined,
       headers: config.security.passwordResetRateLimit?.headers || false
     });
@@ -532,8 +548,8 @@ export default function (
         isExpected
           ? res.status(err.status).json(err)
           : res
-              .status(500)
-              .json({ status: 500, error: 'Internal Server Error' });
+            .status(500)
+            .json({ status: 500, error: 'Internal Server Error' });
       } else {
         res.status(err.status || 500).json(err);
       }

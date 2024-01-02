@@ -162,7 +162,7 @@ export class User {
     // `consents`, `sessionType` are added dynamically based on the config
     const userModel: Sofa.AsyncOptions = {
       async: true,
-      whitelist: ['name', 'username', 'email', 'password', 'confirmPassword'],
+      whitelist: ['name', 'username', 'email', 'password', 'confirmPassword', 'profile'],
       customValidators: {
         validateEmail: this.validateEmail,
         validateUsername: this.validateUsername,
@@ -226,6 +226,15 @@ export class User {
         }
       }
     };
+
+    this.updateProfileModel = {
+      async: true,
+      validate: {
+        profile: {
+          presence: true
+        }
+      }
+    }
 
     if (config.local.emailUsername) {
       delete userModel.validate.username;
@@ -1104,7 +1113,7 @@ export class User {
       req.user.provider,
       user
     );
-    await this.userDB.insert(finalUser);
+    ;
     this.emitter.emit('email-changed', user);
   }
 
@@ -1139,6 +1148,21 @@ export class User {
     }
     this.completeEmailChange(login, newEmail, req);
   }
+
+    /**
+   * Changes the user's profile. 
+   * @param req additional request data, passed to the template as `req`
+   */
+    public async changeProfile(      
+      req: any
+    ) {
+      const userDoc = await this.getUser(req.user_id, true);
+      if (!userDoc) {
+        throw { error: 'User not found', status: 400 }; // should exist.
+      }
+      userDoc.profile = req.body.profile || userDoc.profile;
+      return this.userDB.insert(userDoc);
+    }
 
   /**
    * Deauthorizes the specified database from the user's account, and optionally destroys it.
