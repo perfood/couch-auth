@@ -122,7 +122,8 @@ export type UserEvent =
   | 'forgot-username-attempt'
   | 'email-change-attempt'
   | 'user-db-added'
-  | 'user-deleted';
+  | 'user-deleted'
+  | 'confirmation-email-error';
 
 export interface UserActivity {
   timestamp: string;
