@@ -578,6 +578,7 @@ Here is a full list of the events that CouchAuth emits, and parameters provided:
 - `logout`: (`user_id`)
 - `logout-all`: (`user_id`)
 - `consents`: (`userDoc`)
+- `confirmation-email-error`: (`userDoc`)
 
 ## Main API
 
