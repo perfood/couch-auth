@@ -48,6 +48,8 @@ const exampleConfig = {
     sendPasswordChangedEmail: true,
     // If this is set, the user will be redirected to this location after confirming email instead of JSON response
     confirmEmailRedirectURL: '/',
+    // Send an email if the user tried to signup with an existing email
+    sendExistingUserEmail: true,
     // Set this to true to disable usernames and use emails instead
     emailUsername: false,
     // Also return the username and UUID when creating a session
@@ -102,6 +104,8 @@ const exampleConfig = {
     couchAuthOnCloudant: false
   },
   mailer: {
+    // If you want to use the built in mailer or a custom one. If you want to use the custom one, you need to listen to the emitted events
+    useCustomMailer: false,
     // Email address that all your system emails will be from
     fromEmail: 'noreply@example.com',
     // Use this if you want to specify a custom Nodemailer transport. Defaults to SMTP or sendmail.
