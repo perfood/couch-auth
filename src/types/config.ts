@@ -151,7 +151,7 @@ export interface LocalConfig {
    */
   confirmEmailRedirectURL?: string;
   /** Send an email if the user tried to signup with an existing email */
-  sendExistingUserEmail: true
+  sendExistingUserEmail?: true
   /** allow to also login with the username. Default: `false` */
   usernameLogin: boolean;
   /** allow to also login with the UUID. Default: `false` */
@@ -285,7 +285,7 @@ export interface RetryMailOptions {
 /** Configure how [nodemailer](https://nodemailer.com/about/) sends mails. */
 export interface MailerConfig {
   /** If you want to use the built in mailer or a custom one. If you want to use the custom one, you need to listen to the emitted events */
-  useCustomMailer: boolean;
+  useCustomMailer?: boolean;
   /** Email address that all your system emails will be from */
   fromEmail: string | Address;
   /**
