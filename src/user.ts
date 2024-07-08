@@ -411,6 +411,7 @@ export class User {
       }
     }
 
+    // TODO: This is an instance of the promise constructor anti-pattern
     return new Promise(async (resolve, reject) => {
       newUser = await this.prepareNewUser(newUser);
       if (hasError || !this.config.security.loginOnRegistration) {
@@ -474,14 +475,20 @@ export class User {
     const result = await this.userDB.insert(finalNewUser);
     newUser._rev = result.rev;
     if (this.config.local.sendConfirmEmail && !this.config.mailer.useCustomMailer) {
-      await this.mailer.sendEmail(
-        'confirmEmail',
-        newUser.unverifiedEmail.email,
-        {
-          req: req,
-          user: newUser
-        }
-      );
+      try {
+        await this.mailer.sendEmail(
+          'confirmEmail',
+          newUser.unverifiedEmail.email,
+          {
+            req: req,
+            user: newUser
+          }
+        );
+      }
+      catch (err) {
+        this.emitter.emit('confirmation-email-error', newUser);
+        console.warn('error sending confirmation email to '+newUser.unverifiedEmail?.email, err);
+      }
     }
     return newUser as SlUserDoc;
   }
