@@ -40,7 +40,8 @@ export const defaultConfig: Config = {
     requireEmailConfirm: true,
     sendConfirmEmail: true,
     requirePasswordOnEmailChange: true,
-    sendPasswordChangedEmail: true
+    sendPasswordChangedEmail: true,
+    sendExistingUserEmail: true,
   },
   dbServer: {
     protocol: 'http://',

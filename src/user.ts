@@ -331,10 +331,12 @@ export class User {
 
   private async handleEmailExists(email: string, req?): Promise<void> {
     const existingUser = await this.userDbManager.getUserBy('email', email);
-    await this.mailer.sendEmail('signupExistingEmail', email, {
-      user: existingUser,
-      req
-    });
+    if (this.config.local.sendExistingUserEmail && !this.config.mailer.useCustomMailer) {
+      await this.mailer.sendEmail('signupExistingEmail', email, {
+        user: existingUser,
+        req
+      });
+    }
     this.emitter.emit('signup-attempt', existingUser, 'local');
   }
 
@@ -471,7 +473,7 @@ export class User {
     );
     const result = await this.userDB.insert(finalNewUser);
     newUser._rev = result.rev;
-    if (this.config.local.sendConfirmEmail) {
+    if (this.config.local.sendConfirmEmail && !this.config.mailer.useCustomMailer) {
       await this.mailer.sendEmail(
         'confirmEmail',
         newUser.unverifiedEmail.email,
@@ -897,11 +899,13 @@ export class User {
           status: 404
         };
       }
-      await this.mailer.sendEmail(
-        'forgotUsername',
-        user.email || user.unverifiedEmail.email,
-        { user: user, req: req }
-      );
+      if (!this.config.mailer.useCustomMailer) {
+        await this.mailer.sendEmail(
+          'forgotUsername',
+          user.email || user.unverifiedEmail.email,
+          { user: user, req: req }
+        );
+      }
       this.emitter.emit('forgot-username', user);
     } catch (err) {
       this.emitter.emit('forgot-username-attempt', email);
@@ -956,7 +960,7 @@ export class User {
   }
 
   private async sendModifiedPasswordEmail(user: SlUserDoc, req): Promise<void> {
-    if (this.config.local.sendPasswordChangedEmail) {
+    if (this.config.local.sendPasswordChangedEmail && !this.config.mailer.useCustomMailer) {
       await this.mailer.sendEmail(
         'modifiedPassword',
         user.email || user.unverifiedEmail.email,
@@ -1013,11 +1017,13 @@ export class User {
     };
     user = this.userDbManager.logActivity('forgot-password', 'local', user);
     await this.userDB.insert(user);
-    await this.mailer.sendEmail(
-      'forgotPassword',
-      user.email || user.unverifiedEmail.email,
-      { user: user, req: req, token: token }
-    );
+    if (!this.config.mailer.useCustomMailer) {
+      await this.mailer.sendEmail(
+        'forgotPassword',
+        user.email || user.unverifiedEmail.email,
+        { user: user, req: req, token: token }
+      );
+    }
     this.emitter.emit('forgot-password', user);
   }
 
@@ -1088,14 +1094,16 @@ export class User {
         email: newEmail,
         token: URLSafeUUID()
       };
-      await this.mailer.sendEmail(
-        'confirmEmailChange',
-        user.unverifiedEmail.email,
-        {
-          req: req,
-          user: user
-        }
-      );
+      if (!this.config.mailer.useCustomMailer) {
+        await this.mailer.sendEmail(
+          'confirmEmailChange',
+          user.unverifiedEmail.email,
+          {
+            req: req,
+            user: user
+          }
+        );
+      }
     } else {
       user.email = newEmail;
     }
