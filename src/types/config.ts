@@ -150,8 +150,8 @@ export interface LocalConfig {
    * confirming email instead of JSON response
    */
   confirmEmailRedirectURL?: string;
-  /** Send an email if the user tried to signup with an existing email */
-  sendExistingUserEmail?: true
+  /** Send an email if the user tried to signup with an existing email. Default: `true` */
+  sendExistingUserEmail?: boolean
   /** allow to also login with the username. Default: `false` */
   usernameLogin: boolean;
   /** allow to also login with the UUID. Default: `false` */
