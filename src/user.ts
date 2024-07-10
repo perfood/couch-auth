@@ -1031,7 +1031,7 @@ export class User {
         { user: user, req: req, token: token }
       );
     }
-    this.emitter.emit('forgot-password', user, token);
+    this.emitter.emit('forgot-password', {user, token});
   }
 
   /**
