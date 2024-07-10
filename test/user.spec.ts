@@ -618,7 +618,7 @@ describe('User Model', async function () {
 
   it('should generate a password reset token', function () {
     const emitterPromise = new Promise<any>(function (resolve) {
-      emitter.once('forgot-password', function (user) {
+      emitter.once('forgot-password', function ({ user, token }) {
         expect(user.key).to.equal('superuser');
         resolve(user);
       });
