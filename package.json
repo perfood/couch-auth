@@ -54,7 +54,7 @@
     "express": "^4.17.1",
     "express-slow-down": "1.6.0",
     "nano": "^10.0.0",
-    "nodemailer": "^6.7.0",
+    "nodemailer": "^7.0.7",
     "nunjucks": "^3.2.3",
     "passport": "^0.6.0",
     "passport-http-bearer-sl": "^1.0.1",
