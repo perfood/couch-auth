@@ -43,16 +43,8 @@ export class CouchAuth extends User {
     const middleware = new Middleware(passport);
 
     if (!couchServer) {
-      couchServer = nano({
-        url: config.dbServer.protocol + config.dbServer.host,
-        parseUrl: false,
-        requestDefaults: {
-          auth: {
-            username: config.dbServer.user,
-            password: config.dbServer.password
-          }
-        }
-      });
+      const couchUrl = `${config.dbServer.protocol}${config.dbServer.user}:${config.dbServer.password}@${config.dbServer.host}`;
+      couchServer = nano(couchUrl);
     }
 
     const userDB: DocumentScope<SlUserDoc> = couchServer.use(

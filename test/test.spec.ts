@@ -1,11 +1,14 @@
-import chai, { expect } from 'chai';
+import { expect, use } from 'chai';
 import nano from 'nano';
 import sinon from 'sinon';
 import request from 'superagent';
 import seed from '../lib/design/seed';
 import { getDBURL, timeoutPromise } from '../lib/util';
 import { config } from './test.config';
-chai.use(require('sinon-chai'));
+
+// Import sinon-chai using require to avoid ES module issues
+const sinonChai = require('sinon-chai');
+use(sinonChai.default || sinonChai);
 
 describe('SuperLogin', function () {
   let app;
@@ -22,7 +25,7 @@ describe('SuperLogin', function () {
 
   const server = 'http://localhost:5000';
   const dbUrl = getDBURL(config.dbServer);
-  const couch = nano({ url: dbUrl, parseUrl: false });
+  const couch = nano(dbUrl);
   const consents = {
     privacy: {
       version: 3,

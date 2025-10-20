@@ -1,5 +1,8 @@
 ## Change Log
 
+#### 0.22.0: Dependency update
+- Upgraded to node 20 and lots of dependencies
+
 #### 0.20.X: Brute force protection
 
 ##### 0.20.1

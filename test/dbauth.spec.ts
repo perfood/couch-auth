@@ -10,7 +10,7 @@ import { getDBURL } from '../src/util';
 import { config } from './test.config';
 
 const dbUrl = getDBURL(config.dbServer as any);
-const couch = nano({ url: dbUrl, parseUrl: false });
+const couch = nano(dbUrl);
 
 couch.db.create('cane_test_users');
 couch.db.create('cane_test_keys');
