@@ -1,0 +1,44 @@
+# Docker Compose setup for CouchAuth development and testing
+# 
+# Services:
+# - couchdb: Single-node CouchDB instance (configured to avoid clustering issues)
+# - test: Ubuntu-based test runner that mimics GitHub CI environment
+#
+# Usage:
+# - Run tests: docker compose up --build test
+# - Or use npm script: npm run test:docker
+# - Start only CouchDB: docker compose up -d couchdb
+
+services:
+  couchdb:
+    image: couchdb:3.5
+    restart: unless-stopped
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=password
+      # Configure for single node mode to avoid clustering issues in tests
+      - COUCHDB_SINGLE_NODE=true
+    ports:
+      - 5984:5984
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+
+  # Test runner that mimics the GitHub CI environment (Ubuntu + Node.js)
+  test:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      # Point to the containerized CouchDB instance
+      - COUCH_HOST=couchdb:5984
+      - COUCH_USER=admin
+      - COUCH_PASS=password
+      - COUCH_PROTOCOL=http://
+    depends_on:
+      - couchdb
+    command: sh -c "npm ci && npm run build && npm run test:mocha"
+
+volumes:
+  couchdb_data:

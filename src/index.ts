@@ -44,14 +44,10 @@ export class CouchAuth extends User {
 
     if (!couchServer) {
       couchServer = nano({
-        url: config.dbServer.protocol + config.dbServer.host,
-        parseUrl: false,
-        requestDefaults: {
-          auth: {
-            username: config.dbServer.user,
-            password: config.dbServer.password
-          }
-        }
+        url: `${config.dbServer.protocol}${config.dbServer.host}`,
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${config.dbServer.user}:${config.dbServer.password}`).toString('base64')}`,
+        },
       });
     }
 
@@ -93,3 +89,4 @@ export class CouchAuth extends User {
 
 export * as TemplateUtils from './template-utils';
 export { CouchAuth as SuperLogin };
+
