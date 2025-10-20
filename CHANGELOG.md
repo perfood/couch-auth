@@ -1,11 +1,17 @@
 ## Change Log
 
-#### 0.22.X: Hashing update
+#### 0.23.0: Dependency update
+- Upgraded to node 20 and lots of dependencies
 
-##### 0.22.0
-- :sparkles: separate hashing configuration of `_users` and `sl-users` passwords (there is a new `sessionHashing` object right besides `iterations`)
-- :sparkles: session validation takes all parameters of the `_users` doc into account when verifying the session (`iterations` and `pbkdf2_prf`)
-- :sparkles: new `_users` session will default to 'sha256' with 1000 iterations and 32 byte keys. To prevent couchdb from upgrading them to stronger hashes, configure `upgrade_hash_on_auth` to false or `iterations` to 1000. As the `_users` provide only temporary access and use random passwords, the time to verify the hashes with 600.000 iterations it not really worth it as couch-auth doesn't employ hash-caching as couchdb does. 
+#### 0.22.0: Hashing update
+
+CAUTION: SEMI-BREAKING CHANGES!
+
+This release will make couch-auth compatible with the stronger hashing of couchdb starting from version 3.4. It is by itself backwards compatible, but couchdb's behaviour might still break it!
+
+✨ separate hashing configuration of _users and sl-users passwords (there is a new sessionHashing object right besides iterations)
+✨ session validation takes all parameters of the _users doc into account when verifying the session (iterations and pbkdf2_prf)
+✨ new _users session will default to 'sha256' with 1000 iterations and 32 byte keys. To prevent couchdb from upgrading them to stronger hashes, configure upgrade_hash_on_auth to false or iterations to the same value. Verifying hashes with 600.000 takes quite some time as couch-auth is not employing hash-caching as couchdb does. As the _users provide only temporary access and use random passwords, the time to verify the hashes is not really worth it.
 
 #### 0.20.X: Brute force protection
 

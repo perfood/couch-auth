@@ -13,7 +13,7 @@ export const EMAIL_REGEXP =
 export const USER_REGEXP = /^[a-z0-9_-]{3,16}$/;
 
 export function URLSafeUUID(): string {
-  return URLSafeBase64.encode(uuidv4(null, Buffer.alloc(16)));
+  return URLSafeBase64.encode(Buffer.from(uuidv4().replace(/-/g, ''), 'hex'));
 }
 
 export function getSessionKey(): string {

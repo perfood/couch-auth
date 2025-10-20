@@ -1,4 +1,4 @@
-import chai, { expect } from 'chai';
+import { expect, use } from 'chai';
 import events from 'events';
 import nano, { DocumentScope } from 'nano';
 import { join } from 'path';
@@ -17,10 +17,13 @@ import {
   timeoutPromise
 } from '../src/util';
 import { config } from './test.config';
-chai.use(require('sinon-chai'));
+
+// Import sinon-chai using require to avoid ES module issues
+const sinonChai = require('sinon-chai');
+use(sinonChai.default || sinonChai);
 
 const dbUrl = getDBURL(config.dbServer as any);
-const couch = nano({ url: dbUrl, parseUrl: false });
+const couch = nano(dbUrl);
 
 const emitter = new events.EventEmitter();
 

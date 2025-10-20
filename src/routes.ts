@@ -43,9 +43,10 @@ export default function (
     const speedLimiter = slowDown({
       windowMs: config.security.loginRateLimit?.windowMs || 5 * 60 * 1000,
       delayAfter: config.security.loginRateLimit?.delayAfter || 3,
-      delayMs: config.security.loginRateLimit
-        ? config.security.loginRateLimit.delayMs || 500
-        : 0,
+      delayMs: (used, req, res) => {
+        const delay = config.security.loginRateLimit?.delayMs || 500;
+        return typeof delay === 'function' ? delay(used, req, res) : delay;
+      },
       maxDelayMs: config.security.loginRateLimit?.maxDelayMs || 10000,
       skipSuccessfulRequests:
         config.security.loginRateLimit?.skipSuccessfulRequests || true,
@@ -56,8 +57,6 @@ export default function (
 
         return req.body[usernameField];
       },
-      onLimitReached:
-        config.security.loginRateLimit?.onLimitReached || function () {},
       store: config.security.loginRateLimit?.store || undefined,
       headers: config.security.loginRateLimit?.headers || false
     });
@@ -237,9 +236,10 @@ export default function (
       windowMs:
         config.security.passwordResetRateLimit?.windowMs || 5 * 60 * 1000,
       delayAfter: config.security.passwordResetRateLimit?.delayAfter || 3,
-      delayMs: config.security.passwordResetRateLimit
-        ? config.security.passwordResetRateLimit.delayMs || 500
-        : 0,
+      delayMs: (used, req, res) => {
+        const delay = config.security.passwordResetRateLimit?.delayMs || 500;
+        return typeof delay === 'function' ? delay(used, req, res) : delay;
+      },
       maxDelayMs: config.security.passwordResetRateLimit?.maxDelayMs || 10000,
       skipSuccessfulRequests:
         config.security.passwordResetRateLimit?.skipSuccessfulRequests || true,
@@ -250,9 +250,6 @@ export default function (
 
         return req.body[usernameField];
       },
-      onLimitReached:
-        config.security.passwordResetRateLimit?.onLimitReached ||
-        function () {},
       store: config.security.passwordResetRateLimit?.store || undefined,
       headers: config.security.passwordResetRateLimit?.headers || false
     });
