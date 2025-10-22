@@ -57,11 +57,24 @@ export interface HashResult {
    * (`security.iterations`) that matches the creation date.
    */
   created?: number;
+
+  /**
+   * The password hashing scheme used (e.g., 'pbkdf2')
+   */
+  password_scheme?: string;
+  /**
+   * The pseudorandom function used for PBKDF2 hashing (e.g., 'sha1' or 'sha256')
+   */
+  pbkdf2_prf?: string;
+
+  /**
+   * Number of iterations used in the hashing process
+   */
+  iterations?: number;
 }
 
 export interface LocalHashObj extends HashResult {
   failedLoginAttempts?: number;
-  iterations?: number;
   lockedUntil?: number;
 }
 

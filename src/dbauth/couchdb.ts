@@ -2,29 +2,28 @@
 import { DocumentScope, ServerScope } from 'nano';
 import {
   getSecurityDoc,
-  hyphenizeUUID,
   putSecurityDoc,
   toArray
 } from '../util';
-import { hashCouchPassword, Hashing } from '../hashing';
+
 import { Config } from '../types/config';
 import { CouchDbAuthDoc } from '../types/typings';
 import { DBAdapter } from '../types/adapters';
+import { SessionHashing } from '../session-hashing';
 
 const userPrefix = 'org.couchdb.user:';
 
 export class CouchAdapter implements DBAdapter {
   couchAuthOnCloudant = false;
-  private hasher: Hashing;
   constructor(
     private couchAuthDB: DocumentScope<CouchDbAuthDoc>,
     private couch: ServerScope,
-    private config: Partial<Config>
+    private config: Partial<Config>,
+    private session: SessionHashing = new SessionHashing(config)
   ) {
     if (this.config?.dbServer.couchAuthOnCloudant) {
       this.couchAuthOnCloudant = true;
     }
-    this.hasher = new Hashing(config);
   }
 
   /**
@@ -47,7 +46,7 @@ export class CouchAdapter implements DBAdapter {
       roles = [];
     }
     roles.unshift('user:' + username);
-    let newKey: CouchDbAuthDoc = {
+    const newKey: CouchDbAuthDoc = {
       _id: userPrefix + key,
       type: 'user',
       name: key,
@@ -55,14 +54,8 @@ export class CouchAdapter implements DBAdapter {
       user_id: username,
       expires: expires,
       roles: roles,
-      provider: provider
-    };
-    // required when using Cloudant or other db than `_users`
-    newKey.password_scheme = 'pbkdf2';
-    newKey.iterations = 10;
-    newKey = {
-      ...newKey,
-      ...(await hashCouchPassword(password))
+      provider: provider,
+      ...(await this.session.hashSessionPassword(password))
     };
 
     try {

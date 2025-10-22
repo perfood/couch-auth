@@ -7,9 +7,9 @@ import { DocumentScope, ServerScope } from 'nano';
 import url from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { DBAuth } from './dbauth';
-import { Hashing } from './hashing';
+import { UserHashing } from './user-hashing';
 import { Mailer } from './mailer';
-import { Session } from './session';
+import { SessionHashing } from './session-hashing';
 import { Config } from './types/config';
 import {
   ConsentRequest,
@@ -50,10 +50,10 @@ export enum ValidErr {
 export class User {
   private dbAuth: DBAuth;
   private userDbManager: DbManager;
-  private session: Session;
+  private session: SessionHashing;
   private onCreateActions: SlAction[];
   private onLinkActions: SlAction[];
-  private hasher: Hashing;
+  private hasher: UserHashing;
 
   private passwordConstraints;
   /**
@@ -89,8 +89,8 @@ export class User {
     this.dbAuth = new DBAuth(config, userDB, couchServer, couchAuthDB);
     this.onCreateActions = [];
     this.onLinkActions = [];
-    this.hasher = new Hashing(config);
-    this.session = new Session(this.hasher);
+    this.hasher = new UserHashing(config);
+    this.session = new SessionHashing(config);
     this.userDbManager = new DbManager(userDB, config);
     this.passwordConstraints = config.local.passwordConstraints;
 
@@ -1341,26 +1341,25 @@ export class User {
       }
 
       if (doc.expires > Date.now()) {
-        doc._id = doc.user_id;
-        delete doc.user_id;
-        delete doc.name;
-        delete doc.type;
-        delete doc._rev;
-        delete doc.password_scheme;
-        return { key, ...(await this.session.confirmToken(doc, password)) } as {
-          key: string;
-          user_uid: string;
-          expires: number;
-          roles: string[];
-          provider: string;
-        };
+        if (await this.session.verifySessionPassword(doc, password)) {
+          return { 
+            key, 
+            _id: doc.user_id,
+            user_uid: doc.user_uid,
+            expires: doc.expires,
+            roles: doc.roles,
+            provider: doc.provider
+          };
+        } else {
+          throw SessionHashing.invalidErr;
+        }
       } else {
         this.dbAuth.removeKeys(key);
+        throw SessionHashing.invalidErr;
       }
     } catch {
-      await this.session.confirmToken({}, password);
+      throw SessionHashing.invalidErr;
     }
-    throw Session.invalidErr;
   }
 
   /**
