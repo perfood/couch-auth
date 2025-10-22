@@ -5,19 +5,30 @@ import { URLSafeUUID } from './util';
 
 const pwd = new pwdModule();
 
+// Hasher for hashing _users passwords
+const pwdCouch = new pwdModule(600000, 32, 16, 'hex', 'sha256');
+
+// Function for hashing _users passwords
 export function hashCouchPassword(password: string): Promise<HashResult> {
   return new Promise(function (resolve, reject) {
-    pwd.hash(password, function (err, salt, hash) {
+    pwdCouch.hash(password, function (err, salt, hash) {
       if (err) {
         return reject(err);
       }
       return resolve({
         salt: salt,
-        derived_key: hash
+        derived_key: hash,
+        password_scheme: 'pbkdf2',
+        pbkdf2_prf: pwdCouch.digest,
+        iterations: pwdCouch.iterations
       });
     });
   });
 }
+
+/**
+ * Class for hashing and verifying sl-user passwords
+ */
 export class Hashing {
   hashers = [];
   times: number[] = [];

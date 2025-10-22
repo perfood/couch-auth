@@ -2,7 +2,6 @@
 import { DocumentScope, ServerScope } from 'nano';
 import {
   getSecurityDoc,
-  hyphenizeUUID,
   putSecurityDoc,
   toArray
 } from '../util';
@@ -47,7 +46,7 @@ export class CouchAdapter implements DBAdapter {
       roles = [];
     }
     roles.unshift('user:' + username);
-    let newKey: CouchDbAuthDoc = {
+    const newKey: CouchDbAuthDoc = {
       _id: userPrefix + key,
       type: 'user',
       name: key,
@@ -55,13 +54,7 @@ export class CouchAdapter implements DBAdapter {
       user_id: username,
       expires: expires,
       roles: roles,
-      provider: provider
-    };
-    // required when using Cloudant or other db than `_users`
-    newKey.password_scheme = 'pbkdf2';
-    newKey.iterations = 10;
-    newKey = {
-      ...newKey,
+      provider: provider,
       ...(await hashCouchPassword(password))
     };
 
