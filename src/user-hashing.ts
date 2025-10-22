@@ -5,20 +5,10 @@ import { URLSafeUUID } from './util';
 
 const pwd = new pwdModule();
 
-export function hashCouchPassword(password: string): Promise<HashResult> {
-  return new Promise(function (resolve, reject) {
-    pwd.hash(password, function (err, salt, hash) {
-      if (err) {
-        return reject(err);
-      }
-      return resolve({
-        salt: salt,
-        derived_key: hash
-      });
-    });
-  });
-}
-export class Hashing {
+/**
+ * Class for hashing and verifying sl-user passwords
+ */
+export class UserHashing {
   hashers = [];
   times: number[] = [];
   dummyHashObject: LocalHashObj = { iterations: 10 };
