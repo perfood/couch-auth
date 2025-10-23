@@ -1,10 +1,10 @@
 'use strict';
 
 import { expect } from 'chai';
-import { Session } from '../src/session';
+import { SessionHashing } from '../src/session-hashing';
 
 let previous;
-const session = new Session();
+const session = new SessionHashing();
 const testToken = {
   _id: 'colinskow',
   roles: ['admin', 'user'],
@@ -39,9 +39,10 @@ describe('Session', async function () {
   it('should confirm a token and return it if valid', function (done) {
     previous.then(function () {
       return session
-        .confirmToken(testToken, 'pass123')
+        .verifySessionPassword(testToken, 'pass123')
         .then(function (result) {
           console.log('confirmed valid token.');
+          expect(result).to.equal(true);
           done();
         })
         .catch(function (err) {
@@ -54,9 +55,10 @@ describe('Session', async function () {
     it('should confirm a sha256 token and return it if valid', function (done) {
     previous.then(function () {
       return session
-        .confirmToken(testTokenSha256, 'UWlIB4MARQO7PBpgKOnXjQ')
+        .verifySessionPassword(testTokenSha256, 'UWlIB4MARQO7PBpgKOnXjQ')
         .then(function (result) {
           console.log('confirmed valid token.');
+          expect(result).to.equal(true);
           done();
         })
         .catch(function (err) {
@@ -68,20 +70,24 @@ describe('Session', async function () {
 
   it('should reject a bad token', function (done) {
     previous.then(function () {
-      return session.confirmToken(badToken, 'pass123').catch(function (err) {
+      return session.verifySessionPassword(badToken, 'pass123').then(function (result) {
         console.log('rejected invalid token');
-        expect(err.message).to.equal('invalid token');
+        expect(result).to.equal(false);
         done();
+      }).catch(function (err) {
+        done(err);
       });
     });
   });
 
   it('should reject a wrong password', function (done) {
     previous.then(function () {
-      return session.confirmToken(testToken, 'wrongpass').catch(function (err) {
+      session.verifySessionPassword(testToken, 'wrongpass').then(function (result) {
         console.log('rejected invalid token');
-        expect(err.message).to.equal('invalid token');
+        expect(result).to.equal(false);
         done();
+      }).catch(function (err) {
+        done(err);
       });
     });
   });

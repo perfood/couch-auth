@@ -5,10 +5,11 @@ import {
   putSecurityDoc,
   toArray
 } from '../util';
-import { hashCouchPassword } from '../hashing-session';
+
 import { Config } from '../types/config';
 import { CouchDbAuthDoc } from '../types/typings';
 import { DBAdapter } from '../types/adapters';
+import { SessionHashing } from '../session-hashing';
 
 const userPrefix = 'org.couchdb.user:';
 
@@ -17,7 +18,8 @@ export class CouchAdapter implements DBAdapter {
   constructor(
     private couchAuthDB: DocumentScope<CouchDbAuthDoc>,
     private couch: ServerScope,
-    private config: Partial<Config>
+    private config: Partial<Config>,
+    private session: SessionHashing = new SessionHashing()
   ) {
     if (this.config?.dbServer.couchAuthOnCloudant) {
       this.couchAuthOnCloudant = true;
@@ -53,7 +55,7 @@ export class CouchAdapter implements DBAdapter {
       expires: expires,
       roles: roles,
       provider: provider,
-      ...(await hashCouchPassword(password))
+      ...(await this.session.hashSessionPassword(password))
     };
 
     try {

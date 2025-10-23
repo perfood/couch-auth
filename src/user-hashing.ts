@@ -8,7 +8,7 @@ const pwd = new pwdModule();
 /**
  * Class for hashing and verifying sl-user passwords
  */
-export class Hashing {
+export class UserHashing {
   hashers = [];
   times: number[] = [];
   dummyHashObject: LocalHashObj = { iterations: 10 };
