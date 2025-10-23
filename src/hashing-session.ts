@@ -1,0 +1,44 @@
+import pwdModule from '@sl-nx/couch-pwd';
+import { HashResult } from './types/typings';
+
+// Hasher for hashing _users passwords
+const pwdCouch = new pwdModule(600000, 32, 16, 'hex', 'sha256');
+
+// Function for hashing _users passwords
+export function hashCouchPassword(password: string): Promise<HashResult> {
+  return new Promise(function (resolve, reject) {
+    pwdCouch.hash(password, function (err, salt, hash) {
+      if (err) {
+        return reject(err);
+      }
+      return resolve({
+        salt: salt,
+        derived_key: hash,
+        password_scheme: 'pbkdf2',
+        pbkdf2_prf: pwdCouch.digest,
+        iterations: pwdCouch.iterations
+      });
+    });
+  });
+}
+
+export function verifyCouchPassword(hashObj: HashResult, pw: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const iterations = hashObj.iterations || 10;
+    const digest = hashObj.pbkdf2_prf || 'sha1';
+    const length = digest === 'sha1' ? 20 : 32;
+    const pwdCouch = new pwdModule(iterations, length, 16, 'hex', digest);
+    
+    const salt = hashObj.salt;
+    const derived_key = hashObj.derived_key;
+    pwdCouch.hash(pw, salt, (err, hash) => {
+      if (err) {
+        return reject(err);
+      } else if (hash !== derived_key) {
+        return reject(false);
+      } else {
+        return resolve(true);
+      }
+    });
+  });
+}

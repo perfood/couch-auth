@@ -7,7 +7,7 @@ import { DocumentScope, ServerScope } from 'nano';
 import url from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { DBAuth } from './dbauth';
-import { Hashing } from './hashing';
+import { Hashing } from './hashing-sl';
 import { Mailer } from './mailer';
 import { Session } from './session';
 import { Config } from './types/config';
@@ -90,7 +90,7 @@ export class User {
     this.onCreateActions = [];
     this.onLinkActions = [];
     this.hasher = new Hashing(config);
-    this.session = new Session(this.hasher);
+    this.session = new Session();
     this.userDbManager = new DbManager(userDB, config);
     this.passwordConstraints = config.local.passwordConstraints;
 

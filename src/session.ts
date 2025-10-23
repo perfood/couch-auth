@@ -1,10 +1,10 @@
 'use strict';
-import { Hashing } from './hashing';
+import { verifyCouchPassword } from './hashing-session';
 import { LocalHashObj } from './types/typings';
 
 export class Session {
   static invalidErr = { status: 401, message: 'invalid token' };
-  constructor(private hasher: Hashing) {}
+  constructor() {}
 
   /**
    * Confirms that the password matches with the provided token and returns the
@@ -16,7 +16,7 @@ export class Session {
     password: string
   ): Promise<Omit<T, 'salt' | 'derived_key' | 'iterations'>> {
     try {
-      await this.hasher.verifyUserPassword(token, password);
+      await verifyCouchPassword(token, password);
       delete token.salt;
       delete token.derived_key;
       delete token.iterations;

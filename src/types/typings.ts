@@ -75,7 +75,6 @@ export interface HashResult {
 
 export interface LocalHashObj extends HashResult {
   failedLoginAttempts?: number;
-  iterations?: number;
   lockedUntil?: number;
 }
 
