@@ -10,7 +10,9 @@ const config = {
   security: {
     sessionHashing: {
       iterations: 600000,
-      pbkdf2_prf: 'sha256'
+      pbkdf2Prf: 'sha256',
+      keyLength: 32,
+      saltLength: 16,
     }
   } as SecurityConfig
 };

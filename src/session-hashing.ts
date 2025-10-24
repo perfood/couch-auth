@@ -1,7 +1,7 @@
 'use strict';
 import pwdModule from '@sl-nx/couch-pwd';
-import { HashResult } from './types/typings';
 import { Config } from './types/config';
+import { HashResult } from './types/typings';
 
 export class SessionHashing {
 
@@ -12,14 +12,16 @@ export class SessionHashing {
   
   constructor(config: Partial<Config>) {
     const iterations = config.security?.sessionHashing?.iterations || 1000;
-    const pbkdf2_prf = config.security?.sessionHashing?.pbkdf2_prf || 'sha256';
+    const pbkdf2Prf = config.security?.sessionHashing?.pbkdf2Prf || 'sha256';
+    const keyLength = config.security?.sessionHashing?.keyLength || 32;
+    const saltLength = config.security?.sessionHashing?.saltLength || 16;
 
     this.pwdCouch = new pwdModule(
       iterations,
-      pbkdf2_prf == 'sha1' ? 20 : 32,
-      16,
+      keyLength,
+      saltLength,
       'hex',
-      pbkdf2_prf
+      pbkdf2Prf
     );
   }
 
