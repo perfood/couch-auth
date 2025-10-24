@@ -90,7 +90,7 @@ export class User {
     this.onCreateActions = [];
     this.onLinkActions = [];
     this.hasher = new UserHashing(config);
-    this.session = new SessionHashing();
+    this.session = new SessionHashing(config);
     this.userDbManager = new DbManager(userDB, config);
     this.passwordConstraints = config.local.passwordConstraints;
 

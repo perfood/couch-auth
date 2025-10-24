@@ -93,6 +93,12 @@ export interface SecurityConfig {
    * next timestamp in the array. Default: `undefined` uses only 10 iterations.
    */
   iterations?: [number, number][];
+  sessionHashing?: {
+    /** Hashing algorithm for pbkdf2, either 'sha1' or 'sha256'. Default: 'sha256' */
+    pbkdf2_prf: 'sha1' | 'sha256';
+    /** Number of iterations for pbkdf2 password hashing. Default: 1000 */
+    iterations: number;
+  }
   /**
    * Whether couch-auth should handle errors itself or
    * forward to the express error mechanism (`next(err)`)

@@ -2,9 +2,20 @@
 
 import { expect } from 'chai';
 import { SessionHashing } from '../src/session-hashing';
+import { SecurityConfig } from '../lib/types/config';
 
 let previous;
-const session = new SessionHashing();
+
+const config = {
+  security: {
+    sessionHashing: {
+      iterations: 600000,
+      pbkdf2_prf: 'sha256'
+    }
+  } as SecurityConfig
+};
+
+const session = new SessionHashing(config);
 const testToken = {
   _id: 'colinskow',
   roles: ['admin', 'user'],

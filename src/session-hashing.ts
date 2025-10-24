@@ -1,15 +1,27 @@
 'use strict';
 import pwdModule from '@sl-nx/couch-pwd';
 import { HashResult } from './types/typings';
+import { Config } from './types/config';
 
 export class SessionHashing {
 
   static invalidErr = { status: 401, message: 'invalid token' };
 
   // Hasher for hashing _users passwords
-  private pwdCouch = new pwdModule(600000, 32, 16, 'hex', 'sha256');
+  private pwdCouch: pwdModule;
   
-  constructor() {}
+  constructor(config: Partial<Config>) {
+    const iterations = config.security?.sessionHashing?.iterations || 1000;
+    const pbkdf2_prf = config.security?.sessionHashing?.pbkdf2_prf || 'sha256';
+
+    this.pwdCouch = new pwdModule(
+      iterations,
+      pbkdf2_prf == 'sha1' ? 20 : 32,
+      16,
+      'hex',
+      pbkdf2_prf
+    );
+  }
 
   // Function for hashing _users passwords
   public hashSessionPassword(password: string): Promise<HashResult> {

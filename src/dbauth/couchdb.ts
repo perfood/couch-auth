@@ -19,7 +19,7 @@ export class CouchAdapter implements DBAdapter {
     private couchAuthDB: DocumentScope<CouchDbAuthDoc>,
     private couch: ServerScope,
     private config: Partial<Config>,
-    private session: SessionHashing = new SessionHashing()
+    private session: SessionHashing = new SessionHashing(config)
   ) {
     if (this.config?.dbServer.couchAuthOnCloudant) {
       this.couchAuthOnCloudant = true;
