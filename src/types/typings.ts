@@ -63,7 +63,7 @@ export interface HashResult {
    */
   password_scheme?: string;
   /**
-   * The pseudorandom function used for PBKDF2 hashing (e.g., 'sha1' or 'sha256')
+   * The pseudorandom function used for PBKDF2 hashing (e.g., 'sha' or 'sha256')
    */
   pbkdf2_prf?: string;
 

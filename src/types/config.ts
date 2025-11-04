@@ -94,8 +94,8 @@ export interface SecurityConfig {
    */
   iterations?: [number, number][];
   sessionHashing?: {
-    /** Hashing algorithm for pbkdf2, either 'sha1' or 'sha256'. Default: 'sha256' */
-    pbkdf2Prf?: 'sha1' | 'sha256';
+    /** Hashing algorithm for pbkdf2, either 'sha' or 'sha256'. Default: 'sha256' */
+    pbkdf2Prf?: 'sha' | 'sha256';
     /** Number of iterations for pbkdf2 password hashing. Default: 1000 */
     iterations?: number;
     /** Length of the derived key. Default: 32 */
