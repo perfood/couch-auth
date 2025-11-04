@@ -9,19 +9,22 @@ export class SessionHashing {
 
   // Hasher for hashing _users passwords
   private pwdCouch: pwdModule;
+  private iterations: number;
+  private pbkdf2Prf: string;
+  private keyLength: number;
+  private saltLength: number;
   
   constructor(config: Partial<Config>) {
-    const iterations = config.security?.sessionHashing?.iterations || 1000;
-    const pbkdf2Prf = config.security?.sessionHashing?.pbkdf2Prf || 'sha256';
-    const keyLength = config.security?.sessionHashing?.keyLength || 32;
-    const saltLength = config.security?.sessionHashing?.saltLength || 16;
+    this.iterations = config.security?.sessionHashing?.iterations || 1000;
+    this.pbkdf2Prf = config.security?.sessionHashing?.pbkdf2Prf || 'sha256';
+    this.keyLength = config.security?.sessionHashing?.keyLength || (this.pbkdf2Prf === 'sha' ? 20 : 32);
+    this.saltLength = config.security?.sessionHashing?.saltLength || 16;
 
-    this.pwdCouch = new pwdModule(
-      iterations,
-      keyLength,
-      saltLength,
-      'hex',
-      pbkdf2Prf
+    this.pwdCouch = SessionHashing.createPwdModule(
+      this.iterations,
+      this.keyLength,
+      this.saltLength,
+      this.pbkdf2Prf
     );
   }
 
@@ -36,8 +39,8 @@ export class SessionHashing {
           salt: salt,
           derived_key: hash,
           password_scheme: 'pbkdf2',
-          pbkdf2_prf: this.pwdCouch.digest,
-          iterations: this.pwdCouch.iterations
+          pbkdf2_prf: this.pbkdf2Prf,
+          iterations: this.iterations
         });
       });
     });
@@ -46,9 +49,9 @@ export class SessionHashing {
   public verifySessionPassword(hashObj: HashResult, pw: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
       const iterations = hashObj.iterations || 10;
-      const digest = hashObj.pbkdf2_prf || 'sha1';
-      const length = digest === 'sha1' ? 20 : 32;
-      const pwdCouch = new pwdModule(iterations, length, 16, 'hex', digest);
+      const digest = hashObj.pbkdf2_prf || 'sha';
+      const length = digest === 'sha' ? 20 : 32;
+      const pwdCouch = SessionHashing.createPwdModule(iterations, length, 16, digest);
       
       const salt = hashObj.salt;
       const derived_key = hashObj.derived_key;
@@ -62,5 +65,15 @@ export class SessionHashing {
         }
       });
     });
+  }
+
+  private static createPwdModule(iterations: number, keyLength: number, saltLength: number, digest: string): pwdModule {
+    return new pwdModule(
+      iterations,
+      keyLength,
+      saltLength,
+      'hex',
+      digest === 'sha' ? 'sha1' : 'sha256'
+    );
   }
 }
