@@ -1,5 +1,9 @@
 ## Change Log
 
+#### 0.24.0: Smoother CouchDB migration
+
+- The 0.22.0 allows to use couch-auth with CouchDB 3.4 but did not provide a smooth transition. This is now fixed. See COUCH_MIGRATION.md for details
+
 #### 0.23.0: Dependency update
 - Upgraded to node 20 and lots of dependencies
 
