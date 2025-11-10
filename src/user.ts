@@ -474,12 +474,14 @@ export class User {
     );
     const result = await this.userDB.insert(finalNewUser);
     newUser._rev = result.rev;
-    await this.sendConfirmEmail(newUser as SlUserDoc, req);
+    if (this.config.local.sendConfirmEmail) {
+      await this.sendConfirmEmail(newUser as SlUserDoc, req);
+    }
     return newUser as SlUserDoc;
   }
 
   private async sendConfirmEmail(user: SlUserDoc, req?) {
-    if (this.config.local.sendConfirmEmail && !this.config.mailer.useCustomMailer) {
+    if (!this.config.mailer.useCustomMailer) {
       try {
         await this.mailer.sendEmail(
           'confirmEmail',
