@@ -474,23 +474,27 @@ export class User {
     );
     const result = await this.userDB.insert(finalNewUser);
     newUser._rev = result.rev;
+    await this.sendConfirmEmail(newUser as SlUserDoc, req);
+    return newUser as SlUserDoc;
+  }
+
+  private async sendConfirmEmail(user: SlUserDoc, req?) {
     if (this.config.local.sendConfirmEmail && !this.config.mailer.useCustomMailer) {
       try {
         await this.mailer.sendEmail(
           'confirmEmail',
-          newUser.unverifiedEmail.email,
+          user.unverifiedEmail.email,
           {
             req: req,
-            user: newUser
+            user: user
           }
         );
       }
       catch (err) {
-        this.emitter.emit('confirmation-email-error', newUser);
-        console.warn('error sending confirmation email to '+newUser.unverifiedEmail?.email, err);
+        this.emitter.emit('confirmation-email-error', user);
+        console.warn('error sending confirmation email to '+user.unverifiedEmail?.email, err);
       }
     }
-    return newUser as SlUserDoc;
   }
 
   /**
@@ -546,6 +550,13 @@ export class User {
         };
       }
       user.key = await this.userDbManager.generateUsername();
+      if (this.config.providers[provider].confirmEmail) {
+        user.unverifiedEmail = {
+          email: user.email,
+          token: URLSafeUUID()
+        };
+        delete user.email;
+      }
     }
 
     user[provider].auth = auth;
@@ -567,6 +578,7 @@ export class User {
     finalUser = this.userDbManager.logActivity(action, provider, finalUser);
     await this.userDB.insert(finalUser);
     this.emitter.emit(action, user, provider);
+    await this.sendConfirmEmail(user as SlUserDoc);
     return user as SlUserDoc;
   }
 

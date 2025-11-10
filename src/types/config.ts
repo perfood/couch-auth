@@ -429,6 +429,12 @@ export interface ProviderConfig {
   template?: string;
   /** Use this template instead when `testMode.oauthTest` in the config is true. */
   templateTest?: string;
+  /**
+   * Send out a confirmation email after each user signs up with provider login.
+   * Email must be confirmed before login is possible.
+   * Default: `false`. Must be `true` if `requireEmailConfirm` is `true`.
+   */
+  confirmEmail?: boolean;
 }
 
 export interface Config {
