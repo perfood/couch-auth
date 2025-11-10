@@ -432,7 +432,7 @@ export interface ProviderConfig {
   /**
    * Send out a confirmation email after each user signs up with provider login.
    * Email must be confirmed before login is possible.
-   * Default: `false`. Must be `true` if `requireEmailConfirm` is `true`.
+   * Default: `false`.
    */
   confirmEmail?: boolean;
 }
