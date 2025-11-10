@@ -578,7 +578,9 @@ export class User {
     finalUser = this.userDbManager.logActivity(action, provider, finalUser);
     await this.userDB.insert(finalUser);
     this.emitter.emit(action, user, provider);
-    await this.sendConfirmEmail(user as SlUserDoc);
+    if (this.config.providers[provider].confirmEmail) {
+      await this.sendConfirmEmail(user as SlUserDoc);
+    }
     return user as SlUserDoc;
   }
 
