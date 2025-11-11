@@ -1,5 +1,9 @@
 ## Change Log
 
+#### 0.25.0: Add email confirmation to social signups
+
+- When signing up via social providers, an email confirmation is now required if `confirmEmail` is set to `true` (default: `false`) in the providers configuration.
+
 #### 0.24.0: Smoother CouchDB migration
 
 - The 0.22.0 allows to use couch-auth with CouchDB 3.4 but did not provide a smooth transition. This is now fixed. See COUCH_MIGRATION.md for details
