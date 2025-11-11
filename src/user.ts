@@ -569,6 +569,7 @@ export class User {
     delete user[provider].profile._raw;
     if (newAccount) {
       user._id = removeHyphens(uuidv4());
+      user.user_uid = hyphenizeUUID(user._id);
       user = await this.addUserDBs(user as SlUserDoc);
     }
     let finalUser = await this.processTransformations(
