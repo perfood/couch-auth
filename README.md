@@ -574,6 +574,7 @@ Here is a full list of the events that CouchAuth emits, and parameters provided:
 - `illegal-email-change`: (`login`, `newEmail`)
 - `user-db-added`: (`dbName`)
 - `user-db-removed`: (`dbName`)
+- `user-deleting`: (`userDoc`, `reason`)
 - `user-deleted`: (`userDoc`, `reason`)
 - `logout`: (`user_id`)
 - `logout-all`: (`user_id`)

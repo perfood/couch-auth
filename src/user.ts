@@ -983,6 +983,33 @@ export class User {
     this.emitter.emit('password-change', userDoc);
   }
 
+  /**
+   * Upgrades the password hash of a user. 
+   * @param userDoc the `SlUserDoc` of the user
+   * @param password the password for the user
+   */
+  public async upgradePasswordHashIfNeeded(
+    userDoc: SlUserDoc,
+    password: string,
+  ): Promise<void> {
+    try {
+      if (!userDoc.local || !userDoc.local.derived_key || !userDoc.local.salt || userDoc.providers.indexOf('local') === -1) {
+        return;
+      }
+      if (!this.hasher.isUpgradeNeeded(userDoc.local)) { 
+        return;
+      }
+      const hash = await this.hashPassword(password);
+      userDoc.local = { ...userDoc.local, ...hash };
+      await this.userDB.insert(userDoc);
+    } catch (error) {
+      throw {
+        error: 'User not found',
+        status: 404
+      };
+    }
+  }
+
   private async sendModifiedPasswordEmail(user: SlUserDoc, req): Promise<void> {
     if (this.config.local.sendPasswordChangedEmail && !this.config.mailer.useCustomMailer) {
       await this.mailer.sendEmail(
@@ -1330,6 +1357,7 @@ export class User {
       throw { status: 404, error: 'not found' };
     }
     user = await this.dbAuth.logoutUserSessions(user, 'all');
+    this.emitter.emit('user-deleting', user, reason);
     if (destroyDBs && user.personalDBs) {
       Object.keys(user.personalDBs).forEach(userdb => {
         if (user.personalDBs[userdb].type === 'private') {

@@ -91,8 +91,22 @@ export interface SecurityConfig {
    * supplied dates. The first entry is the timestamp, the second number the
    * number of iterations that should be used from this timestamp until the
    * next timestamp in the array. Default: `undefined` uses only 10 iterations.
+   * 
+   * @deprecated Use `userHashing.iterations` instead. 
    */
   iterations?: [number, number][];
+  userHashing?: {
+    /** Hashing algorithm for pbkdf2, either 'sha' or 'sha256'. Default: 'sha256' */
+    pbkdf2Prf?: 'sha' | 'sha256';
+    /** Number of iterations for pbkdf2 password hashing. Default: 1000 */
+    iterations?: number;
+    /** Length of the derived key. Default: 32 */
+    keyLength?: number;
+    /** Length of the salt. Default: 16 */
+    saltLength?: number;
+    /** Whether to upgrade existing hashes on login or not. Default: true  */
+    upgradeOnLogin?: boolean;
+  }
   sessionHashing?: {
     /** Hashing algorithm for pbkdf2, either 'sha' or 'sha256'. Default: 'sha256' */
     pbkdf2Prf?: 'sha' | 'sha256';

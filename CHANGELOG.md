@@ -1,5 +1,13 @@
 ## Change Log
 
+#### 0.26.0: Upgrade user hashing to use sha256 
+
+- Similar to the hashing update 0.22.0, the security of the sl-user 'local' hashes is upgraded
+  to sha256 with 600000 iterations by default. It uses the same approach as the session hashing:
+  one config 'userHashing' with iterations, prf, key and salt length and storing the parameters
+  used with the derived_key and salt. It also auto upgrades old hashes. You can opt-out
+  by setting upgradeOnLogin to false.
+
 #### 0.25.0: Add email confirmation to social signups
 
 - When signing up via social providers, an email confirmation is now required if `confirmEmail` is set to `true` (default: `false`) in the providers configuration.
