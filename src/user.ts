@@ -1003,7 +1003,7 @@ export class User {
       userDoc.local = { ...userDoc.local, ...hash };
       await this.userDB.insert(userDoc);
     } catch (error) {
-      console.warn('upgradePasswordHashIfNeeded: failed for ', userDoc._id, ' with: ', error);
+      console.warn(`upgradePasswordHashIfNeeded: failed for ${userDoc._id} with:`, error);
     }
   }
 
