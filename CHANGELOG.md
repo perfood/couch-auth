@@ -7,6 +7,8 @@
   one config 'userHashing' with iterations, prf, key and salt length and storing the parameters
   used with the derived_key and salt. It also auto upgrades old hashes. You can opt-out
   by setting upgradeOnLogin to false.
+- Add 'user-deleting' event that fires before the data is lost. Make sure you don't 
+  break the execution in the listener or the user might not be deleted after all. 
 
 #### 0.25.0: Add email confirmation to social signups
 
