@@ -1003,10 +1003,7 @@ export class User {
       userDoc.local = { ...userDoc.local, ...hash };
       await this.userDB.insert(userDoc);
     } catch (error) {
-      throw {
-        error: 'User not found',
-        status: 404
-      };
+      console.warn('upgradePasswordHashIfNeeded: failed for ', userDoc._id, ' with: ', error);
     }
   }
 
