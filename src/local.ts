@@ -66,9 +66,8 @@ export default function (
                 }
                 // Upgrade password hash if needed
                 user.upgradePasswordHashIfNeeded(theuser, password)
-                  .then(
-                    () => done(null, theuser),
-                  (err) => {
+                  .then(() => done(null, theuser))
+                  .catch((err) => {
                     console.warn('upgradePasswordHashIfNeeded rejected with: ', err);
                     return done(null, false, invalidResponse());
                   });
