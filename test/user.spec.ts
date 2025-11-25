@@ -69,7 +69,7 @@ const userConfigHelper = new Configure({
       [1596797642, 10000]
     ],
     userHashing: {
-      iterations: 50000,  // Non-default value for testing
+      iterations: 50000, // Non-default value for testing
       pbkdf2Prf: 'sha256',
       keyLength: 32,
       saltLength: 16
