@@ -541,7 +541,7 @@ describe('User Model', async function () {
     
     return previous
       .then(function () {
-        console.log('Creating legacy user...');
+
         // Create a user to get a proper document structure
         return user.createUser({
           name: 'Legacy User',
@@ -582,7 +582,7 @@ describe('User Model', async function () {
         return userDB.get(legacyUserDoc._id);
       })
       .then(function (userDoc) {
-        console.log('Retrieved updated document successfully');
+
         // Verify legacy format
         expect(userDoc.local.iterations).to.be.undefined;
         expect(userDoc.local.pbkdf2_prf).to.be.undefined;

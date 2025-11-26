@@ -104,7 +104,7 @@ export interface SecurityConfig {
     keyLength?: number;
     /** Length of the salt. Default: 16 */
     saltLength?: number;
-    /** Whether to upgrade existing hashes on login or not. Default: true  */
+    /** Whether to upgrade existing hashes on login or not. Default: true */
     upgradeOnLogin?: boolean;
   }
   sessionHashing?: {
