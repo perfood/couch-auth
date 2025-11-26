@@ -7,7 +7,6 @@ import { DocumentScope, ServerScope } from 'nano';
 import url from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { DBAuth } from './dbauth';
-import { UserHashing } from './user-hashing';
 import { Mailer } from './mailer';
 import { SessionHashing } from './session-hashing';
 import { Config } from './types/config';
@@ -26,6 +25,7 @@ import {
   SlUserDoc,
   SlUserNew
 } from './types/typings';
+import { UserHashing } from './user-hashing';
 import { DbManager } from './user/DbManager';
 import {
   EMAIL_REGEXP,
@@ -987,24 +987,23 @@ export class User {
    * Upgrades the password hash of a user. 
    * @param userDoc the `SlUserDoc` of the user
    * @param password the password for the user
+   * @returns 'upgraded' if the hash was upgraded, 'not-needed' if the
+   * hash is already up to date, 'no-hash' if no local password hash exists.
    */
   public async upgradePasswordHashIfNeeded(
     userDoc: SlUserDoc,
     password: string,
-  ): Promise<void> {
-    try {
-      if (!userDoc.local || !userDoc.local.derived_key || !userDoc.local.salt || userDoc.providers.indexOf('local') === -1) {
-        return;
-      }
-      if (!this.hasher.isUpgradeNeeded(userDoc.local)) { 
-        return;
-      }
-      const hash = await this.hashPassword(password);
-      userDoc.local = { ...userDoc.local, ...hash };
-      await this.userDB.insert(userDoc);
-    } catch (error) {
-      console.warn(`upgradePasswordHashIfNeeded: failed for ${userDoc._id} with:`, error);
+  ): Promise<'upgraded' | 'not-needed' | 'no-hash'> {
+    if (!userDoc.local || !userDoc.local.derived_key || !userDoc.local.salt || userDoc.providers.indexOf('local') === -1) {
+      return 'no-hash';
     }
+    if (!this.hasher.isUpgradeNeeded(userDoc.local)) { 
+      return 'not-needed';
+    }
+    const hash = await this.hashPassword(password);
+    userDoc.local = { ...userDoc.local, ...hash };
+    await this.userDB.insert(userDoc);
+    return 'upgraded';
   }
 
   private async sendModifiedPasswordEmail(user: SlUserDoc, req): Promise<void> {

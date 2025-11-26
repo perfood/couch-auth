@@ -69,7 +69,7 @@ export default function (
                   .then(() => done(null, theuser))
                   .catch((err) => {
                     console.warn('upgradePasswordHashIfNeeded rejected with: ', err);
-                    return done(null, false, invalidResponse());
+                    done(null, theuser);
                   });
               },
               err => {
