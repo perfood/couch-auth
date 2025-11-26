@@ -1353,7 +1353,6 @@ export class User {
       throw { status: 404, error: 'not found' };
     }
     user = await this.dbAuth.logoutUserSessions(user, 'all');
-    this.emitter.emit('user-deleting', user, reason);
     if (destroyDBs && user.personalDBs) {
       Object.keys(user.personalDBs).forEach(userdb => {
         if (user.personalDBs[userdb].type === 'private') {
