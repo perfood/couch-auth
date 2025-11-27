@@ -61,7 +61,16 @@ export default function (
                   return done(null, false, invalidResponse());
                 }
                 // Success!!!
-                return done(null, theuser);
+                if (config.security?.userHashing?.upgradeOnLogin === false) {
+                  return done(null, theuser);
+                }
+                // Upgrade password hash if needed
+                user.upgradePasswordHashIfNeeded(theuser, password)
+                  .then(() => done(null, theuser))
+                  .catch((err) => {
+                    console.warn('upgradePasswordHashIfNeeded rejected with: ', err);
+                    done(null, theuser);
+                  });
               },
               err => {
                 if (err !== false) {

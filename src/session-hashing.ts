@@ -73,7 +73,7 @@ export class SessionHashing {
       keyLength,
       saltLength,
       'hex',
-      digest === 'sha' ? 'sha1' : 'sha256'
+      digest === 'sha' ? 'sha1' : digest
     );
   }
 }

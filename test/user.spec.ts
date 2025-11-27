@@ -67,7 +67,13 @@ const userConfigHelper = new Configure({
     iterations: [
       [0, 10],
       [1596797642, 10000]
-    ]
+    ],
+    userHashing: {
+      iterations: 50000, // Non-default value for testing
+      pbkdf2Prf: 'sha256',
+      keyLength: 32,
+      saltLength: 16
+    }
   },
   local: {
     sendConfirmEmail: true,
@@ -352,6 +358,424 @@ describe('User Model', async function () {
       })
       .then(function (result) {
         console.log('Password authenticated');
+      });
+  });
+
+  it('should upgrade old local setup (salt, derived_key, created only)', function () {
+    let oldUserDoc;
+    return previous
+      .then(function () {
+        // Create a user with old hash format (no iterations, no pbkdf2_prf)
+        return user.createUser({
+          name: 'Old Hash User',
+          username: 'oldhashuser',
+          email: 'oldhash@example.com',
+          password: 'testpass123',
+          confirmPassword: 'testpass123',
+          consents: {
+            privacy: { version: 2, accepted: true },
+            marketing: { version: 3, accepted: true }
+          }
+        }, req);
+      })
+      .then(function (newUser) {
+        // Modify the user doc to simulate old format
+        // Wait briefly to ensure database write has completed
+        return timeoutPromise(50).then(() => userDB.get(newUser._id));
+      })
+      .then(function (userDoc) {
+        oldUserDoc = userDoc;
+        // Remove new hash properties to simulate old format
+        delete oldUserDoc.local.iterations;
+        delete oldUserDoc.local.pbkdf2_prf;
+        return userDB.insert(oldUserDoc);
+      })
+      .then(function () {
+        return userDB.get(oldUserDoc._id);
+      })
+      .then(function (userDoc) {
+        // Verify old format
+        expect(userDoc.local.iterations).to.be.undefined;
+        expect(userDoc.local.pbkdf2_prf).to.be.undefined;
+        expect(userDoc.local.salt).to.be.a('string');
+        expect(userDoc.local.derived_key).to.be.a('string');
+        
+        // Upgrade the hash
+        return user.upgradePasswordHashIfNeeded(userDoc, 'testpass123');
+      })
+      .then(function () {
+        return userDB.get(oldUserDoc._id);
+      })
+      .then(function (upgradedDoc) {
+        // Verify upgrade happened
+        expect(upgradedDoc.local.iterations).to.be.a('number');
+        expect(upgradedDoc.local.pbkdf2_prf).to.be.a('string');
+        expect(upgradedDoc.local.salt).to.be.a('string');
+        expect(upgradedDoc.local.derived_key).to.be.a('string');
+        
+        // Verify password still works
+        return user.verifyPassword(upgradedDoc.local, 'testpass123');
+      })
+      .then(() => {
+        // Reset promise chain for next test
+        previous = Promise.resolve();
+      });
+  });
+
+  it('should upgrade local setup with insufficient iterations', function () {
+    let lowIterUserDoc;
+    return previous
+      .then(function () {
+        // Create a user with current format but low iterations
+        return user.createUser({
+          name: 'Low Iter User',
+          username: 'lowiteruser',
+          email: 'lowiter@example.com',
+          password: 'testpass456',
+          confirmPassword: 'testpass456',
+          consents: {
+            privacy: { version: 2, accepted: true },
+            marketing: { version: 3, accepted: true }
+          }
+        }, req);
+      })
+      .then(function (newUser) {
+        // Wait briefly to ensure database write has completed
+        return timeoutPromise(50).then(() => userDB.get(newUser._id));
+      })
+      .then(function (userDoc) {
+        lowIterUserDoc = userDoc;
+        // Set low iterations to simulate outdated hash
+        lowIterUserDoc.local.iterations = 100; // Much lower than config default
+        return userDB.insert(lowIterUserDoc);
+      })
+      .then(function () {
+        return userDB.get(lowIterUserDoc._id);
+      })
+      .then(function (userDoc) {
+        const oldIterations = userDoc.local.iterations;
+        expect(oldIterations).to.equal(100);
+        
+        // Upgrade the hash
+        return user.upgradePasswordHashIfNeeded(userDoc, 'testpass456');
+      })
+      .then(function () {
+        return userDB.get(lowIterUserDoc._id);
+      })
+      .then(function (upgradedDoc) {
+        // Verify iterations were increased
+        expect(upgradedDoc.local.iterations).to.be.greaterThan(100);
+        expect(upgradedDoc.local.pbkdf2_prf).to.be.a('string');
+        
+        // Verify password still works
+        return user.verifyPassword(upgradedDoc.local, 'testpass456');
+      })
+      .then(() => {
+        // Reset promise chain for next test
+        previous = Promise.resolve();
+      });
+  });
+
+  it('should not upgrade current local setup with sufficient security', function () {
+    let currentUserDoc;
+    let originalHash;
+    return previous
+      .then(function () {
+        // Create a user with current secure format
+        return user.createUser({
+          name: 'Current User',
+          username: 'currentuser',
+          email: 'current@example.com',
+          password: 'testpass789',
+          confirmPassword: 'testpass789',
+          consents: {
+            privacy: { version: 2, accepted: true },
+            marketing: { version: 3, accepted: true }
+          }
+        }, req);
+      })
+      .then(function (newUser) {
+        // Wait briefly to ensure database write has completed
+        return timeoutPromise(50).then(() => userDB.get(newUser._id));
+      })
+      .then(function (userDoc) {
+        currentUserDoc = userDoc;
+        originalHash = {
+          salt: userDoc.local.salt,
+          derived_key: userDoc.local.derived_key,
+          iterations: userDoc.local.iterations,
+          pbkdf2_prf: userDoc.local.pbkdf2_prf
+        };
+        
+        // Verify current format has good security parameters
+        expect(userDoc.local.iterations).to.be.a('number');
+        expect(userDoc.local.iterations).to.be.greaterThan(500); // Should be secure enough
+        expect(userDoc.local.pbkdf2_prf).to.be.a('string');
+        
+        // Try to upgrade (should be no-op)
+        return user.upgradePasswordHashIfNeeded(userDoc, 'testpass789');
+      })
+      .then(function () {
+        return userDB.get(currentUserDoc._id);
+      })
+      .then(function (unchangedDoc) {
+        // Verify nothing changed
+        expect(unchangedDoc.local.salt).to.equal(originalHash.salt);
+        expect(unchangedDoc.local.derived_key).to.equal(originalHash.derived_key);
+        expect(unchangedDoc.local.iterations).to.equal(originalHash.iterations);
+        expect(unchangedDoc.local.pbkdf2_prf).to.equal(originalHash.pbkdf2_prf);
+        
+        // Verify password still works
+        return user.verifyPassword(unchangedDoc.local, 'testpass789');
+      })
+      .then(() => {
+        // Reset promise chain for next test
+        previous = Promise.resolve();
+      });
+  });
+
+  it('should validate legacy user with old iterations-based hashing', function () {
+    let legacyUserDoc;
+    const testPassword = 'legacy123';
+    const legacyCreatedTime = 1500000000; // Before 1596797642, so should use 10 iterations
+    
+    return previous
+      .then(function () {
+
+        // Create a user to get a proper document structure
+        return user.createUser({
+          name: 'Legacy User',
+          username: 'legacyuser',
+          email: 'legacy@example.com',
+          password: testPassword,
+          confirmPassword: testPassword,
+          consents: {
+            privacy: { version: 2, accepted: true },
+            marketing: { version: 3, accepted: true }
+          }
+        }, req);
+      })
+      .then(function (newUser) {
+        // Wait briefly to ensure database write has completed
+        return timeoutPromise(50).then(() => userDB.get(newUser._id));
+      })
+      .then(function (userDoc) {
+        legacyUserDoc = userDoc;
+        
+        // Simulate legacy format by removing new hash properties and setting old created time
+        delete legacyUserDoc.local.iterations;
+        delete legacyUserDoc.local.pbkdf2_prf;
+        legacyUserDoc.local.created = legacyCreatedTime;
+        
+        // Hash password with legacy method (10 iterations, sha1) to simulate old data
+        const legacyPwd = new (require('@sl-nx/couch-pwd'))(10, 20, 16, 'hex', 'sha1');
+        return new Promise((resolve, reject) => {
+          legacyPwd.hash(testPassword, (err, salt, hash) => {
+            if (err) return reject(err);
+            legacyUserDoc.local.salt = salt;
+            legacyUserDoc.local.derived_key = hash;
+            resolve(userDB.insert(legacyUserDoc));
+          });
+        });
+      })
+      .then(function (result) {
+        return userDB.get(legacyUserDoc._id);
+      })
+      .then(function (userDoc) {
+
+        // Verify legacy format
+        expect(userDoc.local.iterations).to.be.undefined;
+        expect(userDoc.local.pbkdf2_prf).to.be.undefined;
+        expect(userDoc.local.created).to.equal(legacyCreatedTime);
+        expect(userDoc.local.salt).to.be.a('string');
+        expect(userDoc.local.derived_key).to.be.a('string');
+        
+        // Verify legacy password validation works
+        return user.verifyPassword(userDoc.local, testPassword);
+      })
+      .then(() => {
+        // Reset promise chain for next test
+        previous = Promise.resolve();
+      });
+  });
+
+  it('should validate legacy user with newer iterations-based hashing', function () {
+    let newLegacyUserDoc;
+    const testPassword = 'newlegacy456';
+    const newLegacyCreatedTime = 1600000000; // After 1596797642, so should use 10000 iterations
+    
+    return previous
+      .then(function () {
+        // Create a user to get a proper document structure
+        return user.createUser({
+          name: 'New Legacy User',
+          username: 'newlegacyuser',
+          email: 'newlegacy@example.com',
+          password: testPassword,
+          confirmPassword: testPassword,
+          consents: {
+            privacy: { version: 2, accepted: true },
+            marketing: { version: 3, accepted: true }
+          }
+        }, req);
+      })
+      .then(function (newUser) {
+        // Wait briefly to ensure database write has completed
+        return timeoutPromise(50).then(() => userDB.get(newUser._id));
+      })
+      .then(function (userDoc) {
+        newLegacyUserDoc = userDoc;
+        
+        // Simulate newer legacy format by removing new hash properties and setting newer created time
+        delete newLegacyUserDoc.local.iterations;
+        delete newLegacyUserDoc.local.pbkdf2_prf;
+        newLegacyUserDoc.local.created = newLegacyCreatedTime;
+        
+        // Hash password with newer legacy method (10000 iterations, sha1) to simulate old data
+        const newLegacyPwd = new (require('@sl-nx/couch-pwd'))(10000, 20, 16, 'hex', 'sha1');
+        return new Promise((resolve, reject) => {
+          newLegacyPwd.hash(testPassword, (err, salt, hash) => {
+            if (err) return reject(err);
+            newLegacyUserDoc.local.salt = salt;
+            newLegacyUserDoc.local.derived_key = hash;
+            resolve(userDB.insert(newLegacyUserDoc));
+          });
+        });
+      })
+      .then(function () {
+        return userDB.get(newLegacyUserDoc._id);
+      })
+      .then(function (userDoc) {
+        // Verify legacy format
+        expect(userDoc.local.iterations).to.be.undefined;
+        expect(userDoc.local.pbkdf2_prf).to.be.undefined;
+        expect(userDoc.local.created).to.equal(newLegacyCreatedTime);
+        expect(userDoc.local.salt).to.be.a('string');
+        expect(userDoc.local.derived_key).to.be.a('string');
+        
+        // Verify legacy password validation works with higher iterations
+        return user.verifyPassword(userDoc.local, testPassword);
+      })
+      .then(() => {
+        // Reset promise chain for next test
+        previous = Promise.resolve();
+      });
+  });
+
+  it('should validate new user with configured userHashing parameters', function () {
+    let newHashUserDoc;
+    const testPassword = 'newhash789';
+    
+    return previous
+      .then(function () {
+        // Create a user which should use the new hashing system with custom config
+        return user.createUser({
+          name: 'New Hash User',
+          username: 'newhashuser',
+          email: 'newhash@example.com',
+          password: testPassword,
+          confirmPassword: testPassword,
+          consents: {
+            privacy: { version: 2, accepted: true },
+            marketing: { version: 3, accepted: true }
+          }
+        }, req);
+      })
+      .then(function (newUser) {
+        // Wait briefly to ensure database write has completed
+        return timeoutPromise(50).then(() => userDB.get(newUser._id));
+      })
+      .then(function (userDoc) {
+        newHashUserDoc = userDoc;
+        
+        // Verify new format with custom configuration values
+        expect(userDoc.local.iterations).to.equal(50000); // Our custom config value
+        expect(userDoc.local.pbkdf2_prf).to.equal('sha256'); // Our custom config value
+        expect(userDoc.local.salt).to.be.a('string');
+        expect(userDoc.local.derived_key).to.be.a('string');
+        expect(userDoc.local.password_scheme).to.equal('pbkdf2');
+        
+        // Verify new password validation works with custom parameters
+        return user.verifyPassword(userDoc.local, testPassword);
+      })
+      .then(() => {
+        // Reset promise chain for next test
+        previous = Promise.resolve();
+      });
+  });
+
+  it('should verify upgrade from legacy to new hashing preserves validation', function () {
+    let transitionUserDoc;
+    const testPassword = 'transition999';
+    const legacyCreatedTime = 1500000000; // Old timestamp for legacy hashing
+    
+    return previous
+      .then(function () {
+        // Create a user to get a proper document structure
+        return user.createUser({
+          name: 'Transition User',
+          username: 'transitionuser',
+          email: 'transition@example.com',
+          password: testPassword,
+          confirmPassword: testPassword,
+          consents: {
+            privacy: { version: 2, accepted: true },
+            marketing: { version: 3, accepted: true }
+          }
+        }, req);
+      })
+      .then(function (newUser) {
+        // Wait briefly to ensure database write has completed
+        return timeoutPromise(50).then(() => userDB.get(newUser._id));
+      })
+      .then(function (userDoc) {
+        transitionUserDoc = userDoc;
+        
+        // Simulate legacy format
+        delete transitionUserDoc.local.iterations;
+        delete transitionUserDoc.local.pbkdf2_prf;
+        transitionUserDoc.local.created = legacyCreatedTime;
+        
+        // Hash password with legacy method
+        const legacyPwd = new (require('@sl-nx/couch-pwd'))(10, 20, 16, 'hex', 'sha1');
+        return new Promise((resolve, reject) => {
+          legacyPwd.hash(testPassword, (err, salt, hash) => {
+            if (err) return reject(err);
+            transitionUserDoc.local.salt = salt;
+            transitionUserDoc.local.derived_key = hash;
+            resolve(userDB.insert(transitionUserDoc));
+          });
+        });
+      })
+      .then(function () {
+        return userDB.get(transitionUserDoc._id);
+      })
+      .then(function (userDoc) {
+        // Verify legacy validation works
+        return user.verifyPassword(userDoc.local, testPassword).then(() => {
+          return userDoc;
+        });
+      })
+      .then(function (userDoc) {
+        // Now upgrade the hash
+        return user.upgradePasswordHashIfNeeded(userDoc, testPassword);
+      })
+      .then(function () {
+        return userDB.get(transitionUserDoc._id);
+      })
+      .then(function (upgradedDoc) {
+        // Verify upgrade happened with custom config values
+        expect(upgradedDoc.local.iterations).to.equal(50000); // Our custom config value
+        expect(upgradedDoc.local.pbkdf2_prf).to.equal('sha256'); // Our custom config value
+        expect(upgradedDoc.local.salt).to.be.a('string');
+        expect(upgradedDoc.local.derived_key).to.be.a('string');
+        
+        // Verify password still works after upgrade
+        return user.verifyPassword(upgradedDoc.local, testPassword);
+      })
+      .then(() => {
+        // Reset promise chain for next test
+        previous = Promise.resolve();
       });
   });
 
