@@ -259,7 +259,11 @@ export class User {
    * `derived_key`.
    */
   public hashPassword(pw: string): Promise<HashResult> {
-    return this.hasher.hashUserPassword(pw);
+    const hashStart = performance.now();
+    return this.hasher.hashUserPassword(pw).then(result => {
+      console.log(`[PROFILING] hashPassword: Took ${(performance.now() - hashStart).toFixed(2)}ms`);
+      return result;
+    });
   }
 
   /**
@@ -268,7 +272,14 @@ export class User {
    * @returns resolves with `true` if valid, `false` if not
    */
   public verifyPassword(obj: LocalHashObj, pw: string): Promise<boolean> {
-    return this.hasher.verifyUserPassword(obj, pw);
+    const verifyStart = performance.now();
+    return this.hasher.verifyUserPassword(obj, pw).then(result => {
+      console.log(`[PROFILING] verifyPassword: Took ${(performance.now() - verifyStart).toFixed(2)}ms`);
+      return result;
+    }).catch(err => {
+      console.log(`[PROFILING] verifyPassword: Took ${(performance.now() - verifyStart).toFixed(2)}ms (failed)`);
+      throw err;
+    });
   }
 
   /**
@@ -326,7 +337,14 @@ export class User {
    * set. Rejects if no valid format.
    */
   public getUser(login: string, allowUUID = false): Promise<SlUserDoc | null> {
-    return this.userDbManager.getUser(login, allowUUID);
+    const getUserStart = performance.now();
+    return this.userDbManager.getUser(login, allowUUID).then(result => {
+      console.log(`[PROFILING] getUser: Took ${(performance.now() - getUserStart).toFixed(2)}ms for login ${login}`);
+      return result;
+    }).catch(err => {
+      console.log(`[PROFILING] getUser: Took ${(performance.now() - getUserStart).toFixed(2)}ms (failed) for login ${login}`);
+      throw err;
+    });
   }
 
   private async handleEmailExists(email: string, req?): Promise<void> {
@@ -356,9 +374,14 @@ export class User {
     form: RegistrationForm,
     req?
   ): Promise<void | SlUserDoc> {
+    const createUserStart = performance.now();
+    console.log('[PROFILING] createUser: Started');
+    
     req = req || {};
     let finalUserModel = this.userModel;
     const newUserModel = this.config.userModel;
+    
+    const modelSetupStart = performance.now();
     if (typeof newUserModel === 'object') {
       let whitelist;
       if (newUserModel.whitelist) {
@@ -376,11 +399,17 @@ export class User {
     }
     const UserModel = Model(finalUserModel);
     const user = new UserModel(form);
+    console.log(`[PROFILING] createUser: Model setup took ${(performance.now() - modelSetupStart).toFixed(2)}ms`);
+    
     let newUser: Partial<SlUserNew> = {};
     let hasError = false;
+    
+    const validationStart = performance.now();
     try {
       newUser = await user.process();
+      console.log(`[PROFILING] createUser: Validation took ${(performance.now() - validationStart).toFixed(2)}ms`);
     } catch (err) {
+      console.log(`[PROFILING] createUser: Validation failed after ${(performance.now() - validationStart).toFixed(2)}ms`);
       hasError = true;
       let doThrow = true;
       if (
@@ -403,6 +432,7 @@ export class User {
         }
       }
       if (doThrow) {
+        console.log(`[PROFILING] createUser: Total time before throwing error ${(performance.now() - createUserStart).toFixed(2)}ms`);
         throw {
           error: 'Validation failed',
           validationErrors: err,
@@ -413,14 +443,22 @@ export class User {
 
     // TODO: This is an instance of the promise constructor anti-pattern
     return new Promise(async (resolve, reject) => {
+      const userPrepStart = performance.now();
       newUser = await this.prepareNewUser(newUser);
+      console.log(`[PROFILING] createUser: User preparation took ${(performance.now() - userPrepStart).toFixed(2)}ms`);
+      
       if (hasError || !this.config.security.loginOnRegistration) {
+        console.log(`[PROFILING] createUser: Total time ${(performance.now() - createUserStart).toFixed(2)}ms (early return)`);
         resolve(hasError ? undefined : (newUser as SlUserDoc));
       }
       if (!hasError) {
+        const insertStart = performance.now();
         const finalUser = await this.insertNewUserDocument(newUser, req);
+        console.log(`[PROFILING] createUser: Document insertion took ${(performance.now() - insertStart).toFixed(2)}ms`);
+        
         this.emitter.emit('signup', finalUser, 'local');
         if (this.config.security.loginOnRegistration) {
+          console.log(`[PROFILING] createUser: Total time ${(performance.now() - createUserStart).toFixed(2)}ms`);
           resolve(finalUser);
         }
       }
@@ -434,9 +472,13 @@ export class User {
       newUser.user_uid = uid;
     }
     newUser._id = removeHyphens(uid);
+    
     if (this.config.local.emailUsername) {
+      const usernameStart = performance.now();
       newUser.key = await this.userDbManager.generateUsername();
+      console.log(`[PROFILING] prepareNewUser: Username generation took ${(performance.now() - usernameStart).toFixed(2)}ms`);
     }
+    
     if (this.config.local.sendConfirmEmail) {
       newUser.unverifiedEmail = {
         email: newUser.email,
@@ -444,7 +486,11 @@ export class User {
       };
       delete newUser.email;
     }
+    
+    const hashStart = performance.now();
     newUser.local = await this.hashPassword(newUser.password ?? URLSafeUUID());
+    console.log(`[PROFILING] prepareNewUser: Password hashing took ${(performance.now() - hashStart).toFixed(2)}ms`);
+    
     delete newUser.password;
     delete newUser.confirmPassword;
     if (newUser.consents) {
@@ -461,21 +507,33 @@ export class User {
   }
 
   private async insertNewUserDocument(newUser: Partial<SlUserNew>, req?) {
+    const addDBsStart = performance.now();
     newUser = await this.addUserDBs(newUser as SlUserDoc);
+    console.log(`[PROFILING] insertNewUserDocument: Adding user DBs took ${(performance.now() - addDBsStart).toFixed(2)}ms`);
+    
     newUser = this.userDbManager.logActivity(
       'signup',
       'local',
       newUser as SlUserDoc
     );
+    
+    const transformStart = performance.now();
     const finalNewUser = await this.processTransformations(
       this.onCreateActions,
       newUser as SlUserDoc,
       'local'
     );
+    console.log(`[PROFILING] insertNewUserDocument: Process transformations took ${(performance.now() - transformStart).toFixed(2)}ms`);
+    
+    const dbInsertStart = performance.now();
     const result = await this.userDB.insert(finalNewUser);
+    console.log(`[PROFILING] insertNewUserDocument: Database insert took ${(performance.now() - dbInsertStart).toFixed(2)}ms`);
+    
     newUser._rev = result.rev;
     if (this.config.local.sendConfirmEmail) {
+      const emailStart = performance.now();
       await this.sendConfirmEmail(newUser as SlUserDoc, req);
+      console.log(`[PROFILING] insertNewUserDocument: Sending confirmation email took ${(performance.now() - emailStart).toFixed(2)}ms`);
     }
     return newUser as SlUserDoc;
   }
@@ -637,11 +695,18 @@ export class User {
   public async createSession(
     params: CreateSessionOpts
   ): Promise<SlLoginSession> {
+    const sessionStart = performance.now();
+    console.log(`[PROFILING] createSession: Started for user ${params.login}`);
+    
     const login = params.login;
     const provider = params.provider;
+    
+    const userLookupStart = performance.now();
     let user = params.byUUID
       ? await this.userDbManager.getUserByUUID(login)
       : await this.getUser(login);
+    console.log(`[PROFILING] createSession: User lookup took ${(performance.now() - userLookupStart).toFixed(2)}ms`);
+    
     if (!user) {
       console.warn('createSession - could not retrieve: ', login);
       throw { error: 'Bad Request', status: 400 };
@@ -664,6 +729,8 @@ export class User {
       roles: user.roles,
       provider
     };
+    
+    const storeKeyStart = performance.now();
     try {
       await this.dbAuth.storeKey(
         user.key,
@@ -674,7 +741,9 @@ export class User {
         user.roles,
         provider
       );
+      console.log(`[PROFILING] createSession: Store key took ${(performance.now() - storeKeyStart).toFixed(2)}ms`);
     } catch (error) {
+      console.log(`[PROFILING] createSession: Store key failed after ${(performance.now() - storeKeyStart).toFixed(2)}ms`);
       let msg =
         'Could not create session token with key: ' +
         token.key +
@@ -688,7 +757,9 @@ export class User {
 
     // authorize the new session across all dbs
     if (user.personalDBs) {
+      const authorizeStart = performance.now();
       await this.dbAuth.authorizeUserSessions(user.personalDBs, token.key);
+      console.log(`[PROFILING] createSession: Authorize user sessions took ${(performance.now() - authorizeStart).toFixed(2)}ms`);
     }
     if (!user.session) {
       user.session = {};
@@ -707,10 +778,16 @@ export class User {
       delete user.local.lockedUntil;
     }
     const userDoc = this.userDbManager.logActivity('login', provider, user);
+    
     // Clean out expired sessions on login
+    const cleanupStart = performance.now();
     const finalUser = await this.dbAuth.logoutUserSessions(userDoc, 'expired');
+    console.log(`[PROFILING] createSession: Session cleanup took ${(performance.now() - cleanupStart).toFixed(2)}ms`);
+    
     user = finalUser;
+    const insertStart = performance.now();
     await this.userDB.insert(finalUser);
+    console.log(`[PROFILING] createSession: User update took ${(performance.now() - insertStart).toFixed(2)}ms`);
     newSession.token = token.key;
     newSession.password = password;
     newSession.user_id = user.key;
@@ -748,6 +825,7 @@ export class User {
       newSession.user_uid = hyphenizeUUID(user._id);
     }
     this.emitter.emit('login', newSession, provider);
+    console.log(`[PROFILING] createSession: Total time ${(performance.now() - sessionStart).toFixed(2)}ms`);
     return newSession as SlLoginSession;
   }
 
@@ -994,15 +1072,33 @@ export class User {
     userDoc: SlUserDoc,
     password: string,
   ): Promise<'upgraded' | 'not-needed' | 'no-hash'> {
+    const upgradeStart = performance.now();
+    console.log('[PROFILING] upgradePasswordHashIfNeeded: Started');
+    
     if (!userDoc.local || !userDoc.local.derived_key || !userDoc.local.salt || userDoc.providers.indexOf('local') === -1) {
+      console.log(`[PROFILING] upgradePasswordHashIfNeeded: No hash check took ${(performance.now() - upgradeStart).toFixed(2)}ms`);
       return 'no-hash';
     }
+    
+    const checkStart = performance.now();
     if (!this.hasher.isUpgradeNeeded(userDoc.local)) { 
+      console.log(`[PROFILING] upgradePasswordHashIfNeeded: Upgrade check took ${(performance.now() - checkStart).toFixed(2)}ms (not needed)`);
+      console.log(`[PROFILING] upgradePasswordHashIfNeeded: Total time ${(performance.now() - upgradeStart).toFixed(2)}ms`);
       return 'not-needed';
     }
+    console.log(`[PROFILING] upgradePasswordHashIfNeeded: Upgrade check took ${(performance.now() - checkStart).toFixed(2)}ms (upgrade needed)`);
+    
+    const hashStart = performance.now();
     const hash = await this.hashPassword(password);
+    console.log(`[PROFILING] upgradePasswordHashIfNeeded: Re-hashing took ${(performance.now() - hashStart).toFixed(2)}ms`);
+    
     userDoc.local = { ...userDoc.local, ...hash };
+    
+    const updateStart = performance.now();
     await this.userDB.insert(userDoc);
+    console.log(`[PROFILING] upgradePasswordHashIfNeeded: Database update took ${(performance.now() - updateStart).toFixed(2)}ms`);
+    
+    console.log(`[PROFILING] upgradePasswordHashIfNeeded: Total time ${(performance.now() - upgradeStart).toFixed(2)}ms`);
     return 'upgraded';
   }
 
