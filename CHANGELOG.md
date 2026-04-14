@@ -1,5 +1,9 @@
 ## Change Log
 
+#### 0.27.0: Make reuse of inactive session configurable
+
+- Added config option `reuseInactiveSessions` (treated as true if not set)
+
 #### 0.26.0: Upgrade user hashing to use sha256 
 
 - Similar to the hashing update 0.22.0, the security of the sl-user 'local' hashes is upgraded
