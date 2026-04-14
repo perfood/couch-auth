@@ -109,10 +109,12 @@ export class DBAuth {
         delete userDoc.session;
       }
 
-      userDoc.inactiveSessions = [
-        ...(userDoc.inactiveSessions ?? []),
-        ...sessionsToEnd
-      ];
+      if (this.config.security.reuseInactiveSessions !== false) {
+        userDoc.inactiveSessions = [
+          ...(userDoc.inactiveSessions ?? []),
+          ...sessionsToEnd
+        ];
+      }
     }
     return userDoc;
   }

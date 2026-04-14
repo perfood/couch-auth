@@ -118,6 +118,11 @@ export interface SecurityConfig {
     saltLength?: number;
   }
   /**
+   * Whether to reuse expired session keys for new sessions. If `false`, 
+   * inactive sessions functionality will be disabled entirely. Default: `true`
+   */
+  reuseInactiveSessions?: boolean;
+  /**
    * Whether couch-auth should handle errors itself or
    * forward to the express error mechanism (`next(err)`)
    */

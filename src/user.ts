@@ -656,7 +656,9 @@ export class User {
       sessionLife = sessionConfig.lifetime * 1000;
     }
     const token = {
-      key: user.inactiveSessions?.shift() ?? getSessionKey(),
+      key: this.config.security.reuseInactiveSessions !== false 
+        ? user.inactiveSessions?.shift() ?? getSessionKey()
+        : getSessionKey(),
       password,
       _id: user._id,
       issued: now,
@@ -1281,7 +1283,9 @@ export class User {
       startSessions = Object.keys(user.session).length;
       if (user.session[session_id]) {
         delete user.session[session_id];
-        user.inactiveSessions = [...(user.inactiveSessions ?? []), session_id];
+        if (this.config.security.reuseInactiveSessions !== false) {
+          user.inactiveSessions = [...(user.inactiveSessions ?? []), session_id];
+        }
       }
     }
     // 1.) if this fails, the whole logout has failed! Else ok, will be cleaned up later.
