@@ -1,5 +1,9 @@
 ## Change Log
 
+#### 0.28.0: Dependency updates
+
+- Upgraded all dependencies except typescript 6 and eslint. 
+
 #### 0.27.0: Make reuse of inactive session configurable
 
 - Added config option `reuseInactiveSessions` (treated as true if not set)
